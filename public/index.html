@@ -3,62 +3,131 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sattva Index Flows — data layer only</title>
+    <title>Sattva Index Flows</title>
+    <meta
+      name="description"
+      content="What global index-tracking ETFs must buy and sell in Indian equities."
+    />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        /* Brand ramp: indigo -> purple -> pink. Nothing else is a brand colour. */
+        --brand-500: #6366f1;
+        --brand-600: #4f46e5;
+        --brand-mid: #a855f7;
+        --brand-end: #ec4899;
+
+        /* Semantic only. Never used to express brand. */
+        --positive: #059669;
+        --caution: #d97706;
+        --negative: #e11d48;
+        --neutral: #64748b;
+
+        --page-bg: #f8fafc;
+      }
+
+      /* Backstop only. The mechanism is that wide tables scroll inside their own
+         container; the page body must never scroll sideways. */
+      html,
+      body {
+        overflow-x: hidden;
+      }
+
+      body {
+        background-color: var(--page-bg);
+        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        color: #0f172a;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Three washes, each <= 12%, fixed so they do not travel with the content. */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background:
+          radial-gradient(60rem 40rem at 8% -6%, rgba(139, 92, 246, 0.12), transparent 60%),
+          radial-gradient(52rem 36rem at 96% -4%, rgba(236, 72, 153, 0.1), transparent 60%),
+          radial-gradient(58rem 42rem at 88% 104%, rgba(14, 165, 233, 0.09), transparent 62%);
+      }
+
+      .font-display {
+        font-family: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+      }
+
+      /* Every figure-bearing cell. Digits must align down a column. */
+      .tnum,
+      table td,
+      table th {
+        font-variant-numeric: tabular-nums;
+      }
+
+      .brand-gradient {
+        background-image: linear-gradient(to bottom right, #6366f1, #a855f7, #ec4899);
+      }
+
+      /* Rank comes from a CSS counter so row markup stays position-independent
+         and can be cached by key. See ui/screener.js. */
+      [data-score-body] {
+        counter-reset: scorerank;
+      }
+      [data-score-body] > tr {
+        counter-increment: scorerank;
+      }
+      [data-rank]::before {
+        content: counter(scorerank);
+      }
+
+      [data-table-scroll] {
+        scrollbar-width: thin;
+      }
+      [data-table-scroll]::-webkit-scrollbar {
+        height: 9px;
+        width: 9px;
+      }
+      [data-table-scroll]::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 9999px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.001ms !important;
+          transition-duration: 0.001ms !important;
+        }
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+    </style>
   </head>
   <body>
-    <h1>Sattva Index Flows</h1>
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:z-[70] focus:m-3 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-indigo-700 focus:ring-2 focus:ring-indigo-500"
+      >Skip to content</a
+    >
 
-    <p>
-      <strong>There is no interface yet.</strong> This build is the data layer only. This page is a
-      placeholder so that <code>python3 -m http.server 8080 -d public</code> serves something honest
-      rather than a directory listing; it deliberately shows no figures, because showing a plausible
-      placeholder number would be worse than showing none.
-    </p>
+    <div id="app"></div>
 
-    <h2>Data currently published here</h2>
-    <ul>
-      <li>
-        <a href="data/companies.json">data/companies.json</a> — the join, and the only file the
-        interface should read: one record per company, with its free-float factor, which exchange
-        published it, and which funds hold it. A <code>null</code> under a fund means
-        <em>not held</em>, never a zero weight.
-      </li>
-      <li>
-        <a href="data/msci-funds.json">data/msci-funds.json</a> — the India equity slice of three
-        iShares ETFs, from BlackRock's own fund-holdings workbooks. Every weight is a percentage of
-        the single fund it appears under.
-      </li>
-      <li>
-        <a href="data/nse-freefloat.json">data/nse-freefloat.json</a> — free-float market cap as
-        published by NSE's pre-open API. Not computed from promoter holding.
-      </li>
-      <li>
-        <a href="data/bse-freefloat.json">data/bse-freefloat.json</a> — free float and full market
-        cap from BSE, for every company the funds hold plus every scrip above the desk's ₹2,000 Cr
-        floor. All figures in rupees; BSE publishes ₹ crore.
-      </li>
-      <li>
-        <a href="data/bse-scrip-master.json">data/bse-scrip-master.json</a> — the active listed
-        equity universe.
-      </li>
-      <li>
-        <a href="data/nse-universe.json">data/nse-universe.json</a> — the NSE symbol ↔ ISIN bridge.
-      </li>
-    </ul>
+    <!-- Overlay roots. Drill sits under the modal so a help modal opened from
+         inside the drill is reachable. -->
+    <div id="drill-root" class="relative z-50"></div>
+    <div id="modal-root" class="relative z-[60]"></div>
 
-    <h2>Regenerating them</h2>
-    <pre><code>node scripts/import-ishares.mjs
-node scripts/fetch-bse-master.mjs
-node scripts/fetch-nse-universe.mjs
-node scripts/scrape-nse-freefloat.mjs
-node scripts/scrape-bse-freefloat.mjs
-node scripts/build-companies.mjs</code></pre>
-
-    <p>
-      Field-by-field definitions, units, sources and failure states are in
-      <code>docs/DATA-CONTRACTS.md</code>. The rules that bind everything built on top of this data —
-      including how measured, derived and modelled numbers must be labelled differently — are in
-      <code>CLAUDE.md</code>.
-    </p>
+    <script type="module" src="js/app.js"></script>
   </body>
 </html>

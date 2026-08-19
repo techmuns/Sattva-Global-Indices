@@ -365,6 +365,28 @@ request; it is struck at an undisclosed moment and must never render as a compan
 > that master rather than from hand-entered codes. **Never scrape a scrip code that did not come
 > from the active master**, and be suspicious of any hand-checked figure that did.
 
+> ### ⚠ A guard may never read its threshold from the value under test
+>
+> This is general, and it is the rule that the unit tripwire in `build-companies.mjs` broke on its
+> first attempt.
+>
+> That check was written as "no `…Inr` field below ₹1e5 **for a company whose full market cap is
+> above ₹2,000 Cr**". Both halves read the same field. So when a crore value leaks into a rupee
+> field, the market cap it is checked against falls by the same ten-million, drops under the
+> ₹2,000 Cr floor, and **the corrupted row exempts itself from the check that exists to catch it**.
+> The guard passed a deliberately sabotaged file.
+>
+> A guard needs a **threshold from a source the failure cannot move**. Largeness is now judged from
+> the BSE master's independently-fetched `Mktcap` — a different read of a different field — and the
+> load-bearing assertion compares the per-scrip market cap against it: the two are struck at
+> different moments and will never be equal, but they cannot be a million times apart unless a unit
+> was lost. Sabotaged, that one fails with `ratio 1.00e-7`.
+>
+> The same shape appears elsewhere, so watch for it: a staleness check that reads the timestamp it
+> is validating, a row-count check that counts the rows it is verifying, a coverage percentage whose
+> denominator comes from the same filtered set as its numerator. **Every guard in this repo must be
+> proven by deliberately breaking the thing it guards** — if it still passes, it is decoration.
+
 Concurrency stays at **4** with a gap between requests. BSE tolerates far more. It is somebody
 else's free service and this job runs monthly — there is no reason to lean on it.
 

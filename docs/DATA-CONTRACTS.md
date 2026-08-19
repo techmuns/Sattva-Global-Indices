@@ -405,6 +405,26 @@ than quoting this table.
 
 ---
 
+## What the interface reads
+
+`public/js/data/companies.js` is the only reader of `companies.json`, and the only place a count on
+screen may come from. Every denominator in the stat strip, the scope chip and the sources modal
+traces back to the `coverage` block the build computed — nothing is typed into the markup, so no
+figure can go stale when the data moves.
+
+Three shapes the interface depends on, which later work must not break:
+
+| Field | Interface depends on it for |
+| --- | --- |
+| `coverage.byFund[id].shortName` | every fund column heading and chip label |
+| `funds[fundId] === null` | rendering "not held" as an em dash rather than a zero weight |
+| `freeFloatBasis` | the drill's "how this figure was produced" line |
+
+`window.__sattva` exposes `data`, `state`, `view` and `rows()` for the verification harness. It is
+read-only and drives nothing a human cannot already do.
+
+---
+
 ## Not built yet
 
 These will get contracts in this document when they land, and not before:
@@ -416,13 +436,32 @@ These will get contracts in this document when they land, and not before:
   the rules that fired, the thresholds used, and the fact that those thresholds are the desk's
   assumption and not MSCI's published rule. Thresholds already live in
   `public/js/config/thresholds.mjs`; nothing may add a second home for one.
-- **The interface.** `public/index.html` is a placeholder that deliberately shows no figures.
+- **The inclusion/exclusion probability.** The screener renders company, free float, index
+  participation and weights; the modelled tier is not built. The drill panel's provenance section
+  says so in those words rather than leaving a reader to infer it.
 
 ### Known gaps in what *is* built
 
 - **The four REITs and the three `--` demergers have no float reading from any source here.** They
   are not a resolver failure; BSE's equity segment and NSE's pre-open set both genuinely exclude
-  them. Closing this needs a third source, not a better matcher.
+  them. Closing this needs a fourth source, not a better matcher. **Deliberately left open** — the
+  weight at stake is recorded here so it can be picked up later rather than rediscovered:
+
+  | Holding | India Small-Cap | EM Small-Cap |
+  | --- | --- | --- |
+  | Embassy Office Parks REIT | 1.08062% | 0.22166% |
+  | Brookfield India Real Estate Trust | 0.51300% | 0.09940% |
+  | Nexus Select Trust REIT | 0.38658% | 0.08063% |
+  | Mindspace Business Parks REIT | 0.27784% | 0.06713% |
+  | **REIT total** | **2.25804 pp of 99.729** | **0.46882 pp of 21.271** |
+  | GSPL Transmission | 0.04384% | 0.01024% |
+  | Triveni Power Transmission | 0.03682% | 0.01232% |
+  | Inox Renewable Solutions | 0.00177% | — |
+  | **Unlisted demerger total** | **0.08243 pp** | **0.02256 pp** |
+
+  The REITs are **2.26 pp of the India Small-Cap fund**, roughly a third of everything still
+  uncovered there. The demergers are rounding error by weight and will resolve themselves when the
+  entities start trading. Any future work here should target REIT free float and nothing else.
 - **`nseSymbol` is only available for the 750 companies in the niftyindices lists.** A company
   resolved to a BSE scrip outside those lists carries `nseSymbol: null`, which is honest and does
   cost the NSE float comparison for that name.
