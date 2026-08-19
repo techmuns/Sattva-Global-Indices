@@ -1,0 +1,22 @@
+# Secrets. Never commit a username, password or token to this repo — not in a
+# script, not in a comment, not in a fixture. Local secrets go in .dev.vars;
+# deployed secrets are Worker secrets.
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+
+# Cloudflare Workers local state
+.wrangler/
+
+# There is no build step and no dependency tree in this project. If either of
+# these ever appears, something has gone wrong — see CLAUDE.md rule 2.
+node_modules/
+package-lock.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
