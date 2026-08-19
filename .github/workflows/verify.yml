@@ -120,12 +120,20 @@ jobs:
         run: |
           npm install -g playwright@latest
           playwright install chromium
-          node -e "require('playwright').chromium.launch().then(b => b.close()).then(
-            () => console.log('chromium launches'),
-            async (e) => {
-              console.log('chromium did not launch, installing system deps:', e.message.split('\n')[0]);
-              require('child_process').execSync('npx --yes playwright install-deps chromium', { stdio: 'inherit' });
-            })"
+          # The launch probe must resolve the GLOBAL install, so it needs
+          # NODE_PATH — without it `require('playwright')` throws
+          # MODULE_NOT_FOUND and the probe fails for a reason that has nothing
+          # to do with whether Chromium can launch.
+          export NODE_PATH="$(npm root -g)"
+          node -e "
+            require('playwright').chromium.launch()
+              .then((b) => b.close())
+              .then(() => console.log('chromium launches'), (e) => {
+                console.log('chromium did not launch:', String(e.message).split('\n')[0]);
+                console.log('installing system deps, the slow path');
+                require('child_process').execSync('playwright install-deps chromium', { stdio: 'inherit' });
+              });
+          "
 
       - name: Serve the static site
         run: |
@@ -196,12 +204,20 @@ jobs:
         run: |
           npm install -g playwright@latest
           playwright install chromium
-          node -e "require('playwright').chromium.launch().then(b => b.close()).then(
-            () => console.log('chromium launches'),
-            async (e) => {
-              console.log('chromium did not launch, installing system deps:', e.message.split('\n')[0]);
-              require('child_process').execSync('npx --yes playwright install-deps chromium', { stdio: 'inherit' });
-            })"
+          # The launch probe must resolve the GLOBAL install, so it needs
+          # NODE_PATH — without it `require('playwright')` throws
+          # MODULE_NOT_FOUND and the probe fails for a reason that has nothing
+          # to do with whether Chromium can launch.
+          export NODE_PATH="$(npm root -g)"
+          node -e "
+            require('playwright').chromium.launch()
+              .then((b) => b.close())
+              .then(() => console.log('chromium launches'), (e) => {
+                console.log('chromium did not launch:', String(e.message).split('\n')[0]);
+                console.log('installing system deps, the slow path');
+                require('child_process').execSync('playwright install-deps chromium', { stdio: 'inherit' });
+              });
+          "
 
       - name: Start wrangler dev
         env:
