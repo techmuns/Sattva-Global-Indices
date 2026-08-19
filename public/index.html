@@ -18,6 +18,12 @@
     <h2>Data currently published here</h2>
     <ul>
       <li>
+        <a href="data/companies.json">data/companies.json</a> — the join, and the only file the
+        interface should read: one record per company, with its free-float factor, which exchange
+        published it, and which funds hold it. A <code>null</code> under a fund means
+        <em>not held</em>, never a zero weight.
+      </li>
+      <li>
         <a href="data/msci-funds.json">data/msci-funds.json</a> — the India equity slice of three
         iShares ETFs, from BlackRock's own fund-holdings workbooks. Every weight is a percentage of
         the single fund it appears under.
@@ -26,12 +32,27 @@
         <a href="data/nse-freefloat.json">data/nse-freefloat.json</a> — free-float market cap as
         published by NSE's pre-open API. Not computed from promoter holding.
       </li>
+      <li>
+        <a href="data/bse-freefloat.json">data/bse-freefloat.json</a> — free float and full market
+        cap from BSE, for every company the funds hold plus every scrip above the desk's ₹2,000 Cr
+        floor. All figures in rupees; BSE publishes ₹ crore.
+      </li>
+      <li>
+        <a href="data/bse-scrip-master.json">data/bse-scrip-master.json</a> — the active listed
+        equity universe.
+      </li>
+      <li>
+        <a href="data/nse-universe.json">data/nse-universe.json</a> — the NSE symbol ↔ ISIN bridge.
+      </li>
     </ul>
 
     <h2>Regenerating them</h2>
     <pre><code>node scripts/import-ishares.mjs
+node scripts/fetch-bse-master.mjs
+node scripts/fetch-nse-universe.mjs
 node scripts/scrape-nse-freefloat.mjs
-node scripts/check-naive-join.mjs</code></pre>
+node scripts/scrape-bse-freefloat.mjs
+node scripts/build-companies.mjs</code></pre>
 
     <p>
       Field-by-field definitions, units, sources and failure states are in

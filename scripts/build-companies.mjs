@@ -1,0 +1,583 @@
+#!/usr/bin/env node
+/**
+ * build-companies.mjs — everything -> public/data/companies.json
+ *
+ *   node scripts/build-companies.mjs
+ *
+ * The one record the interface will read. Reads only committed JSON; makes no
+ * network requests, so it is cheap to re-run and fully reproducible.
+ *
+ * Inputs:
+ *   msci-funds.json       iShares holdings and weights, per fund       (tier 1)
+ *   bse-scrip-master.json the listed-equity universe and its ISINs     (tier 1)
+ *   nse-universe.json     the NSE symbol <-> ISIN bridge               (tier 1)
+ *   nse-freefloat.json    NSE free-float market cap, 261 symbols       (tier 1)
+ *   bse-freefloat.json    BSE free float and full mcap, ~1,200 scrips  (tier 1)
+ *
+ * ---------------------------------------------------------------------------
+ * TWO SOURCES FOR ONE NUMBER
+ * ---------------------------------------------------------------------------
+ * NSE and BSE both publish free-float market cap and they do not agree. For
+ * RELIANCE the implied float factor is about 0.4978 from NSE and 0.4926 from
+ * BSE — roughly 1% apart, and that gap is a real difference in float
+ * definition, not a price-timestamp artefact.
+ *
+ * The rules, which are not negotiable:
+ *
+ *   1. NSE WINS WHEREVER IT EXISTS. The desk's requirement is explicit: MSCI
+ *      follows NSE. BSE fills gaps; it does not compete.
+ *   2. NEVER AVERAGE OR BLEND. Every company carries `floatSource`, and where
+ *      both readings exist BOTH factors stay on the record so the disagreement
+ *      is inspectable rather than resolved away.
+ *   3. THE SOURCE TRAVELS WITH THE NUMBER — to the screen, to the drill-down,
+ *      and to row 1 of any export.
+ *   4. NOTHING SUMS OR RANKS ACROSS THE TWO WITHOUT SAYING SO.
+ *
+ * ---------------------------------------------------------------------------
+ * HOW NSE'S FACTOR IS DERIVED WITHOUT MIXING PRICES
+ * ---------------------------------------------------------------------------
+ *     nseFloatShares = nse.freeFloatMcapInr / nse.iep        (both NSE)
+ *     totalShares    = bse.fullMcapInr      / bse.priceInr   (both BSE)
+ *     floatFactorNse = nseFloatShares / totalShares
+ *
+ * Each division stays inside one source, so no price difference leaks into the
+ * result. The two are only combined in the SHARE COUNT domain, where a share is
+ * a share regardless of which exchange quoted it. Dividing BSE's market cap by
+ * NSE's price would fold a price gap into a float gap and make the whole
+ * comparison meaningless.
+ */
+
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+import { buildIndex, resolveAll, CONFIRMED, NOT_LISTED } from './lib/resolve.mjs';
+import { renderTable, num, round, CheckList } from './lib/report.mjs';
+import {
+  SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
+  FLOAT_FACTOR_DISAGREEMENT_REVIEW_PCT,
+  toCrore,
+} from '../public/js/config/thresholds.mjs';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO = join(HERE, '..');
+const OUT_PATH = join(REPO, 'public', 'data', 'companies.json');
+
+const rel = (p) => p.replace(`${REPO}/`, '');
+
+function requireFile(name, how) {
+  const path = join(REPO, 'public', 'data', name);
+  if (existsSync(path)) return JSON.parse(readFileSync(path, 'utf8'));
+  process.stderr.write(`\nMissing ${rel(path)}. Run \`${how}\` first.\n\n`);
+  process.exit(1);
+  return null;
+}
+
+function main() {
+  const funds = requireFile('msci-funds.json', 'node scripts/import-ishares.mjs');
+  const master = requireFile('bse-scrip-master.json', 'node scripts/fetch-bse-master.mjs');
+  const nseUniverse = requireFile('nse-universe.json', 'node scripts/fetch-nse-universe.mjs');
+  const nseFreeFloat = requireFile('nse-freefloat.json', 'node scripts/scrape-nse-freefloat.mjs');
+  const bseFreeFloat = requireFile('bse-freefloat.json', 'node scripts/scrape-bse-freefloat.mjs');
+
+  const checks = new CheckList('build');
+
+  const nseFloatBySymbol = new Map(nseFreeFloat.companies.map((c) => [c.symbol, c]));
+  const bseByCode = new Map(bseFreeFloat.scrips.map((s) => [s.scripCode, s]));
+  const bseByIsin = new Map();
+  for (const scrip of bseFreeFloat.scrips) {
+    if (scrip.isin && !bseByIsin.has(scrip.isin)) bseByIsin.set(scrip.isin, scrip);
+  }
+
+  const index = buildIndex(master, nseUniverse, new Set(nseFloatBySymbol.keys()));
+  const { resolved, unresolved, collisions, methodCounts } = resolveAll(funds.funds, index);
+
+  // A collision means one of two rows in the same fund is the wrong company.
+  // That is invisible downstream — both rows look perfectly well-formed — so it
+  // stops the build rather than being reported and shipped.
+  checks.assert(
+    collisions.length === 0,
+    'no two holdings of one fund resolve to the same ISIN',
+    collisions
+      .map((c) => `${c.fundId}/${c.isin}: ${c.rows.map((r) => `${r.ticker} "${r.name}" (row ${r.rowIndex}, ${r.method})`).join(' vs ')}`)
+      .join(' | '),
+  );
+
+  // ---- assemble one record per company ----------------------------------
+  /** @type {Map<string, object>} keyed by ISIN, or by `bse:CODE` when no ISIN. */
+  const companies = new Map();
+  const keyFor = (r) => r.isin ?? (r.bseScripCode ? `bse:${r.bseScripCode}` : null);
+
+  for (const record of resolved) {
+    const key = keyFor(record);
+    if (key === null) continue;
+
+    let company = companies.get(key);
+    if (!company) {
+      const bse = record.bseScripCode
+        ? (bseByCode.get(record.bseScripCode) ?? null)
+        : (record.isin ? (bseByIsin.get(record.isin) ?? null) : null);
+      company = {
+        isin: record.isin,
+        name: bse?.name ?? record.resolvedName ?? record.holding.name,
+        nseSymbol: record.nseSymbol,
+        bseScripCode: record.bseScripCode,
+        sector: bse?.sector ?? null,
+        sectorSource: bse?.sector ? 'bse' : null,
+        _bse: bse,
+        funds: { eem: null, smin: null, eems: null },
+        _resolutions: [],
+      };
+      companies.set(key, company);
+    }
+    // `null` in `funds` means NOT HELD by that fund. It is never 0 — a 0%
+    // weight and an absent holding are different facts and sort differently.
+    company.funds[record.fundId] = {
+      weightPct: record.holding.weightPct,
+      quantity: record.holding.quantity,
+      marketValueUsd: record.holding.marketValueUsd,
+    };
+    company._resolutions.push(record.resolution);
+  }
+
+  // Companies large enough to matter that no fund holds — the inclusion
+  // candidates, and the reason the BSE universe was scraped at all.
+  for (const scrip of bseFreeFloat.scrips) {
+    const key = scrip.isin ?? `bse:${scrip.scripCode}`;
+    if (companies.has(key)) continue;
+    companies.set(key, {
+      isin: scrip.isin,
+      name: scrip.name,
+      nseSymbol: scrip.isin ? (index.nseByIsin.get(scrip.isin)?.[0]?.symbol ?? null) : null,
+      bseScripCode: scrip.scripCode,
+      sector: scrip.sector,
+      sectorSource: scrip.sector ? 'bse' : null,
+      _bse: scrip,
+      funds: { eem: null, smin: null, eems: null },
+      _resolutions: [{ method: 'not-held', via: 'bse-universe', confidence: 'exact' }],
+    });
+  }
+
+  // ---- float: NSE where it exists, BSE to fill gaps ----------------------
+  const disagreements = [];
+  const out = [];
+  /** company key -> the float factor finally in force, for the coverage pass. */
+  const floatByKey = new Map();
+
+  for (const [key, company] of companies) {
+    const bse = company._bse;
+    const nse = company.nseSymbol ? (nseFloatBySymbol.get(company.nseSymbol) ?? null) : null;
+
+    const fullMcapInr = bse?.fullMcapInr ?? null;
+    const priceInr = bse?.priceInr ?? null;
+    const sharesOutstanding = bse?.sharesOutstanding ?? null;
+    const floatFactorBse = bse?.floatFactor ?? null;
+
+    // NSE's factor, derived without ever dividing across sources by a price.
+    let floatFactorNse = null;
+    if (nse && nse.impliedFreeFloatShares !== null && sharesOutstanding !== null && sharesOutstanding > 0) {
+      const factor = nse.impliedFreeFloatShares / sharesOutstanding;
+      // A factor above 1 means the two sources disagree about the share count
+      // itself (usually an unprocessed corporate action), not about float. It
+      // is not a float reading and must not be presented as one.
+      floatFactorNse = factor > 0 && factor <= 1.02 ? round(factor, 6) : null;
+    }
+
+    const floatFactor = floatFactorNse !== null ? floatFactorNse : floatFactorBse;
+
+    // Free float in rupees is the number the desk actually screens on, and it is
+    // available in two different ways. A factor times a full market cap is the
+    // preferred one because it survives tomorrow's price. But an NSE-only listing
+    // — BSE Ltd and CDSL are real examples — has no BSE full market cap to divide
+    // by, so no factor can be formed, while NSE publishes the rupee free float
+    // outright. Reporting "no reading" there would be discarding a measurement we
+    // hold, which is the mirror image of inventing one we do not.
+    let freeFloatMcapInr = null;
+    let freeFloatBasis = null;
+    let floatSource = null;
+    if (floatFactor !== null && fullMcapInr !== null) {
+      freeFloatMcapInr = Math.round(floatFactor * fullMcapInr);
+      freeFloatBasis = 'floatFactor × fullMcapInr';
+      floatSource = floatFactorNse !== null ? 'nse' : 'bse';
+    } else if (nse && nse.freeFloatMcapInr !== null && nse.freeFloatMcapInr > 0) {
+      freeFloatMcapInr = Math.round(nse.freeFloatMcapInr);
+      freeFloatBasis = 'NSE published free-float market cap (no full market cap available, so no factor)';
+      floatSource = 'nse';
+    }
+
+    if (floatFactorNse !== null && floatFactorBse !== null && floatFactorBse > 0) {
+      disagreements.push({
+        isin: company.isin,
+        name: company.name,
+        nseSymbol: company.nseSymbol,
+        floatFactorNse,
+        floatFactorBse,
+        // Signed, relative to BSE, so the direction of the gap is visible.
+        gapPct: round(((floatFactorNse - floatFactorBse) / floatFactorBse) * 100, 3),
+        fullMcapInr,
+      });
+    }
+
+    floatByKey.set(key, freeFloatMcapInr);
+
+    const held = Object.values(company.funds).some((f) => f !== null);
+    const methods = company._resolutions.map((r) => r.method);
+    out.push({
+      isin: company.isin,
+      name: company.name,
+      nseSymbol: company.nseSymbol,
+      bseScripCode: company.bseScripCode,
+      sector: company.sector,
+      sectorSource: company.sectorSource,
+      fullMcapInr,
+      sharesOutstanding, // DERIVED: fullMcapInr / priceInr, both BSE
+      priceInr,
+      priceSource: priceInr === null ? null : 'bse',
+      priceAsOf: bse?.priceAsOf ?? null,
+      floatFactor,
+      floatSource,
+      floatFactorNse,
+      floatFactorBse,
+      freeFloatMcapInr,
+      freeFloatBasis, // the formula, on the record with the number
+      held,
+      funds: company.funds,
+      resolution: {
+        method: methods[0] ?? 'not-held',
+        via: company._resolutions[0]?.via ?? 'bse-universe',
+        confidence: company._resolutions[0]?.confidence ?? 'exact',
+      },
+    });
+  }
+
+  out.sort((a, b) => (b.fullMcapInr ?? 0) - (a.fullMcapInr ?? 0));
+
+  // ---- the unit tripwire -------------------------------------------------
+  // BSE publishes ₹ crore; everything here is rupees. A crore value that leaks
+  // into a rupee field is a ten-million-fold error that looks like a formatting
+  // bug and reads as a plausible small number.
+  //
+  // The obvious check — "no ...Inr field below ₹1e5 for a company above the
+  // ₹2,000 Cr floor" — is necessary and NOT sufficient, and the reason is worth
+  // stating because it took a deliberate sabotage run to notice:
+  //
+  //   1. Deciding "is this company large?" from the value under test is
+  //      self-defeating. Divide Reliance's market cap by 1e7 and it drops below
+  //      the ₹2,000 Cr floor, so the corrupted row exempts itself from the
+  //      check that exists to catch it. Largeness is therefore judged from the
+  //      BSE master's own indicative figure — a separate read of a separate
+  //      field, which the corruption does not touch.
+  //   2. A ₹1e5 floor is far too low for a large company anyway. ₹17.7 lakh
+  //      crore divided by 1e7 is still ₹17.7 lakh, comfortably over the floor.
+  //
+  // So the load-bearing assertion is the third one: the per-scrip market cap and
+  // the master's independently-fetched indicative market cap must agree to
+  // within a factor of 100. They are struck at different moments and will never
+  // be equal, but they cannot be a million times apart unless a unit was lost.
+  const UNIT_FLOOR_INR = 1e5;
+  const MAX_MAGNITUDE_RATIO = 100;
+  const inrFields = ['fullMcapInr', 'freeFloatMcapInr'];
+  const masterMcapByCode = new Map(
+    master.scrips.map((s2) => [s2.scripCode, s2.indicativeFullMcapInr]),
+  );
+
+  const unitSuspects = [];
+  const magnitudeSuspects = [];
+  for (const company of out) {
+    const indicative = company.bseScripCode ? masterMcapByCode.get(company.bseScripCode) : null;
+
+    // Largeness from the master, never from the field under test.
+    const large = (indicative ?? 0) >= SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR;
+    if (large) {
+      for (const field of inrFields) {
+        const value = company[field];
+        if (value !== null && value < UNIT_FLOOR_INR) {
+          unitSuspects.push(`${company.name} (${company.bseScripCode ?? company.isin}) ${field}=${value}`);
+        }
+      }
+    }
+
+    if (indicative !== null && indicative !== undefined && indicative > 0 && company.fullMcapInr !== null) {
+      const ratio = company.fullMcapInr / indicative;
+      if (ratio > MAX_MAGNITUDE_RATIO || ratio < 1 / MAX_MAGNITUDE_RATIO) {
+        magnitudeSuspects.push(
+          `${company.name} (${company.bseScripCode}): per-scrip ₹${num(company.fullMcapInr)} vs master ₹${num(indicative)} — ratio ${ratio.toExponential(2)}`,
+        );
+      }
+    }
+  }
+  checks.assert(
+    unitSuspects.length === 0,
+    `no ...Inr field below ₹${num(UNIT_FLOOR_INR)} for a company the BSE master sizes above the ₹${num(Math.round(toCrore(SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR)))} Cr floor`,
+    unitSuspects.slice(0, 10).join(' | '),
+  );
+  checks.assert(
+    magnitudeSuspects.length === 0,
+    `per-scrip and master market caps agree within a factor of ${MAX_MAGNITUDE_RATIO} (the unit tripwire)`,
+    magnitudeSuspects.slice(0, 10).join(' | '),
+  );
+  checks.assert(
+    out.every((c) => c.floatFactor === null || (c.floatFactor > 0 && c.floatFactor <= 1.02)),
+    'every float factor is in (0, 1.02]',
+    out.filter((c) => c.floatFactor !== null && (c.floatFactor <= 0 || c.floatFactor > 1.02))
+      .slice(0, 5).map((c) => `${c.name}=${c.floatFactor}`).join(' | '),
+  );
+  // floatSource 'nse' means the reading came from NSE, in one of exactly two
+  // ways: a factor we derived, or a rupee free float NSE published outright for
+  // a company with no full market cap to divide by. Anything else claiming NSE
+  // provenance has nothing behind it.
+  checks.assert(
+    out.every((c) => c.floatSource !== 'nse'
+      || c.floatFactorNse !== null
+      || (c.freeFloatMcapInr !== null && c.freeFloatBasis?.startsWith('NSE published'))),
+    'floatSource "nse" always has either an NSE factor or an NSE-published market cap behind it',
+    out.filter((c) => c.floatSource === 'nse' && c.floatFactorNse === null
+      && !(c.freeFloatMcapInr !== null && c.freeFloatBasis?.startsWith('NSE published')))
+      .slice(0, 5).map((c) => c.name).join(' | '),
+  );
+  checks.assert(
+    out.every((c) => c.floatSource !== 'bse' || c.floatFactorBse !== null),
+    'floatSource "bse" always has a BSE factor behind it',
+    out.filter((c) => c.floatSource === 'bse' && c.floatFactorBse === null)
+      .slice(0, 5).map((c) => c.name).join(' | '),
+  );
+  checks.assert(
+    out.every((c) => (c.freeFloatMcapInr === null) === (c.freeFloatBasis === null)),
+    'a free-float figure and its stated formula are always both present or both absent',
+    out.filter((c) => (c.freeFloatMcapInr === null) !== (c.freeFloatBasis === null))
+      .slice(0, 5).map((c) => c.name).join(' | '),
+  );
+
+  // ---- coverage: every denominator the UI will print ---------------------
+  const coverage = {
+    companies: out.length,
+    held: out.filter((c) => c.held).length,
+    notHeld: out.filter((c) => !c.held).length,
+    // The usable screening number.
+    withFloat: out.filter((c) => c.freeFloatMcapInr !== null).length,
+    // The subset that also has a price-independent factor, i.e. the ones a daily
+    // price move can re-value without a fresh scrape. Strictly smaller, and the
+    // difference is worth seeing.
+    withFloatFactor: out.filter((c) => c.floatFactor !== null).length,
+    floatFromNse: out.filter((c) => c.floatSource === 'nse').length,
+    floatFromBse: out.filter((c) => c.floatSource === 'bse').length,
+    withoutFloat: out.filter((c) => c.freeFloatMcapInr === null).length,
+    withBothFactors: disagreements.length,
+    byFund: {},
+  };
+
+  const companiesByFundRow = new Map();
+  for (const record of resolved) {
+    const key = keyFor(record);
+    if (key !== null) companiesByFundRow.set(`${record.fundId}:${record.rowIndex}`, key);
+  }
+  for (const fund of funds.funds) {
+    const holdings = fund.holdings.length;
+    const fundResolved = resolved.filter((r) => r.fundId === fund.id);
+    const fundUnresolved = unresolved.filter((r) => r.fundId === fund.id);
+    let withFloatCount = 0;
+    let weightWithFloat = 0;
+    for (const record of fundResolved) {
+      const key = companiesByFundRow.get(`${record.fundId}:${record.rowIndex}`);
+      if (key !== undefined && floatByKey.get(key) !== null && floatByKey.get(key) !== undefined) {
+        withFloatCount += 1;
+        weightWithFloat += record.holding.weightPct ?? 0;
+      }
+    }
+    coverage.byFund[fund.id] = {
+      shortName: fund.shortName,
+      holdings,
+      resolved: fundResolved.length,
+      unresolved: fundUnresolved.length,
+      withFloat: withFloatCount,
+      indiaWeightPct: fund.indiaWeightPct,
+      weightResolved: round(fundResolved.reduce((a, r) => a + (r.holding.weightPct ?? 0), 0), 5),
+      weightWithFloat: round(weightWithFloat, 5),
+    };
+  }
+
+  // ---- report ------------------------------------------------------------
+  process.stdout.write('\nCompany record build\n\n');
+  process.stdout.write(
+    renderTable(
+      [
+        { key: 'fund', label: 'Fund', align: 'left' },
+        { key: 'resolved', label: 'Resolved', align: 'right' },
+        { key: 'withFloat', label: 'With free float', align: 'right' },
+        { key: 'weight', label: 'India weight covered', align: 'right' },
+        { key: 'pct', label: '% of weight', align: 'right' },
+      ],
+      funds.funds.map((f) => {
+        const c = coverage.byFund[f.id];
+        return {
+          fund: c.shortName,
+          resolved: `${num(c.resolved)} of ${num(c.holdings)}`,
+          withFloat: `${num(c.withFloat)} of ${num(c.holdings)}`,
+          weight: `${c.weightWithFloat.toFixed(3)} of ${c.indiaWeightPct.toFixed(3)}`,
+          pct: `${((c.weightWithFloat / c.indiaWeightPct) * 100).toFixed(1)}%`,
+        };
+      }),
+    ),
+  );
+
+  process.stdout.write('\n\nResolution method histogram (holding rows across all three funds)\n\n');
+  process.stdout.write(
+    renderTable(
+      [
+        { key: 'method', label: 'Method', align: 'left' },
+        { key: 'n', label: 'Rows', align: 'right' },
+        { key: 'what', label: 'What it proves', align: 'left' },
+      ],
+      Object.entries(methodCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([method, n]) => ({
+          method,
+          n: num(n),
+          what: {
+            scrip_id: "exact match on BSE's own scrip id",
+            scrip_code: 'exact match on the numeric BSE scrip code',
+            isin: 'ticker -> NSE symbol -> ISIN -> BSE scrip',
+            name: 'exact normalised name, unique in the BSE master',
+            confirmed: 'hand-checked and pinned by ISIN',
+            none: 'not resolved — kept with a stated reason',
+          }[method] ?? '',
+        })),
+    ),
+  );
+
+  process.stdout.write('\n\nFloat coverage across the whole company record\n\n');
+  process.stdout.write(
+    renderTable(
+      [
+        { key: 'what', label: 'Measure', align: 'left' },
+        { key: 'n', label: 'Count', align: 'right' },
+      ],
+      [
+        { what: 'companies in the record', n: num(coverage.companies) },
+        { what: '— held by at least one fund', n: `${num(coverage.held)} of ${num(coverage.companies)}` },
+        { what: '— not held (inclusion candidates)', n: `${num(coverage.notHeld)} of ${num(coverage.companies)}` },
+        { what: 'with a free-float market cap', n: `${num(coverage.withFloat)} of ${num(coverage.companies)}` },
+        { what: '— from NSE (wins where present)', n: num(coverage.floatFromNse) },
+        { what: '— from BSE (fills gaps)', n: num(coverage.floatFromBse) },
+        { what: 'also with a price-independent factor', n: `${num(coverage.withFloatFactor)} of ${num(coverage.withFloat)}` },
+        { what: 'with NO float reading at all', n: num(coverage.withoutFloat) },
+        { what: 'with BOTH readings (comparable)', n: num(coverage.withBothFactors) },
+      ],
+    ),
+  );
+
+  // ---- NSE vs BSE disagreement ------------------------------------------
+  const sorted = [...disagreements].sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct));
+  const absGaps = disagreements.map((d) => Math.abs(d.gapPct)).sort((a, b) => a - b);
+  const median = absGaps.length
+    ? (absGaps.length % 2
+      ? absGaps[(absGaps.length - 1) / 2]
+      : (absGaps[absGaps.length / 2 - 1] + absGaps[absGaps.length / 2]) / 2)
+    : null;
+  const overThreshold = sorted.filter((d) => Math.abs(d.gapPct) > FLOAT_FACTOR_DISAGREEMENT_REVIEW_PCT);
+
+  process.stdout.write(
+    `\n\nNSE vs BSE float factor — ${num(disagreements.length)} companies where both publish a reading\n` +
+      `  median |gap| ${median === null ? '—' : `${median.toFixed(3)}%`}` +
+      `   worst |gap| ${sorted.length ? `${Math.abs(sorted[0].gapPct).toFixed(3)}%` : '—'}` +
+      `   over ${FLOAT_FACTOR_DISAGREEMENT_REVIEW_PCT}%: ${num(overThreshold.length)}\n\n`,
+  );
+  process.stdout.write(
+    renderTable(
+      [
+        { key: 'name', label: 'Company', align: 'left' },
+        { key: 'sym', label: 'NSE', align: 'left' },
+        { key: 'nse', label: 'NSE factor', align: 'right' },
+        { key: 'bse', label: 'BSE factor', align: 'right' },
+        { key: 'gap', label: 'Gap vs BSE', align: 'right' },
+        { key: 'mcap', label: 'Full mcap ₹Cr', align: 'right' },
+      ],
+      sorted.slice(0, 10).map((d) => ({
+        name: d.name.slice(0, 34),
+        sym: d.nseSymbol ?? '—',
+        nse: d.floatFactorNse.toFixed(4),
+        bse: d.floatFactorBse.toFixed(4),
+        gap: `${d.gapPct >= 0 ? '+' : ''}${d.gapPct.toFixed(2)}%`,
+        mcap: d.fullMcapInr === null ? '—' : num(Math.round(toCrore(d.fullMcapInr))),
+      })),
+    ),
+  );
+  process.stdout.write(
+    '\n\n  These are two different float DEFINITIONS, not two attempts at one number.\n' +
+      '  NSE is used wherever it exists because MSCI follows NSE; BSE fills the gaps.\n' +
+      '  Neither is averaged into the other and both stay on every record.\n',
+  );
+
+  // ---- unresolved --------------------------------------------------------
+  process.stdout.write(
+    `\n\nUnresolved holdings — ${num(unresolved.length)} rows kept with a stated reason\n\n`,
+  );
+  const unresolvedOut = unresolved
+    .map((r) => ({
+      fundId: r.fundId,
+      rowIndex: r.rowIndex,
+      ticker: r.holding.ticker,
+      name: r.holding.name,
+      weightPct: r.holding.weightPct,
+      reason: r.reason,
+    }))
+    .sort((a, b) => (b.weightPct ?? 0) - (a.weightPct ?? 0));
+  for (const u of unresolvedOut) {
+    process.stdout.write(
+      `  ${u.fundId.padEnd(5)} ${String(u.ticker).padEnd(11)} ${String(round(u.weightPct, 5)).padStart(8)}%  ${u.name}\n` +
+        `        ${u.reason}\n`,
+    );
+  }
+
+  if (!checks.passed) {
+    process.stderr.write(`\nREFUSING TO WRITE ${rel(OUT_PATH)} — ${checks.failures.length} check(s) failed:\n\n`);
+    checks.print();
+    process.stderr.write('\n');
+    process.exit(1);
+  }
+
+  const payload = {
+    source: 'iShares holdings + NSE pre-open free float + BSE free float + niftyindices ISIN map',
+    note:
+      'floatFactor is dimensionless and price-independent. NSE wins wherever it publishes a reading '
+      + 'because MSCI follows NSE; BSE fills gaps only. The two are never averaged, and where both '
+      + 'exist both are kept so the disagreement stays inspectable. Every monetary field is RUPEES. '
+      + 'A null in funds{} means NOT HELD by that fund — it is not a zero weight.',
+    builtAt: new Date().toISOString(),
+    asOf: {
+      isharesHoldings: funds.funds[0]?.asOf ?? null,
+      nseSession: nseFreeFloat.sessionTimestamp,
+      bseCapturedAt: bseFreeFloat.capturedAt,
+      bseScripMasterCapturedAt: master.capturedAt,
+      nseUniverseCapturedAt: nseUniverse.capturedAt,
+    },
+    thresholds: {
+      scrapeUniverseMinFullMcapInr: SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
+      floatFactorDisagreementReviewPct: FLOAT_FACTOR_DISAGREEMENT_REVIEW_PCT,
+      attribution:
+        "the desk's own heuristics, from public/js/config/thresholds.mjs — MSCI does not publish these cut-offs",
+    },
+    coverage,
+    resolutionMethodCounts: methodCounts,
+    floatFactorDisagreement: {
+      comparedCompanies: disagreements.length,
+      medianAbsGapPct: median === null ? null : round(median, 3),
+      worstAbsGapPct: sorted.length ? round(Math.abs(sorted[0].gapPct), 3) : null,
+      overReviewThreshold: overThreshold,
+      largest: sorted.slice(0, 10),
+    },
+    handCheckedMappings: CONFIRMED,
+    knownNotListed: NOT_LISTED,
+    companies: out,
+    unresolved: unresolvedOut,
+  };
+
+  mkdirSync(dirname(OUT_PATH), { recursive: true });
+  writeFileSync(OUT_PATH, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  process.stdout.write(
+    `\nAll checks passed. Wrote ${rel(OUT_PATH)} — ${num(out.length)} companies, ` +
+      `${num(coverage.withFloat)} with a free-float reading, ${num(unresolvedOut.length)} unresolved rows.\n\n`,
+  );
+}
+
+main();

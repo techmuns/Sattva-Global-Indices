@@ -115,10 +115,18 @@ non-zero when it collected nothing.
 
 Free-float coverage is uneven, and the gap **is the story**.
 
-Measured on the committed data (`node scripts/check-naive-join.mjs`): the 261-symbol NSE set covers
-**96.0% of the EM ETF's India weight** but only **21.0%** of the India Small-Cap fund's and **20.8%**
-of the EM Small-Cap fund's — and the small caps are exactly where inclusion forecasting matters. A
-screen that says "36 companies" without saying "of 461" hides the entire limitation of the product.
+Measured on the committed data (`node scripts/build-companies.mjs`, whose `coverage` block is the
+only place these figures may come from):
+
+| Fund | Holdings resolved | With a free-float reading | India weight covered |
+| --- | --- | --- | --- |
+| EM ETF | 165 of 165 | 165 of 165 | 100.0% |
+| India Small-Cap | 454 of 461 | 453 of 461 | 97.6% |
+| EM Small-Cap | 408 of 414 | 407 of 414 | 97.6% |
+
+That is after adding BSE. On NSE alone it was 96.0% / 21.0% / 20.8%, and the small caps are exactly
+where inclusion forecasting matters — so the gap that closed was the whole product. A screen that
+says "453 companies" without saying "of 461" hides what is still missing.
 
 So: **every count on screen reads "X of Y"**, never a bare X. And **no figure in any registry,
 caption, heading or doc may be typed by hand** — derive it from the module that owns the data, so it
@@ -140,6 +148,52 @@ carries the same disclosure the screen does:
 - that free float is **NSE's published figure**, not computed from promoter holding;
 - that a probability is **modelled by us**, with the thresholds used;
 - the **as-of dates** for every source in the sheet.
+
+### 2.8 Two sources for one number, and they disagree
+
+NSE and BSE both publish free-float market cap, and they do not agree. For RELIANCE the implied
+float factor is about **0.4978 from NSE** and **0.4926 from BSE** — roughly 1% apart. That gap is
+real. It is not a price-timestamp artefact and it does not go away if you look harder: the two
+exchanges apply slightly different definitions of what counts as float.
+
+This is an ordinary two-source measurement problem and it gets the ordinary treatment:
+
+1. **NSE wins wherever it exists.** The desk's requirement is explicit — MSCI follows NSE, and the
+   Screener formula was rejected precisely because it disagreed with NSE. **BSE fills gaps only.**
+2. **Never average, blend, or silently prefer.** Every company carries `floatSource: 'nse' | 'bse'`,
+   and where both readings exist **both factors stay on the record** (`floatFactorNse`,
+   `floatFactorBse`) so the disagreement is inspectable rather than resolved away.
+3. **The source travels with the number** — to the screen, to the drill-down, and to row 1 of any
+   export. A reader comparing two rows must be able to see that one is NSE-sourced and one is not.
+4. **Nothing sums or ranks across the two without saying so.** A league table mixing NSE-sourced and
+   BSE-sourced free floats is defensible. Presenting it as "NSE free float" is not.
+
+### 2.9 Store the float factor, not a rupee figure
+
+```
+floatFactor = MktCapFF / MktCapFull        // dimensionless, price-independent
+```
+
+A rupee free-float figure is struck at one moment's price and is wrong by the next day's open. The
+factor is not: it moves only when shareholding moves, which is the quarterly event this product
+exists to forecast. So free float is always reconstructed, never stored as rupees:
+
+```
+freeFloatMcap(today) = floatFactor × sharesOutstanding × price(today)
+```
+
+That is the monthly-snapshot-plus-daily-recompute the desk asked for, and it only works because what
+is persisted is price-independent.
+
+**Both halves of a factor must come from one source at one instant.** `MktCapFF / MktCapFull` comes
+from a single BSE response. NSE's factor is derived as
+`nseFloatShares / totalShares`, where `nseFloatShares = nse.freeFloatMcapInr / nse.iep` (both NSE)
+and `totalShares = bse.fullMcapInr / bse.priceInr` (both BSE). The two sources are combined **only in
+the share-count domain**, where a share is a share whoever quoted it. **Never divide BSE's market cap
+by NSE's price** — that folds a price difference into a float difference and makes the comparison
+meaningless.
+
+---
 
 ---
 
@@ -277,6 +331,102 @@ and **never restamp it** — when NSE measured it is a different fact from when 
 daily price move can re-value it without a fresh scrape. The `implied` prefix is deliberate: it marks
 the figure as ours (tier 2), so nothing downstream can mistake it for something NSE published.
 
+### 3.8 BSE is the opposite of NSE in every respect
+
+`api.bseindia.com` has **no bot protection**. A browser `user-agent` and `referer:
+https://www.bseindia.com/` are the whole requirement — no cookie warming, no TLS fingerprint
+problem, no throttling observed over thousands of requests. It is the only source that covers the
+whole listed universe rather than 261 names.
+
+| Endpoint | What it gives |
+| --- | --- |
+| `/api/ListofScripData/w?…&segment=Equity&status=Active` | the entire scrip master in one ~1.7 MB request |
+| `/api/StockTrading/w?…&scripcode=N` | `MktCapFull` and `MktCapFF` — the float factor |
+| `/api/getScripHeaderData/w?…&scripcode=N` | `CurrRate.LTP` — the price the market caps were struck at |
+| `/api/ComHeader/w?…&scripcode=N` | `ISIN` (a genuine cross-check) and `IndustryNew` (sector) |
+
+`Mktcap` in the scrip master is **full market cap in ₹ crore**, and it agrees exactly with
+`MktCapFull` from the per-scrip endpoint. It is used **only** to choose which scrips are worth a
+request; it is struck at an undisclosed moment and must never render as a company's market cap.
+
+`INDUSTRY` in the master is `null` for every row. Sector comes from `ComHeader.IndustryNew`.
+
+> ### ⚠ BSE serves delisted scrips as though nothing happened
+>
+> `StockTrading` and `ComHeader` answer happily for a **delisted** scrip code and return that
+> company's frozen last figures, with nothing in the response saying so. Scrip `500010` returns
+> `MktCapFull 5,05,430.17 / MktCapFF 5,00,375.87` — a clean-looking 0.9900 factor for **Housing
+> Development Finance Corporation Ltd**, which merged into HDFC Bank on 13 July 2023 and has
+> `Status: "Delisted"` in the master. HDFC Bank is **500180**, and its factor is 0.9911 against a
+> full market cap more than twice as large.
+>
+> The only thing standing between this project and a three-year-stale number is the
+> `status=Active` filter on the scrip master, and the fact that the scrape universe is built from
+> that master rather than from hand-entered codes. **Never scrape a scrip code that did not come
+> from the active master**, and be suspicious of any hand-checked figure that did.
+
+Concurrency stays at **4** with a gap between requests. BSE tolerates far more. It is somebody
+else's free service and this job runs monthly — there is no reason to lean on it.
+
+> ### ⚠ `parseFloat` will silently destroy a BSE number
+>
+> BSE returns money as **strings with Indian digit grouping, in ₹ crore** — `"17,69,379.44"`.
+> NSE returns a **raw number, in rupees** — `8894519619599.8`.
+>
+> ```js
+> parseFloat("8,71,532.61")   // => 8      <-- not an error. Not NaN. Just 8.
+> ```
+>
+> It stops at the first comma and returns a plausible small number that will sort, sum and rank
+> perfectly happily. **`parseFloat` is banned anywhere near a BSE figure.** Everything goes through
+> `parseGroupedNumber` in `scripts/lib/bse.mjs`, which validates the entire string before
+> converting, and every value is normalised to **rupees at that boundary** so exactly one unit
+> exists downstream. A crore value in a rupee field is a ten-million-fold error that looks like a
+> formatting bug.
+
+### 3.9 Identity is ISIN, never a ticker
+
+A ticker is a label: two exchanges spell it differently, a fund vendor invents its own codes, and
+codes get reused when companies delist. **ISIN is the key everything is carried on.**
+
+The resolver (`scripts/lib/resolve.mjs`) attempts, in descending order of what each proves:
+`scrip_id` → numeric `scrip_code` → `isin` (via the niftyindices NSE universe) → normalised `name`.
+It records which one fired and prints the histogram every run.
+
+**BSE's `scrip_id` is not the NSE symbol, however often it looks like one.** Anchored on ISIN it
+agrees for 747 of the 747 companies present in both sets and differs for none — a good record, and
+still not a licence, because "always so far, across the 750 largest names" is exactly the assumption
+that produces one wrong row in the long tail. The NSE symbol is only ever asserted from
+`nse-universe.json`, keyed on ISIN. Where that file has no entry, `nseSymbol` is `null`.
+
+**The name step is exact-normalised and unique-or-nothing.** A fuzzy matcher looks better on a
+coverage table and is how you ship a wrong row:
+
+- `EMBASSY` is Embassy Office Parks REIT, which is not in BSE's equity segment at all. A prefix
+  matcher pairs it with **Embassy Developments Ltd** (EMBDL/532832) — a different company whose
+  free float would then be reported as the REIT's.
+- BSE's master contains **16 pairs** of scrips with identical normalised names: an ordinary line and
+  its partly-paid twin (`GSAUTO`/`GSAILPP`, `APLAB`/`APLABPP`, …). Picking either is a coin flip.
+
+**Demerged entities must never map to their parents.** `TMCV` is named `TATA MOTORS LTD` in the
+workbook but is the demerged commercial-vehicles company with its own ISIN (`INE1TAE01010`), not the
+parent. Likewise `VAML` (Vedanta Aluminium, `INE1CDF01017`) and `ENRIN` (Siemens Energy India,
+`INE1NPP01017`). All three are real **BSE scrip ids**, so the `scrip_id` step resolves them
+correctly before any name matcher sees them. They are additionally pinned in the `CONFIRMED` table
+in `resolve.mjs`, which is **asserted against the master every run** rather than trusted — if BSE
+stops agreeing, the build fails.
+
+`NOT_LISTED` in the same module pins the holdings that must stay unresolved (the four REITs and the
+`--` demergers), so a later, more permissive matcher cannot "improve coverage" by attaching one of
+them to a same-named listed company.
+
+**A collision stops the build.** Two rows *of the same fund* resolving to one ISIN means one of them
+is the wrong company, and the wrongness is invisible downstream because both rows look well-formed.
+The same ISIN across *different* funds is normal — the two small-cap funds hold hundreds of the same
+companies.
+
+---
+
 ---
 
 ## 4. Repository layout
@@ -287,30 +437,56 @@ docs/DATA-CONTRACTS.md             every JSON shape, unit, source and cadence
 scripts/
   lib/spreadsheetml.mjs            SpreadsheetML 2003 reader, zero dependencies
   lib/report.mjs                   console tables, number formatting, check lists
+  lib/bse.mjs                      BSE client + the ₹-crore string parser
+  lib/resolve.mjs                  ticker → ISIN → NSE symbol + BSE scrip code
   import-ishares.mjs               3 workbooks → public/data/msci-funds.json
   scrape-nse-freefloat.mjs         NSE pre-open → public/data/nse-freefloat.json
-  check-naive-join.mjs             measures the ticker-resolution gap; writes nothing
+  fetch-bse-master.mjs             BSE scrip master → public/data/bse-scrip-master.json
+  fetch-nse-universe.mjs           niftyindices CSVs → public/data/nse-universe.json
+  scrape-bse-freefloat.mjs         per-scrip BSE float → public/data/bse-freefloat.json
+  build-companies.mjs              everything → public/data/companies.json
+  check-naive-join.mjs             the pre-resolver baseline; writes nothing
   fixtures/ishares-{eem,smin,eems}.xls    the committed input workbooks
 public/
   index.html                       placeholder; the interface is a later prompt
+  js/config/thresholds.mjs         EVERY threshold, and nowhere else
   data/msci-funds.json             generated — do not hand-edit
   data/nse-freefloat.json          generated — do not hand-edit
+  data/bse-scrip-master.json       generated — do not hand-edit
+  data/nse-universe.json           generated — do not hand-edit
+  data/bse-freefloat.json          generated — do not hand-edit
+  data/companies.json              generated — the record the interface reads
 ```
 
-Both JSON files under `public/data/` are **generated artefacts that are committed**, so the static
+Every JSON file under `public/data/` is a **generated artefact that is committed**, so the static
 site works with no build and no network. Never hand-edit them; change the script and re-run.
+
+`companies.json` is the join of all the others and the only one the interface should read.
 
 ---
 
 ## 5. Running things
 
+Refresh order — later scripts read what earlier ones write:
+
 ```bash
-node scripts/import-ishares.mjs        # prints the per-fund table, exits 0
-node scripts/scrape-nse-freefloat.mjs  # prints per-key counts, exits 0; needs network
-node scripts/check-naive-join.mjs      # prints the resolver baseline; reads only
+node scripts/import-ishares.mjs        # workbooks; no network
+node scripts/fetch-bse-master.mjs      # 1 request, ~1.7 MB
+node scripts/fetch-nse-universe.mjs    # 2 requests, the ISIN bridge
+node scripts/scrape-nse-freefloat.mjs  # 3 requests, 261 symbols
+node scripts/scrape-bse-freefloat.mjs  # ~3,600 requests, ~25 min — the long one
+node scripts/build-companies.mjs       # no network; joins everything
+
+node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
 python3 -m http.server 8080 -d public  # the site
 ```
+
+`scrape-bse-freefloat.mjs --limit N` fetches only the largest N scrips and **writes nothing** — use
+it to check the endpoint is healthy before spending twenty-five minutes on the full run.
+
+Every writer refuses to replace a good snapshot with a smaller one; pass `--allow-shrink` only when
+the universe genuinely shrank and you mean it.
 
 `import-ishares.mjs` **refuses to write** if any measured count or weight drifts from the `EXPECTED`
 table in the script. That table describes *the workbooks committed in `scripts/fixtures/`*, not the
@@ -320,22 +496,41 @@ run pass.
 
 ---
 
-## 6. Ticker resolution is not built yet
+## 6. Ticker resolution
 
-The naive join (`iShares ticker === NSE symbol`, exact, no resolver) currently matches:
+Built, in `scripts/lib/resolve.mjs`. It is pure and deterministic given its three reference sets, so
+it can be re-run and reasoned about without touching an endpoint.
 
-| Fund | By holding count | By India weight |
+**Resolution of holding rows** (`node scripts/build-companies.mjs` prints this every run):
+
+| Fund | Resolved | Unresolved |
 | --- | --- | --- |
-| EM ETF | 152 of 165 | 96.0% |
-| India Small-Cap | 36 of 461 | 21.0% |
-| EM Small-Cap | 36 of 414 | 20.8% |
+| EM ETF | 165 of 165 | 0 |
+| India Small-Cap | 454 of 461 | 7 |
+| EM Small-Cap | 408 of 414 | 6 |
 
-That is the **baseline a resolver must beat**, and it is on the record so any claimed improvement can
-be checked. Re-run `node scripts/check-naive-join.mjs` for the current figures and the full
-unmatched list — do not quote the table above without re-running it.
+Method histogram across all 1,040 holding rows: `scrip_id` 996, `scrip_code` 16, `isin` 7, `name` 5,
+`confirmed` 3, unresolved 13. **Zero collisions.**
 
-Note that most small-cap misses are not spelling problems at all: those companies are simply **not in
-the 261-symbol NSE pre-open set**, so no resolver can find them a free-float reading from this
-source. `MRF` is one such case — absent from the set entirely, not spelled differently. Keep the two
-causes separate in any resolver work: *unmatched because of the symbol* and *unmatched because there
-is no reading* are different problems with different fixes.
+The 13 unresolved rows are not spelling problems and no resolver will fix them:
+
+- **four REITs** — Embassy Office Parks, Brookfield India, Nexus Select, Mindspace. Not in BSE's
+  equity segment and not in NSE's free-float set. A different instrument class, not a missing name.
+- **the `--` rows** — GSPL Transmission, Triveni Power Transmission, Inox Renewable Solutions.
+  Demerged entities that have not started trading. NSE carries two of them only as placeholders
+  (`DUMMYTRVN`, `DUMMYINXGN`, ISINs beginning `DUM`), which are not traded securities.
+
+Every one keeps its row, keeps its weight in every denominator, and carries a stated reason in
+`companies.json → unresolved[]`. **Dropping them would quietly redefine the universe as "the ones we
+could match"** — the same error class as rendering a missing value as zero.
+
+### The pre-resolver baseline, kept on the record
+
+`node scripts/check-naive-join.mjs` still measures the naive `iShares ticker === NSE symbol` join
+against the NSE free-float set alone, with no resolver and no BSE: **152 of 165, 36 of 461, 36 of
+414**, covering 96.0% / 21.0% / 20.8% of each fund's India weight. That script writes nothing and
+exists so any claimed improvement can be checked against the unimproved figure.
+
+The lesson it recorded is worth keeping: the small-cap gap was **never a ticker problem**. Case and
+punctuation normalisation alone recovered one ticker per small-cap fund. The gap was the source —
+NSE's pre-open API covers 261 names — and it closed by adding BSE, not by matching harder.
