@@ -16,9 +16,15 @@
 #            job passes --require-live and a SKIP there becomes a failure.
 #
 # The worker job needs MUNS_TOKEN. Where the secret is absent — a fork, or a
-# pull request from one — it SKIPS THE JOB AND SAYS SO rather than running a
-# hollow version of it. A green tick for work that did not happen is the exact
-# failure this suite exists to prevent.
+# repository where it has not been configured — the job is SKIPPED AT JOB LEVEL
+# and renders as "Skipped" in the checks list.
+#
+# THAT DISTINCTION IS THE WHOLE POINT, and the first run of this workflow got it
+# wrong. Guarding each STEP with `if:` left the job itself reporting SUCCESS
+# while every meaningful step inside it was skipped — a green tick for work that
+# did not happen, which is precisely what this suite exists to prevent. The
+# `secret` job below exists only to turn the secret's presence into an output,
+# because the `secrets` context is not available in a job-level `if:`.
 name: Verify
 
 on:
@@ -95,10 +101,14 @@ jobs:
           node-version: '22'
 
       # Playwright is a global tool here, never a dependency of this repo.
+      # Playwright is a global tool here, never a dependency of this repo, so the
+      # global CLI does the browser install too. `npx --yes playwright install`
+      # re-resolves and fetches a SECOND copy of the package before it starts,
+      # which is minutes of nothing on a cold runner.
       - name: Install Playwright (globally, outside the repo)
         run: |
           npm install -g playwright@latest
-          npx --yes playwright install --with-deps chromium
+          playwright install --with-deps chromium
 
       - name: Serve the static site
         run: |
@@ -119,8 +129,30 @@ jobs:
       - name: verify-ui --prove (every check must fail on purpose)
         run: NODE_PATH="$(npm root -g)" node scripts/verify-ui.mjs http://127.0.0.1:8080 --prove
 
+  # Exists only to make the secret's presence readable from a job-level `if:`.
+  secret:
+    name: Is the upstream token configured?
+    runs-on: ubuntu-latest
+    outputs:
+      available: ${{ steps.check.outputs.available }}
+    steps:
+      - id: check
+        env:
+          MUNS_TOKEN: ${{ secrets.MUNS_TOKEN }}
+        run: |
+          if [ -z "$MUNS_TOKEN" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::MUNS_TOKEN is not configured for this repository, so the live block cannot be exercised. The Worker job will show as SKIPPED, not as passing. Add the secret to run it."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
   ui-worker:
     name: Interface — Worker (--require-live, a SKIP is a failure)
+    needs: secret
+    # Skipped at JOB level, so the checks list reads "Skipped" rather than a
+    # green tick over work that did not happen.
+    if: needs.secret.outputs.available == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -128,28 +160,16 @@ jobs:
         with:
           node-version: '22'
 
-      # A fork has no secret. Say so and stop, rather than running a version of
-      # this job that cannot test what it claims to test.
-      - name: Is the upstream token available?
-        id: secret
-        env:
-          MUNS_TOKEN: ${{ secrets.MUNS_TOKEN }}
-        run: |
-          if [ -z "$MUNS_TOKEN" ]; then
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::MUNS_TOKEN is not available (fork or unconfigured repo). The live block cannot be exercised here; the static job still ran."
-          else
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          fi
-
+      # Playwright is a global tool here, never a dependency of this repo, so the
+      # global CLI does the browser install too. `npx --yes playwright install`
+      # re-resolves and fetches a SECOND copy of the package before it starts,
+      # which is minutes of nothing on a cold runner.
       - name: Install Playwright (globally, outside the repo)
-        if: steps.secret.outputs.available == 'true'
         run: |
           npm install -g playwright@latest
-          npx --yes playwright install --with-deps chromium
+          playwright install --with-deps chromium
 
       - name: Start wrangler dev
-        if: steps.secret.outputs.available == 'true'
         env:
           MUNS_TOKEN: ${{ secrets.MUNS_TOKEN }}
         run: |
@@ -162,18 +182,15 @@ jobs:
           curl -fsS http://127.0.0.1:8787/api/health
 
       - name: verify-ui --require-live
-        if: steps.secret.outputs.available == 'true'
         run: NODE_PATH="$(npm root -g)" node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live
 
       # Assertion 39 can only be proved where a Worker is answering — in the
       # static job it skips, and a skipped check is never proved. This is the
       # only run that can hold it to the same standard as the rest.
       - name: verify-ui --prove (the live block included)
-        if: steps.secret.outputs.available == 'true'
         run: NODE_PATH="$(npm root -g)" node scripts/verify-ui.mjs http://127.0.0.1:8787 --prove
 
       - name: The token must not have reached the repo or the served site
-        if: steps.secret.outputs.available == 'true'
         run: |
           test -z "$(git status --porcelain)" || { echo "::error::the run left files behind"; git status --porcelain; exit 1; }
           if grep -rq "MUNS_TOKEN" public/; then
