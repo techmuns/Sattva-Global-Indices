@@ -689,6 +689,22 @@ Three defects, none of which any earlier check would have caught:
   decimals that reads as *not held*. Same company whose two flows printed "₹0 Cr". See §2.20 in
   `CLAUDE.md`; assertion 14 runs every real weight and every real flow through its formatter.
 
+And a fourth, in the workflow rather than the application. The first CI run reported the Worker job
+as **SUCCESS while every meaningful step inside it was skipped**, because `MUNS_TOKEN` is not
+configured as a repository secret — a green tick over work that did not happen, which is the precise
+failure this suite exists to prevent, reproduced in the thing that runs it. Guarding each *step* with
+`if:` cannot express "this job did not run"; the `secret` job now turns the secret's presence into an
+output and `ui-worker` guards on it at *job* level, so the checks list reads **Skipped**.
+
+Two more runs then sat on `playwright install --with-deps chromium` for over fourteen minutes each
+with no output and no deadline. Every job now carries `timeout-minutes`, and the next failure took
+sixteen seconds and named itself — a probe calling `require('playwright')` without `NODE_PATH`, which
+is a fact about module resolution and not about whether Chromium runs.
+
+**Measured on the runner** (run 4): data 15 s; interface static 2 m 23 s, of which `--prove` is 86 s;
+Worker job skipped. Tailwind loads there, so assertions 33 and 36 run in full — including the
+computed-pixel half of 36 that has to skip in an offline sandbox.
+
 ### Assertion 39 has three branches, because a degraded upstream is neither a pass nor a fail
 
 `/api/quotes` can be in three states, and collapsing them would make the check useless in exactly
