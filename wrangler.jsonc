@@ -1,0 +1,26 @@
+{
+  // Cloudflare Worker for Sattva Index Flows.
+  //
+  // The Worker exists for exactly one reason: to hold the upstream token so the
+  // browser never sees it. Everything else on this site is static files, and
+  // the static site must keep working with no Worker at all — the committed
+  // EOD prices are the floor, and the live quote is an overlay.
+  //
+  // Local:       npx wrangler dev          (reads MUNS_TOKEN from .dev.vars)
+  // Production:  npx wrangler secret put MUNS_TOKEN
+  //
+  // wrangler is invoked through npx and installs into the npx cache, not into
+  // this repo. There is still no package.json and no node_modules here.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sattva-index-flows",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-08-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

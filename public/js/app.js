@@ -14,6 +14,8 @@ import { start as startRouter, getParam, setParams } from './core/router.js';
 import { segmentedToggle } from './ui/components.js';
 import { mountShell } from './ui/shell.js';
 import { renderCompanies } from './tabs/companies.js';
+import * as quotes from './data/quotes.js';
+import { headerStatus } from './ui/sources.js';
 
 function renderLoadFailure(container, error) {
   container.replaceChildren(
@@ -86,7 +88,18 @@ async function main() {
     setParams({ scope: state.getScope() });
   });
 
-  const view = renderCompanies(shell.host, {});
+  // The header pill re-renders on every tick, because what it claims — live or
+  // last close — is derived from whether a byte actually arrived.
+  const refreshStatus = () => shell.setStatus(headerStatus());
+
+  const view = renderCompanies(shell.host, { onStatusChange: refreshStatus });
+
+  // The live overlay is entirely optional. With no Worker (a plain static
+  // server) the fetch 404s, the poller records `no-worker`, and every row stays
+  // on its committed EOD price — which is the designed floor, not a failure.
+  quotes.startLive({ intervalMs: 30000 });
+  quotes.onQuotes(refreshStatus);
+  refreshStatus();
 
   startRouter();
   setParams({ scope: state.getScope() });
@@ -97,8 +110,10 @@ async function main() {
     data,
     state,
     view,
+    quotes,
     rows: () => view.table()?.rows() ?? [],
     flush: () => view.table()?.flush(),
+    refreshStatus,
   };
 }
 

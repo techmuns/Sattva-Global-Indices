@@ -356,6 +356,114 @@ error that reads as a plausible small number. The build asserts that **no `…In
 
 ---
 
+## `public/data/prices.json`
+
+End-of-day closing prices for the scrape universe. **The floor**: the static site renders fully from
+this with no Worker and no network.
+
+| | |
+| --- | --- |
+| **Produced by** | `node scripts/fetch-bhavcopy.mjs` |
+| **Upstream source** | `bseindia.com/download/BhavCopy/Equity/BhavCopy_BSE_CM_0_0_0_YYYYMMDD_F_0000.CSV` |
+| **Tier** | 1 — BSE's own closing prices, carried through unchanged. |
+| **Cadence** | Weekdays, ~20:00 IST, by `.github/workflows/daily-refresh.yml`. |
+| **Failure mode** | Exits non-zero and writes NOTHING if the response is not a bhavcopy, its `TradDt` is not the date requested, continuity fails, or coverage is below 95%. |
+
+| Field | Meaning |
+| --- | --- |
+| `tradeDate` | BSE's own trade date for the file. Not our capture time. |
+| `prices[scripCode]` | `{ scripCode, isin, symbol, tradeDate, open, high, low, close, prevClose, volume, staleDays, source }` |
+| `staleDays` | `0` for a price from this file. Above zero means **the stock did not trade** and its last close was carried forward. That is not zero and not "unchanged". |
+| `source` | `bhavcopy-bse` or `bhavcopy-bse-carried`. |
+| `carriedForward[]` | Every carried scrip, **named**, with its last trade date. |
+| `missing[]` | Every scrip with no price from any source, **named**. Never merely counted. |
+| `continuity` | `{ against, compared, failures[], noCounterpart }` — see below. |
+
+**Two tripwires, both proven rather than assumed.**
+
+*Shape.* BSE serves its single-page-app shell with HTTP 200 and `content-type: text/html` for
+download URLs that do not exist (`EQ_ISINCODE_180826.zip` → 200, 13,850 bytes, HTML). A status check
+alone would write an empty price file and turn every free-float figure null on a day when nothing was
+wrong. `assertBhavcopyShape` rejects HTML, missing columns, and a `TradDt` that is not the date asked
+for; the fetcher is tested against that exact URL.
+
+*Continuity.* A file dated today can still carry a row copied from yesterday, which a file-level date
+check cannot see. So today's `PrvsClsgPric` must equal yesterday's `ClsPric`, per scrip. Measured
+18→19 Aug 2026: 4,562 compared, **0 failures**. Scrips with byte-identical bars across two days pass —
+an unchanged close is a stock that did not trade, not a stale row.
+
+---
+
+## `public/data/quote-stats.json`
+
+Monthly per-company statistics from Munshot. Optional: the record builds without it.
+
+| | |
+| --- | --- |
+| **Produced by** | `node scripts/fetch-quote-stats.mjs --concurrency 1 --gap-ms 1200` |
+| **Upstream source** | `fastapi.muns.io` — `stockquote_batch` and the undocumented `detailquote` |
+| **Tier** | 1 for the published figures; the ADV **source is recorded, never blended**. |
+| **Cadence** | Monthly. None of these move fast enough to be worth a request during a session. |
+| **Failure mode** | Refuses to write below a coverage floor (default 80% of fetchable companies). |
+
+| Field | Meaning |
+| --- | --- |
+| `advQty`, `advSource` | Average daily volume and **which figure it came from** — `munshot-3m-detail`, `munshot-3m-batch` or `munshot-10d`. The batch and detail calls disagree slightly (13,637,505 vs 13,943,013 for RELIANCE); neither is averaged into the other. |
+| `yearlyChangePct` | As published. |
+| `lastSplitFactor`, `lastSplitDate` | A split changes the share count, and a share-count change is one of the few things that actually forces an index fund to trade. **`Last Split Date` is UNIX EPOCH SECONDS upstream** — read as a string it gives 1970. |
+| `munshotMarketCapInr`, `munshotVsBseMcapPct` | A cross-check, not a correction. Munshot is NSE-priced and our full market cap is BSE-priced. |
+
+Only companies with an **asserted NSE symbol** appear. Munshot is keyed on NSE tickers, and BSE's
+`scrip_id` is not one however often it looks like one — guessing would attach another company's
+volume to a row.
+
+---
+
+## The live overlay — `POST /api/quotes`
+
+Served by `worker/index.js`. **Not part of any committed file.**
+
+Request `{ "symbols": ["RELIANCE", …] }`; response
+`{ ok, asOf, requested, resolved, chunks, chunkSize, quotes: { SYMBOL: { price, prevClose, open, dayLow, dayHigh, lastVolume, source } }, failed: [{symbol, reason}] }`.
+
+| Rule | Why |
+| --- | --- |
+| The token lives in `env.MUNS_TOKEN` and the browser never sees it | A token shipped to the client is a token published. |
+| Chunked at **50** symbols | Measured: the upstream caps a batch at **81** and returns HTTP 400 above it. The cliff is a COUNT limit, not body length — 80 of the longest symbols pass, 85 of the shortest fail. 50 leaves margin on an undocumented cap that can move. |
+| Edge-cached ~30 s, failures ~15 s | A hundred readers cost the upstream one fetch per window. `x-siflows-cache` reads `live` then `hit` — verifiable from outside, unlike a claim in a comment. |
+| Failures return **200 with `ok:false`** | The request to *our* Worker succeeded. `no-token` and `unauthorised` name a command an operator runs; `upstream` and `unreachable` are things to wait out. |
+| `status: "timeout"` and `status: "not_found"` are FAILURES | The row keeps its EOD price and is listed in `failed[]`. Never a missing value, and never a durable fact about the symbol — this upstream reports `not_found` for tickers it served minutes earlier when pushed. |
+
+**Live values are merged into memory and never written back to a committed file.** The committed
+file is the exchange's own bytes under the exchange's own date.
+
+---
+
+## Price, drift and flow fields on `companies[]`
+
+| Field | Meaning |
+| --- | --- |
+| `priceInr`, `prevCloseInr`, `priceDate` | The committed EOD figures. A live quote overlays these in the browser only. |
+| `priceTier` | `eod` \| `stale` \| `null`. **`live` never appears in a committed file.** |
+| `priceStaleDays` | Above zero means the stock did not trade. |
+| `priceSource`, `priceExchange` | `bhavcopy-bse` / `BSE`. A live row becomes `munshot-nse` / `NSE` in memory — **a different exchange**, which is why the source travels with the number. |
+| `dayChangePct` | `null` where the stock did not trade — **not 0.0%**. |
+| `freeFloatMcapInr` | Recomputed: `floatFactor × sharesOutstanding × price`. |
+| `freeFloatMcapAtCaptureInr` | What the exchange published when the float file was captured, kept for comparison rather than replaced. |
+| `advQty`, `advSource`, `yearlyChangePct`, `lastSplitFactor`, `lastSplitDate` | From `quote-stats.json`, `null` when absent. |
+| `passiveDrift[fundId]` | `{ weightAtCapturePct, impliedWeightNowPct, driftPp, requiresTrade: false }` |
+
+**`requiresTrade` is hard-coded `false`.** A price move changes a fund's holding value and its index
+weight by the same proportion, so it forces no trade. Drift is measured relative to the fund's own
+basket; a one-sided distribution would mean prices from different dates, and the build asserts both
+signs are present.
+
+`flowPrimitives[fundId]` at the top level carries `fundAumUsd`, `fxRate`, `inrPerWeightPoint` and
+`inrPerBasisPointOfWeight` — **inputs to a later calculation, not results**. AUM and FX are both as of
+the holdings date. **No rupee flow figure exists anywhere in this build.**
+
+---
+
 ## Resolution: how a holding becomes a company
 
 `scripts/lib/resolve.mjs`. Pure, deterministic, no I/O.

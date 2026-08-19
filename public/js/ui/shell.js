@@ -31,6 +31,10 @@ export function mountShell(container, { scopeControl }) {
 
   const scopeSlot = el('div', { 'data-scope-slot': '', class: 'flex items-center gap-3' }, [scopeControl]);
 
+  const statusSlot = el('div', { 'data-status-slot': '' }, [
+    statusControl({ ...status, onClick: () => openSourcesModal() }),
+  ]);
+
   const header = el(
     'header',
     { class: 'sticky top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur-md' },
@@ -39,7 +43,7 @@ export function mountShell(container, { scopeControl }) {
         brand,
         el('div', { class: 'ml-auto flex flex-wrap items-center gap-3' }, [
           scopeSlot,
-          statusControl({ ...status, onClick: () => openSourcesModal() }),
+          statusSlot,
         ]),
       ]),
     ],
@@ -59,5 +63,14 @@ export function mountShell(container, { scopeControl }) {
   ]);
 
   container.append(header, main, footer);
-  return { header, host: $('[data-view-host]', main), scopeSlot };
+  return {
+    header,
+    host: $('[data-view-host]', main),
+    scopeSlot,
+    /** Re-render the pill in place. Called on every tick, because the claim it
+     *  makes — live or last close — depends on whether a byte arrived. */
+    setStatus(next) {
+      statusSlot.replaceChildren(statusControl({ ...next, onClick: () => openSourcesModal() }));
+    },
+  };
 }

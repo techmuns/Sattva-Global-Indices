@@ -1,0 +1,70 @@
+# Monthly float and statistics refresh.
+#
+# The float FACTOR and the SHARE COUNT move only when shareholding moves, which
+# is the quarterly event this product forecasts — so they are fetched monthly
+# and the daily job never touches them. That separation is deliberate: a live
+# price must not restamp a month-old float file, and the freshness claim on
+# screen is governed by the OLDEST input, not the newest.
+#
+# The BSE per-scrip scrape is ~3,600 requests and takes about 25 minutes.
+name: Monthly float refresh
+
+on:
+  schedule:
+    - cron: '30 20 1 * *' # 02:00 IST on the 1st
+  workflow_dispatch:
+
+concurrency:
+  group: monthly-float
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: BSE scrip master
+        run: node scripts/fetch-bse-master.mjs
+
+      - name: NSE symbol ↔ ISIN universe
+        run: node scripts/fetch-nse-universe.mjs
+
+      - name: NSE pre-open free float
+        run: node scripts/scrape-nse-freefloat.mjs
+
+      - name: BSE per-scrip free float (the long one)
+        run: node scripts/scrape-bse-freefloat.mjs
+
+      # Statistics are a nice-to-have: this upstream reports "not_found" for
+      # tickers it served minutes earlier when pushed, so the script refuses to
+      # write below its coverage floor. A failure here must not block the float
+      # refresh, which is the part that matters.
+      - name: Munshot quote statistics (ADV, splits)
+        continue-on-error: true
+        env:
+          MUNS_TOKEN: ${{ secrets.MUNS_TOKEN }}
+        run: node scripts/fetch-quote-stats.mjs --concurrency 1 --gap-ms 1200
+
+      - name: Refresh prices, then rebuild
+        run: |
+          node scripts/fetch-bhavcopy.mjs
+          node scripts/build-companies.mjs
+
+      - name: Commit if anything changed
+        run: |
+          if git diff --quiet -- public/data; then
+            echo "No change in public/data — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "sattva-bot"
+          git config user.email "tech@muns.io"
+          git add public/data
+          git commit -m "Monthly float, universe and statistics refresh"
+          git push

@@ -7,14 +7,18 @@
  */
 
 import { escapeHtml } from '../core/dom.js';
-import { shortDate, relativeTime, num } from '../core/format.js';
+import { shortDate, relativeTime, tickAge, num } from '../core/format.js';
 import { sourceRegistry, freshness, coverage } from '../data/companies.js';
+import * as quotes from '../data/quotes.js';
 import { openModal } from './screener.js';
 
 const STATUS_STYLE = {
   ok: ['bg-emerald-50 text-emerald-700 ring-emerald-200', 'Reading'],
   stale: ['bg-amber-50 text-amber-800 ring-amber-200', 'Stale'],
   missing: ['bg-rose-50 text-rose-700 ring-rose-200', 'No reading'],
+  live: ['bg-indigo-50 text-indigo-700 ring-indigo-200', 'Live'],
+  off: ['bg-slate-100 text-slate-600 ring-slate-200', 'Market closed'],
+  failed: ['bg-rose-50 text-rose-700 ring-rose-200', 'Unavailable'],
 };
 
 /**
@@ -25,22 +29,67 @@ const STATUS_STYLE = {
 const STALE_AFTER_DAYS = 14;
 
 function statusFor(source, now) {
+  if (source.status === 'live') {
+    // The live feed's state is whether a byte actually arrived, never the clock
+    // alone. A chip that says "live" whether or not anything was confirmed
+    // teaches readers to ignore it.
+    if (quotes.lastLiveError()) return 'failed';
+    if (quotes.isLive()) return 'live';
+    return 'off';
+  }
   if (source.status === 'missing' || !source.asOfDate) return 'missing';
   const days = (now.getTime() - source.asOfDate.getTime()) / 86400000;
   return days > STALE_AFTER_DAYS ? 'stale' : 'ok';
 }
 
-/** The header pill's own label — reads the OLDEST feed, not the newest. */
+/**
+ * The header pill.
+ *
+ * Two facts, and they are different: WHICH PRICE IS IN FORCE, and HOW OLD the
+ * oldest input is. The pill leads with the price tier because that is what
+ * changes minute to minute, and names the oldest feed underneath because a live
+ * price does not make a month-old float factor live.
+ *
+ * "Live" is claimed only when a byte actually arrived AND the market is open.
+ * Their other dashboard learned this the expensive way: a chip that says "just
+ * now" regardless teaches readers to ignore it.
+ */
 export function headerStatus(now = new Date()) {
   const { oldest } = freshness();
-  if (!oldest) {
-    return { label: 'Provenance', detail: 'No as-of date could be read', tone: 'negative' };
+  const cov = coverage();
+  const marketOpen = quotes.isMarketOpen(now);
+  const live = quotes.isLive();
+  const failure = quotes.lastLiveError();
+  const liveN = quotes.liveCount();
+  const eligible = cov.liveEligible ?? null;
+  const tradeDate = freshness().feeds.find((f) => f.id === 'bhavcopy');
+
+  if (live) {
+    const age = quotes.liveAsOf() ? tickAge(quotes.liveAsOf(), now) : 'just now';
+    return {
+      label: `Live · NSE · updated ${age}`,
+      detail: eligible === null
+        ? `${liveN} rows live`
+        : `${liveN} of ${eligible} rows live · oldest input: ${oldest?.label ?? 'unknown'}`,
+      tone: 'positive',
+    };
   }
-  const days = (now.getTime() - oldest.date.getTime()) / 86400000;
+
+  if (marketOpen && failure) {
+    return {
+      label: 'Last close · BSE',
+      detail: `Live quotes unavailable (${failure.reason}) — every row is on its closing price`,
+      tone: 'caution',
+    };
+  }
+
+  const closeLabel = tradeDate?.date ? shortDate(tradeDate.date) : '—';
   return {
-    label: `Data ${relativeTime(oldest.date, now)}`,
-    detail: `Oldest feed: ${oldest.label}`,
-    tone: days > STALE_AFTER_DAYS ? 'caution' : 'positive',
+    label: `Last close · BSE · ${closeLabel}`,
+    detail: marketOpen
+      ? `Market open, no live quote yet · oldest input: ${oldest?.label ?? 'unknown'}`
+      : `Market closed · oldest input: ${oldest?.label ?? 'unknown'}`,
+    tone: oldest && (now.getTime() - oldest.date.getTime()) / 86400000 > STALE_AFTER_DAYS ? 'caution' : 'positive',
   };
 }
 
@@ -59,6 +108,18 @@ export function openSourcesModal(now = new Date()) {
         source.count === null || source.count === undefined
           ? ''
           : `<div class="mt-1 text-[11px] font-semibold tabular-nums text-slate-600">${escapeHtml(num(source.count))} ${escapeHtml(source.countLabel ?? '')}</div>`;
+      const liveLine =
+        source.id !== 'munshot'
+          ? ''
+          : `<div class="mt-1 text-[11px] text-slate-500">${
+              quotes.lastLiveError()
+                ? `Unavailable — ${escapeHtml(quotes.lastLiveError().reason)}${quotes.lastLiveError().remedy ? `. ${escapeHtml(quotes.lastLiveError().remedy)}` : ''}`
+                : quotes.isLive()
+                  ? `${escapeHtml(num(quotes.liveCount()))} rows currently on a live price`
+                  : quotes.isMarketOpen()
+                    ? 'Market is open; no live quote has arrived yet'
+                    : 'Market is closed — every row is on its last close'
+            }</div>`;
       return (
         '<li class="rounded-xl bg-slate-50/70 p-3 ring-1 ring-slate-100">' +
         '<div class="flex items-start justify-between gap-3">' +
@@ -70,9 +131,11 @@ export function openSourcesModal(now = new Date()) {
         '</div>' +
         `<p class="mt-2 text-xs leading-relaxed text-slate-600">${escapeHtml(source.what)}</p>` +
         countLine +
-        `<div class="mt-1.5 text-[11px] text-slate-500">As of <span class="font-semibold text-slate-700">${escapeHtml(shortDate(source.asOfDate ?? source.asOf))}</span>` +
-        (source.asOfDate ? ` · ${escapeHtml(relativeTime(source.asOfDate, now))}` : '') +
-        '</div></li>'
+        liveLine +
+        (source.asOfDate
+          ? `<div class="mt-1.5 text-[11px] text-slate-500">As of <span class="font-semibold text-slate-700">${escapeHtml(shortDate(source.asOfDate))}</span> · ${escapeHtml(relativeTime(source.asOfDate, now))}</div>`
+          : source.id === 'munshot' ? '' : `<div class="mt-1.5 text-[11px] text-slate-500">As of <span class="font-semibold text-slate-700">${escapeHtml(shortDate(source.asOf))}</span></div>`) +
+        '</li>'
       );
     })
     .join('');

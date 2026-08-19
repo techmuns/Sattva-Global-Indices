@@ -1,0 +1,67 @@
+# Weekday end-of-day price refresh.
+#
+# 20:00 IST = 14:30 UTC, comfortably after the 15:30 IST close and after BSE
+# has published the day's bhavcopy.
+#
+# THIS JOB FAILS RATHER THAN COMMITTING A DEGRADED FILE. Every guard below is
+# in scripts/fetch-bhavcopy.mjs and scripts/build-companies.mjs, and each exits
+# non-zero rather than writing:
+#
+#   - the response is not a bhavcopy (BSE serves its SPA shell with HTTP 200);
+#   - its own TradDt is not the date requested;
+#   - row-level continuity against yesterday's closes fails;
+#   - fewer than 95% of the universe priced.
+#
+# A dashboard silently serving yesterday's prices under today's date is worse
+# than one that visibly failed, so a red run here is the designed outcome.
+name: Daily EOD refresh
+
+on:
+  schedule:
+    - cron: '30 14 * * 1-5' # 20:00 IST, Mon–Fri
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Trade date to fetch (YYYY-MM-DD). Blank = latest weekday.'
+        required: false
+
+concurrency:
+  group: daily-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # No package.json and no dependencies — Node is used bare.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Fetch the BSE bhavcopy
+        run: |
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            node scripts/fetch-bhavcopy.mjs --date "${{ github.event.inputs.date }}"
+          else
+            node scripts/fetch-bhavcopy.mjs
+          fi
+
+      - name: Rebuild the company record
+        run: node scripts/build-companies.mjs
+
+      - name: Commit if anything changed
+        run: |
+          if git diff --quiet -- public/data; then
+            echo "No change in public/data — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "sattva-bot"
+          git config user.email "tech@muns.io"
+          TRADE_DATE=$(node -e "console.log(require('./public/data/prices.json').tradeDate)")
+          git add public/data
+          git commit -m "Daily EOD prices for ${TRADE_DATE}"
+          git push

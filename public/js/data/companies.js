@@ -82,6 +82,8 @@ export const fundShortName = (fundId) =>
   fundCoverage(fundId)?.shortName ?? fundId.toUpperCase();
 
 export const thresholds = () => requireLoaded().thresholds ?? {};
+export const priceMeta = () => requireLoaded().prices ?? {};
+export const flowPrimitives = () => requireLoaded().flowPrimitives ?? {};
 export const disagreement = () => requireLoaded().floatFactorDisagreement ?? {};
 
 /**
@@ -111,7 +113,13 @@ export function freshness() {
       id: 'bse',
       label: 'BSE free-float scrape',
       raw: asOf.bseCapturedAt ?? null,
-      detail: 'when we fetched BSE market caps and prices',
+      detail: 'when we fetched BSE market caps and share counts — monthly, and never restamped because a price arrived',
+    },
+    {
+      id: 'bhavcopy',
+      label: 'BSE closing prices',
+      raw: asOf.bhavcopyTradeDate ?? null,
+      detail: "the exchange's own trade date for the committed end-of-day bhavcopy",
     },
   ].map((feed) => ({ ...feed, date: parseFeedDate(feed.raw) }));
 
@@ -165,6 +173,35 @@ export function sourceRegistry() {
       status: byId.bse?.raw ? 'ok' : 'missing',
       count: cov.floatFromBse ?? null,
       countLabel: 'companies whose float reading is BSE’s',
+    },
+    {
+      id: 'bhavcopy',
+      name: 'BSE closing prices (bhavcopy)',
+      publisher: 'BSE Ltd',
+      what:
+        'One end-of-day file for the whole market, committed to the repository. This is the floor: the '
+        + 'site renders fully from it with no Worker and no network. A live NSE quote overlays it in memory only.',
+      tier: 'measured',
+      asOf: meta.bhavcopyTradeDate ?? null,
+      asOfDate: parseFeedDate(meta.bhavcopyTradeDate ?? null),
+      status: meta.bhavcopyTradeDate ? 'ok' : 'missing',
+      count: requireLoaded().prices?.pricedCount ?? null,
+      countLabel: 'scrips priced from this file',
+    },
+    {
+      id: 'munshot',
+      name: 'Munshot live quotes (NSE)',
+      publisher: 'fastapi.muns.io — Yahoo Finance NSE data',
+      what:
+        'Intraday prices, fetched through our Worker so the token never reaches the browser. A DIFFERENT '
+        + 'EXCHANGE from the committed baseline: a live figure is NSE-priced, the EOD figure is BSE-priced, '
+        + 'and the two are never blended. Only during market hours, and only for companies with an asserted NSE symbol.',
+      tier: 'measured',
+      asOf: null,
+      asOfDate: null,
+      status: 'live',
+      count: requireLoaded().coverage?.liveEligible ?? null,
+      countLabel: 'companies a live quote can reach',
     },
     {
       id: 'nse-universe',

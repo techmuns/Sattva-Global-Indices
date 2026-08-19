@@ -52,6 +52,9 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { buildIndex, resolveAll, CONFIRMED, NOT_LISTED } from './lib/resolve.mjs';
+import {
+  recomputeFreeFloat, choosePrice, dayChangePct, passiveDrift, flowPrimitives,
+} from './lib/recompute.mjs';
 import { renderTable, num, round, CheckList } from './lib/report.mjs';
 import {
   SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
@@ -79,6 +82,11 @@ function main() {
   const nseUniverse = requireFile('nse-universe.json', 'node scripts/fetch-nse-universe.mjs');
   const nseFreeFloat = requireFile('nse-freefloat.json', 'node scripts/scrape-nse-freefloat.mjs');
   const bseFreeFloat = requireFile('bse-freefloat.json', 'node scripts/scrape-bse-freefloat.mjs');
+  const prices = requireFile('prices.json', 'node scripts/fetch-bhavcopy.mjs');
+  // Optional: monthly Munshot statistics. Absent is a smaller record, not a
+  // failure — the site must build from the committed exchange data alone.
+  const quoteStatsPath = join(REPO, 'public', 'data', 'quote-stats.json');
+  const quoteStats = existsSync(quoteStatsPath) ? JSON.parse(readFileSync(quoteStatsPath, 'utf8')) : null;
 
   const checks = new CheckList('build');
 
@@ -218,6 +226,24 @@ function main() {
       });
     }
 
+    // ---- price and recompute -------------------------------------------
+    // The EOD bhavcopy close is the committed floor. A live NSE quote overlays
+    // this IN MEMORY in the browser and is never written here.
+    const eod = company.bseScripCode ? (prices.prices?.[company.bseScripCode] ?? null) : null;
+    const chosen = choosePrice({ eod, live: null });
+
+    // What the exchange published at capture, kept so the recompute can be
+    // compared against it rather than quietly replacing it.
+    const freeFloatMcapAtCaptureInr = freeFloatMcapInr;
+
+    const recomputed = recomputeFreeFloat(floatFactor, sharesOutstanding, chosen.price);
+    if (recomputed.value !== null) {
+      freeFloatMcapInr = recomputed.value;
+      freeFloatBasis = recomputed.basis;
+    }
+
+    const stats = company.nseSymbol ? (quoteStats?.stats?.[company.nseSymbol] ?? null) : null;
+
     floatByKey.set(key, freeFloatMcapInr);
 
     const held = Object.values(company.funds).some((f) => f !== null);
@@ -240,6 +266,29 @@ function main() {
       floatFactorBse,
       freeFloatMcapInr,
       freeFloatBasis, // the formula, on the record with the number
+      // What the exchange published when the float file was captured. Kept
+      // beside the recomputed figure so the two can be compared rather than
+      // one silently replacing the other.
+      freeFloatMcapAtCaptureInr,
+
+      // ---- price, EOD. The live tier overlays this in the browser only. ----
+      priceInr: chosen.price,
+      prevCloseInr: chosen.prevClose,
+      priceDate: chosen.date,
+      priceStaleDays: chosen.staleDays,
+      priceSource: chosen.source,
+      priceTier: chosen.tier,
+      priceExchange: chosen.exchange,
+      // A stock that did not trade has NO day change. Not 0.0%.
+      dayChangePct: round(dayChangePct(chosen.price, chosen.prevClose), 4),
+
+      // ---- monthly statistics, NSE-sourced where available ----------------
+      advQty: stats?.advQty ?? null,
+      advSource: stats?.advSource ?? null,
+      yearlyChangePct: stats?.yearlyChangePct ?? null,
+      lastSplitFactor: stats?.lastSplitFactor ?? null,
+      lastSplitDate: stats?.lastSplitDate ?? null,
+
       held,
       funds: company.funds,
       resolution: {
@@ -251,6 +300,94 @@ function main() {
   }
 
   out.sort((a, b) => (b.fullMcapInr ?? 0) - (a.fullMcapInr ?? 0));
+
+  // ---- passive drift and flow primitives ---------------------------------
+  //
+  // READ THE HEADER OF lib/recompute.mjs BEFORE CHANGING THIS.
+  //
+  // A stock's index weight rising on price alone forces NO trade: the fund's
+  // holding gains value in exactly the same proportion as the weight does.
+  // Drift is shown because it is how a stock closing on a size cut-off becomes
+  // visible — never because it implies a purchase. `requiresTrade` is false on
+  // every record here by construction.
+  //
+  // Weight drifts relative to the BASKET, not in absolute terms: the other
+  // holdings moved too. So each fund's own capitalisation-weighted return is
+  // computed first, and a stock's drift is its return measured against that.
+  const byKeyRecord = new Map(out.map((c) => [c.isin ?? `bse:${c.bseScripCode}`, c]));
+
+  const fundBasket = {};
+  for (const fund of funds.funds) {
+    let now = 0;
+    let atCapture = 0;
+    let members = 0;
+    for (const record of resolved) {
+      if (record.fundId !== fund.id) continue;
+      const company = byKeyRecord.get(keyFor(record));
+      if (!company) continue;
+      if (company.freeFloatMcapInr === null || company.freeFloatMcapAtCaptureInr === null) continue;
+      now += company.freeFloatMcapInr;
+      atCapture += company.freeFloatMcapAtCaptureInr;
+      members += 1;
+    }
+    fundBasket[fund.id] = {
+      members,
+      basketReturn: atCapture > 0 ? now / atCapture : null,
+      coveredFreeFloatNowInr: now,
+      coveredFreeFloatAtCaptureInr: atCapture,
+    };
+  }
+
+  for (const record of resolved) {
+    const company = byKeyRecord.get(keyFor(record));
+    if (!company) continue;
+    const basket = fundBasket[record.fundId];
+    if (!basket?.basketReturn) continue;
+    if (company.freeFloatMcapInr === null || !(company.freeFloatMcapAtCaptureInr > 0)) continue;
+
+    const stockReturn = company.freeFloatMcapInr / company.freeFloatMcapAtCaptureInr;
+    const drift = passiveDrift(record.holding.weightPct, stockReturn, basket.basketReturn);
+    if (!drift) continue;
+
+    company.passiveDrift = company.passiveDrift ?? {};
+    company.passiveDrift[record.fundId] = {
+      weightAtCapturePct: round(drift.weightAtCapturePct, 6),
+      impliedWeightNowPct: round(drift.impliedWeightNowPct, 6),
+      driftPp: round(drift.driftPp, 6),
+      requiresTrade: drift.requiresTrade, // always false — price never forces a trade
+    };
+  }
+  for (const company of out) {
+    if (company.passiveDrift === undefined) company.passiveDrift = null;
+  }
+
+  // The FX rate is the WORKBOOK's own, as of the holdings date — never a live
+  // one. Pairing a live rate with a month-old AUM would be precision on one
+  // input pretending to be precision on the answer.
+  const workbookFxRate = (() => {
+    for (const fund of funds.funds) {
+      for (const holding of fund.holdings) {
+        if (Number.isFinite(holding.fxRate)) return holding.fxRate;
+      }
+    }
+    return null;
+  })();
+
+  const flowPrimitivesByFund = {};
+  for (const fund of funds.funds) {
+    const primitives = flowPrimitives(fund, workbookFxRate);
+    if (!primitives) continue;
+    flowPrimitivesByFund[fund.id] = {
+      shortName: fund.shortName,
+      ...primitives,
+      basketReturn: round(fundBasket[fund.id]?.basketReturn ?? null, 8),
+      driftMembers: fundBasket[fund.id]?.members ?? 0,
+      note:
+        'INPUTS to a flow calculation, not a flow. No index event has been identified yet, so no ' +
+        'rupee flow figure exists anywhere in this build.',
+    };
+  }
+
 
   // ---- the unit tripwire -------------------------------------------------
   // BSE publishes ₹ crore; everything here is rupees. A crore value that leaks
@@ -341,6 +478,47 @@ function main() {
     out.filter((c) => c.floatSource === 'bse' && c.floatFactorBse === null)
       .slice(0, 5).map((c) => c.name).join(' | '),
   );
+  // The recompute must be reversible: floatFactor x shares x price recovers the
+  // stored free float. A relative tolerance because sharesOutstanding is itself
+  // a rounded integer, so the product cannot be bit-exact.
+  const roundTripFailures = [];
+  for (const company of out) {
+    if (company.freeFloatMcapInr === null || company.floatFactor === null) continue;
+    if (company.sharesOutstanding === null || company.priceInr === null) continue;
+    const expected = company.floatFactor * company.sharesOutstanding * company.priceInr;
+    if (expected <= 0) continue;
+    const relative = Math.abs(company.freeFloatMcapInr - expected) / expected;
+    if (relative > 1e-6) {
+      roundTripFailures.push(`${company.name}: stored ${company.freeFloatMcapInr} vs ${Math.round(expected)} (rel ${relative.toExponential(2)})`);
+    }
+  }
+  checks.assert(
+    roundTripFailures.length === 0,
+    'floatFactor × sharesOutstanding × price recovers freeFloatMcapInr for every company',
+    roundTripFailures.slice(0, 5).join(' | '),
+  );
+
+  // If every drift shares a sign, the drift is measuring the market's move
+  // rather than each stock's move relative to it — almost always prices from
+  // two different dates. A one-sided distribution is a bug, not a finding.
+  const driftValues = out
+    .flatMap((c) => Object.values(c.passiveDrift ?? {}))
+    .map((d) => d.driftPp)
+    .filter((v) => Number.isFinite(v) && v !== 0);
+  const positiveDrift = driftValues.filter((v) => v > 0).length;
+  const negativeDrift = driftValues.filter((v) => v < 0).length;
+  checks.assert(
+    driftValues.length === 0 || (positiveDrift > 0 && negativeDrift > 0),
+    'passive drift is both-signed (a one-sided distribution means prices from different dates)',
+    `${positiveDrift} positive, ${negativeDrift} negative of ${driftValues.length}`,
+  );
+
+  checks.assert(
+    out.every((c) => Object.values(c.passiveDrift ?? {}).every((d) => d.requiresTrade === false)),
+    'no passive-drift record claims a trade is required',
+    'price movement never forces an index fund to trade',
+  );
+
   checks.assert(
     out.every((c) => (c.freeFloatMcapInr === null) === (c.freeFloatBasis === null)),
     'a free-float figure and its stated formula are always both present or both absent',
@@ -363,6 +541,15 @@ function main() {
     floatFromBse: out.filter((c) => c.floatSource === 'bse').length,
     withoutFloat: out.filter((c) => c.freeFloatMcapInr === null).length,
     withBothFactors: disagreements.length,
+    // Price tiers. `live` never appears here — it exists only in the browser.
+    pricedEod: out.filter((c) => c.priceTier === 'eod').length,
+    pricedStale: out.filter((c) => c.priceTier === 'stale').length,
+    unpriced: out.filter((c) => c.priceTier === null).length,
+    // How many rows a live quote could EVER reach. Munshot is keyed on NSE
+    // tickers, so a company with no asserted NSE symbol stays on EOD for ever.
+    liveEligible: out.filter((c) => c.nseSymbol !== null).length,
+    liveIneligible: out.filter((c) => c.nseSymbol === null).length,
+    withAdv: out.filter((c) => c.advQty !== null).length,
     byFund: {},
   };
 
@@ -548,6 +735,8 @@ function main() {
       isharesHoldings: funds.funds[0]?.asOf ?? null,
       nseSession: nseFreeFloat.sessionTimestamp,
       bseCapturedAt: bseFreeFloat.capturedAt,
+      bhavcopyTradeDate: prices.tradeDate,
+      quoteStatsCapturedAt: quoteStats?.capturedAt ?? null,
       bseScripMasterCapturedAt: master.capturedAt,
       nseUniverseCapturedAt: nseUniverse.capturedAt,
     },
@@ -558,6 +747,19 @@ function main() {
         "the desk's own heuristics, from public/js/config/thresholds.mjs — MSCI does not publish these cut-offs",
     },
     coverage,
+    prices: {
+      tradeDate: prices.tradeDate,
+      source: prices.source,
+      capturedAt: prices.capturedAt,
+      pricedCount: prices.pricedCount,
+      carriedForwardCount: prices.carriedForwardCount,
+      missingCount: prices.missingCount,
+      continuityFailures: prices.continuity?.failures?.length ?? null,
+    },
+    quoteStats: quoteStats
+      ? { capturedAt: quoteStats.capturedAt, companyCount: quoteStats.companyCount, source: quoteStats.source }
+      : null,
+    flowPrimitives: flowPrimitivesByFund,
     resolutionMethodCounts: methodCounts,
     floatFactorDisagreement: {
       comparedCompanies: disagreements.length,

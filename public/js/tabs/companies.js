@@ -8,9 +8,10 @@
  */
 
 import { $, el, escapeHtml } from '../core/dom.js';
-import { cr, inr, pct, factorPct, num, shortDate, plural, EM_DASH } from '../core/format.js';
+import { cr, inr, pct, factorPct, num, shortDate, dayChange, plural, EM_DASH } from '../core/format.js';
 import * as data from '../data/companies.js';
 import * as state from '../core/state.js';
+import * as quotes from '../data/quotes.js';
 import { setParams, getParam, onRoute } from '../core/router.js';
 import { segmentedToggle } from '../ui/components.js';
 import { sectionHead, statStrip, scoreTable, openDrill, closeDrill } from '../ui/screener.js';
@@ -19,6 +20,76 @@ import { exportCsv } from '../ui/export.js';
 import { REVIEW_THRESHOLDS, crore, toCrore } from '../config/thresholds.mjs';
 
 const FUND_ORDER = ['eem', 'smin', 'eems'];
+
+/**
+ * The price and free float in force for a company RIGHT NOW.
+ *
+ * The committed record carries the EOD (BSE) figures. A live quote, when one
+ * has arrived for this company's NSE symbol, overlays them in memory — and
+ * SWAPS THE EXCHANGE while doing so, which is why `exchange` travels with every
+ * number here. Nothing is blended; the EOD figures stay on the record beside
+ * the live ones so a reader can see both.
+ */
+export function liveView(company) {
+  const quote = quotes.liveQuote(company.nseSymbol);
+  const usingLive = Boolean(quote && Number.isFinite(quote.price) && quote.price > 0);
+
+  if (!usingLive) {
+    return {
+      live: false,
+      price: company.priceInr,
+      prevClose: company.prevCloseInr,
+      exchange: company.priceExchange,
+      tier: company.priceTier,
+      staleDays: company.priceStaleDays ?? 0,
+      priceDate: company.priceDate,
+      freeFloatMcapInr: company.freeFloatMcapInr,
+      dayChangePct: company.dayChangePct,
+      basis: company.freeFloatBasis,
+    };
+  }
+
+  const price = quote.price;
+  const prevClose = quote.prevClose ?? company.prevCloseInr;
+  // The recompute. This is why prompt 2 stored a factor and a share count
+  // rather than a rupee figure.
+  const freeFloat =
+    company.floatFactor !== null && company.sharesOutstanding !== null
+      ? Math.round(company.floatFactor * company.sharesOutstanding * price)
+      : company.freeFloatMcapInr;
+
+  return {
+    live: true,
+    price,
+    prevClose,
+    exchange: 'NSE',
+    tier: 'live',
+    staleDays: 0,
+    priceDate: null,
+    freeFloatMcapInr: freeFloat,
+    dayChangePct:
+      prevClose && prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : null,
+    basis: 'floatFactor × sharesOutstanding × live NSE price',
+  };
+}
+
+/** The chip that says which exchange priced this row, and how fresh it is. */
+function priceChip(view) {
+  if (view.tier === 'live') {
+    // Says LIVE, not NSE. The chip beside it already names the exchange that
+    // published the FLOAT, and two chips both reading "NSE" for two different
+    // things is worse than one that reads clearly — the price's exchange is in
+    // the cell title and in the header pill.
+    return '<span class="ml-1 inline-flex items-center rounded-md bg-emerald-50 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-inset ring-emerald-200" title="Priced from a live NSE quote this session — a different exchange from the committed BSE close.">LIVE</span>';
+  }
+  if (view.tier === 'stale') {
+    return `<span class="ml-1 inline-flex items-center rounded-md bg-amber-50 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800 ring-1 ring-inset ring-amber-200" title="This stock did not trade. Its last close of ${escapeHtml(shortDate(view.priceDate))} is carried forward — that is not the same as unchanged.">${view.staleDays}D</span>`;
+  }
+  if (view.tier === 'eod') {
+    return '<span class="ml-1 inline-flex items-center rounded-md bg-slate-100 px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500 ring-1 ring-inset ring-slate-200" title="BSE closing price from the committed end-of-day bhavcopy.">BSE</span>';
+  }
+  return '';
+}
 
 /**
  * The desk's size bands, READ FROM THE THRESHOLD MODULE, never from literals.
@@ -214,13 +285,36 @@ function floatSectionHtml(company) {
       : null;
   const wide = gapPct !== null && Math.abs(gapPct) > (data.thresholds().floatFactorDisagreementReviewPct ?? 5);
 
+  const view = liveView(company);
+
   let html =
     '<dl class="rounded-xl bg-slate-50/70 p-3">' +
     drillRow(
       'Free-float market cap',
-      company.freeFloatMcapInr === null
+      view.freeFloatMcapInr === null
         ? missing('no free-float reading from either exchange')
-        : escapeHtml(inr(company.freeFloatMcapInr)),
+        : `${escapeHtml(inr(view.freeFloatMcapInr))} ${priceChip(view)}`,
+    ) +
+    drillRow(
+      'Price in force',
+      view.price === null
+        ? missing('no price from any source')
+        : `${escapeHtml(num(view.price, 2))} <span class="text-[10px] font-normal text-slate-500">${escapeHtml(view.exchange ?? '')}${view.priceDate ? ` · ${shortDate(view.priceDate)}` : ' · live'}</span>`,
+      { title: view.live ? 'Live NSE quote this session' : 'Committed BSE closing price' },
+    ) +
+    (view.staleDays > 0
+      ? drillRow(
+          'Price is carried forward',
+          `<span class="text-amber-700">${escapeHtml(String(view.staleDays))} day(s)</span>`,
+          { title: 'This stock did not trade. Its last close is carried forward — that is not the same as unchanged.' },
+        )
+      : '') +
+    drillRow(
+      'Published at capture',
+      company.freeFloatMcapAtCaptureInr === null
+        ? missing('no published figure on record')
+        : escapeHtml(inr(company.freeFloatMcapAtCaptureInr)),
+      { title: 'What the exchange published when the monthly float file was captured, kept for comparison' },
     ) +
     drillRow(
       'Factor in force',
@@ -293,6 +387,91 @@ function fundsSectionHtml(company) {
   );
 }
 
+/**
+ * Weight drift, per fund.
+ *
+ * The wording matters as much as the number. A weight that rose on price alone
+ * requires NO trade: the fund's holding gained value in exactly the proportion
+ * the weight did. This block says so in those words, every time, because the
+ * obvious reading of a rising weight is the wrong one.
+ */
+function driftSectionHtml(company) {
+  const drift = company.passiveDrift;
+  if (!drift || Object.keys(drift).length === 0) {
+    return '<p class="rounded-xl bg-slate-50/70 p-3 text-xs leading-relaxed text-slate-600">No fund holds this company, so there is no weight to drift.</p>';
+  }
+  const capture = data.freshness().feeds.find((f) => f.id === 'ishares');
+  const since = capture?.date ? shortDate(capture.date) : 'the holdings date';
+
+  const blocks = FUND_ORDER.map((id) => {
+    const record = drift[id];
+    if (!record) return '';
+    const label = data.fundCoverage(id)?.shortName ?? id;
+    const up = record.driftPp > 0;
+    const tone = record.driftPp === 0 ? 'text-slate-500' : up ? 'text-emerald-700' : 'text-rose-700';
+    return (
+      '<div class="mb-2 rounded-xl bg-slate-50/70 p-3 last:mb-0">'
+      + `<div class="mb-1.5 flex items-center gap-2">${fundChip(id, label)}</div>`
+      + `<p class="text-xs leading-relaxed text-slate-700">Drifted from <strong class="tabular-nums">${escapeHtml(pct(record.weightAtCapturePct, 5))}</strong> `
+      + `to <strong class="tabular-nums">${escapeHtml(pct(record.impliedWeightNowPct, 5))}</strong> on price alone since ${escapeHtml(since)} `
+      + `(<span class="${tone} font-semibold tabular-nums">${escapeHtml(record.driftPp > 0 ? '+' : '')}${escapeHtml(num(record.driftPp, 6))} pp</span>) — `
+      + '<strong>no trade required</strong>.</p></div>'
+    );
+  }).join('');
+
+  return (
+    blocks
+    + '<p class="mt-2 rounded-xl bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">'
+    + 'An index fund holds each member in proportion to its weight, so when a price rises the holding '
+    + 'gains value by exactly the proportion the weight does. Drift is worth watching because it is how '
+    + 'a company closing on a size cut-off becomes visible — not because it implies a purchase. '
+    + 'Forced trading comes from the index\'s own inputs changing at a review: a segment migration, an '
+    + 'entry or exit, a float-factor revision or a share-count revision.</p>'
+  );
+}
+
+/**
+ * Flow primitives — INPUTS to a calculation, not results.
+ *
+ * No rupee flow figure appears anywhere on this screen, because no index event
+ * has been identified yet. What is shown is what one percentage point of weight
+ * is worth in each fund, so a later forecast can be read against it.
+ */
+function flowPrimitivesSectionHtml(company) {
+  const primitives = data.flowPrimitives();
+  const held = FUND_ORDER.filter((id) => company.funds?.[id]);
+  if (held.length === 0) return '';
+
+  const rows = held.map((id) => {
+    const p = primitives[id];
+    if (!p) return '';
+    return (
+      '<div class="mb-2 rounded-xl bg-slate-50/70 p-3 last:mb-0">'
+      + `<div class="mb-1.5 flex items-center gap-2">${fundChip(id, p.shortName)}`
+      + `<span class="text-[11px] text-slate-500">AUM as of ${escapeHtml(shortDate(p.aumAsOf))}, not today</span></div>`
+      + '<dl>'
+      + drillRow('Fund AUM', escapeHtml(`$${num(p.fundAumUsd / 1e9, 2)} bn`), { title: 'Total fund market value across every country, from the holdings workbook' })
+      + drillRow('FX rate used', escapeHtml(`${num(p.fxRate, 5)} ₹/$`), { title: "The workbook's own rate as of the holdings date — deliberately not a live rate" })
+      + drillRow('1.00 pp of weight', escapeHtml(`₹${num(p.inrPerWeightPointCrore, 0)} Cr`))
+      + drillRow('0.01 pp of weight', escapeHtml(`₹${num(p.inrPerBasisPointOfWeight / 1e7, 2)} Cr`))
+      + '</dl></div>'
+    );
+  }).join('');
+
+  const adv = company.advQty;
+  const advLine = adv
+    ? `<p class="mt-2 text-[11px] leading-relaxed text-slate-500">Average daily volume <strong class="tabular-nums">${escapeHtml(num(adv))}</strong> shares `
+      + `(${escapeHtml(company.advSource ?? 'source unrecorded')}). A flow is only actionable measured against this — ₹400 Cr is nothing in a large cap and a fortnight of volume in a small one.</p>`
+    : '<p class="mt-2 text-[11px] leading-relaxed text-slate-400">No average daily volume on record, so a flow could not be expressed in days of volume.</p>';
+
+  return (
+    rows + advLine
+    + '<p class="mt-2 rounded-xl bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-900 ring-1 ring-amber-200">'
+    + 'These are <strong>inputs to a later calculation, not results</strong>. No index event has been '
+    + 'identified for this company, so no rupee flow figure exists anywhere in this build.</p>'
+  );
+}
+
 function provenanceSectionHtml(company) {
   const fresh = data.freshness();
   const dates = fresh.feeds
@@ -341,6 +520,8 @@ function openCompanyDrill(key, { onClose } = {}) {
       drillSection('Identity', identity) +
       drillSection('Free float', floatSectionHtml(company)) +
       drillSection('Index participation', fundsSectionHtml(company)) +
+      drillSection('Weight drift — no trade required', driftSectionHtml(company)) +
+      drillSection('Flow primitives — inputs, not results', flowPrimitivesSectionHtml(company)) +
       drillSection('Provenance', provenanceSectionHtml(company)),
     onClose: () => {
       setParams({ company: null });
@@ -364,9 +545,10 @@ const watchStar = (isin) => {
   );
 };
 
-export function renderCompanies(host, { scopeControl }) {
+export function renderCompanies(host, { onStatusChange } = {}) {
   let table = null;
   let lastView = null;
+  const refreshHeaderStatus = () => onStatusChange?.();
 
   function build() {
     const scope = state.getScope();
@@ -404,11 +586,44 @@ export function renderCompanies(host, { scopeControl }) {
         label: 'Free float (₹ Cr)',
         align: 'right',
         html: true,
-        sortValue: (row) => row.freeFloatMcapInr,
-        get: (row) =>
-          row.freeFloatMcapInr === null
-            ? missing('no free-float reading from either exchange')
-            : `<span class="inline-flex items-center justify-end gap-1.5"><span class="font-semibold text-slate-900">${escapeHtml(cr(row.freeFloatMcapInr))}</span>${sourceChip(row.floatSource)}</span>`,
+        sortValue: (row) => liveView(row).freeFloatMcapInr,
+        get: (row) => {
+          const view = liveView(row);
+          if (view.freeFloatMcapInr === null) return missing('no free-float reading from either exchange');
+          // The title carries what the exchange published at capture, the price
+          // in force and its date, so a reader can always tell whether the
+          // figure moved because the stock moved or because the source did.
+          const title =
+            `${view.live ? 'Live' : 'End-of-day'} ${view.exchange} price ${num(view.price, 2)}`
+            + `${view.priceDate ? ` on ${shortDate(view.priceDate)}` : ''}`
+            + `${view.staleDays > 0 ? ` — carried forward ${view.staleDays} day(s); this stock did not trade` : ''}`
+            + `. ${view.basis ?? ''}`
+            + `. Published at capture: ${row.freeFloatMcapAtCaptureInr === null ? 'no reading' : `₹${cr(row.freeFloatMcapAtCaptureInr)} Cr`}.`;
+          return (
+            `<span class="inline-flex items-center justify-end gap-1" title="${escapeHtml(title)}">`
+            + `<span class="font-semibold ${view.live ? 'text-emerald-700' : 'text-slate-900'}">${escapeHtml(cr(view.freeFloatMcapInr))}</span>`
+            + sourceChip(row.floatSource) + priceChip(view) + '</span>'
+          );
+        },
+      },
+      {
+        label: 'Day %',
+        align: 'right',
+        html: true,
+        sortValue: (row) => liveView(row).dayChangePct,
+        get: (row) => {
+          const view = liveView(row);
+          // A stock that did not trade has NO day change. Not 0.0%.
+          if (view.dayChangePct === null) {
+            return missing(
+              view.tier === 'stale'
+                ? 'did not trade — no day change, which is not the same as unchanged'
+                : 'no previous close to compare against',
+            );
+          }
+          const tone = view.dayChangePct > 0 ? 'text-emerald-700' : view.dayChangePct < 0 ? 'text-rose-700' : 'text-slate-500';
+          return `<span class="${tone} font-semibold">${escapeHtml(dayChange(view.dayChangePct))}</span>`;
+        },
       },
       {
         label: 'Float %',
@@ -586,6 +801,19 @@ export function renderCompanies(host, { scopeControl }) {
             { label: 'Float factor BSE', value: (r) => (r.floatFactorBse === null ? '' : r.floatFactorBse) },
             { label: 'Full mcap (INR Cr)', value: (r) => (r.fullMcapInr === null ? '' : toCrore(r.fullMcapInr).toFixed(2)) },
             { label: 'Shares outstanding', value: (r) => r.sharesOutstanding ?? '' },
+            { label: 'Price', value: (r) => liveView(r).price ?? '' },
+            { label: 'Price exchange', value: (r) => liveView(r).exchange ?? '' },
+            { label: 'Price tier', value: (r) => liveView(r).tier ?? '' },
+            { label: 'Price date', value: (r) => liveView(r).priceDate ?? (liveView(r).live ? 'live, this session' : '') },
+            { label: 'Price carried forward (days)', value: (r) => liveView(r).staleDays ?? '' },
+            { label: 'Day change %', value: (r) => liveView(r).dayChangePct ?? '' },
+            { label: 'Free float published at capture (INR Cr)', value: (r) => (r.freeFloatMcapAtCaptureInr === null ? '' : toCrore(r.freeFloatMcapAtCaptureInr).toFixed(2)) },
+            { label: 'Avg daily volume (shares)', value: (r) => r.advQty ?? '' },
+            { label: 'Avg daily volume source', value: (r) => r.advSource ?? '' },
+            ...FUND_ORDER.map((id) => ({
+              label: `${data.fundCoverage(id)?.shortName ?? id} weight drift pp (price only, no trade required)`,
+              value: (r) => r.passiveDrift?.[id]?.driftPp ?? '',
+            })),
             ...FUND_ORDER.map((id) => ({
               label: `${data.fundCoverage(id)?.shortName ?? id} weight % (of that fund only)`,
               value: (r) => r.funds?.[id]?.weightPct ?? '',
@@ -606,6 +834,32 @@ export function renderCompanies(host, { scopeControl }) {
   }
 
   build();
+
+  /**
+   * A price landing must not disturb the reader.
+   *
+   * `updateRows(keys)` swaps exactly the affected <tr> nodes in place, so the
+   * search box, the filters, the sort order and the watchlist all survive a
+   * tick. A full rebuild here would throw away whatever the reader had set up,
+   * every thirty seconds, which is how a live table becomes unusable.
+   *
+   * A price change is NOT a structural change: only a change to the row SET
+   * rebuilds. The one exception is a filter that depends on price — none does
+   * today, and if one is added it must call refresh() deliberately.
+   */
+  quotes.onQuotes((event) => {
+    if (event.type !== 'tick') {
+      refreshHeaderStatus();
+      return;
+    }
+    if (Array.isArray(event.changed) && event.changed.length && table) {
+      table.updateRows(event.changed);
+    }
+    refreshHeaderStatus();
+    // If the drill is showing one of the changed companies, refresh it too.
+    const open = getParam('company');
+    if (open && event.changed?.includes(open)) openCompanyDrill(open);
+  });
 
   /**
    * Keep the drill in step with the URL.

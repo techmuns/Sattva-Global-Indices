@@ -195,6 +195,86 @@ meaningless.
 
 ---
 
+### 2.10 A live price swaps the exchange, it does not merely refresh the number
+
+Munshot reports `Symbol=RELIANCE.NS, Exchange=NSI` — it is **Yahoo Finance NSE** data. The committed
+EOD baseline is **BSE bhavcopy**. On 19 Aug 2026 BSE closed RELIANCE at 1307.50 while Munshot showed
+1311.00.
+
+So a live price does not just make a figure fresher; it **changes which exchange produced it**. The
+rule is the same as for NSE-vs-BSE float: the source travels with the number, nothing blends them,
+and every row says which exchange priced it. **A reader must never watch a free-float figure move
+and be unable to tell whether the stock moved or the source did.**
+
+Three price tiers, and a row always knows which it is on:
+
+| Tier | Meaning |
+| --- | --- |
+| `live` | this session's NSE quote, in memory only |
+| `eod` | the committed BSE close from bhavcopy |
+| `stale` | a close carried forward because the stock did not trade, with a day count |
+
+**A stock absent from today's bhavcopy has not traded.** That is neither zero nor "unchanged": its
+last close is carried forward with `priceStaleDays`, and every figure computed from it is marked.
+
+**Live prices are folded into memory only and are NEVER written back to a committed file.** The
+committed file is the exchange's own bytes under the exchange's own date; a locally patched copy
+would destroy the basis for trusting either.
+
+**The factor and the share count are monthly; the price is live.** Separate files, separate as-of
+dates, and the float file is never restamped because a price arrived. **The oldest input still
+governs the freshness claim** — a live price does not make a month-old float factor live.
+
+**Outside 09:15–15:30 IST there is no live price, only the last one.** The pill reads "Live · NSE"
+only during market hours and "Last close · BSE" otherwise, and it claims live only when a byte
+actually arrived. A chip that says "just now" whether or not anything was confirmed teaches readers
+to ignore it.
+
+### 2.11 A rising weight does not force a trade
+
+**Read this twice; getting it backwards makes every flow figure wrong in the same direction.**
+
+An index weight is `freeFloatMcap_i / Σ freeFloatMcap` across members, and an index fund holds each
+member in proportion. When a stock's price rises, the value of the fund's holding rises by **exactly
+the same proportion** as its index weight. The weight drifts upward and **the fund trades nothing**.
+
+Trading is forced only when the index's own inputs change, at a review:
+
+| Event | Who trades | Size |
+| --- | --- | --- |
+| Segment migration (Small Cap ⇄ Standard) | small-cap funds sell, EM funds buy | largest |
+| Index entry | every fund tracking it buys | large |
+| Index exit | every fund tracking it sells | large |
+| Float-factor revision (lock-in expiry, promoter change) | funds adjust by the delta | moderate |
+| Share-count revision (issuance, buyback, split) | funds adjust by the delta | moderate |
+
+Therefore:
+
+- **`passiveDrift.requiresTrade` is hard-coded `false`.** That is not a placeholder — no input to a
+  passive-drift calculation could make it true.
+- Drift is shown because it is how a company **closing on a size cut-off** becomes visible. It must
+  **never be multiplied by AUM and printed in rupees**.
+- Drift is measured **relative to the fund's own basket**, not in absolute terms: the other holdings
+  moved too. **If every drift shares a sign, that is a bug** — almost always prices from two
+  different dates — and `build-companies.mjs` asserts both signs are present.
+- `flowPrimitives` are **inputs to a later calculation, not results**. `fundAumUsd` and `fxRate` are
+  both as of the **holdings date**; pairing a live FX rate with a month-old AUM is precision on one
+  input pretending to be precision on the answer.
+- **No rupee flow figure exists anywhere in this codebase**, because no index event has been
+  identified yet.
+
+### 2.12 Nothing recomputes a factor from a price
+
+```
+freeFloatMcapInr(now) = floatFactor × sharesOutstanding × price(now)
+```
+
+If you find yourself dividing a rupee figure by a price to recover a factor you already hold, you
+have added a rounding path for nothing. `build-companies.mjs` asserts the round trip for every
+company.
+
+---
+
 ---
 
 ## 3. Facts about the data that will cost you an hour if you rediscover them
@@ -365,6 +445,45 @@ request; it is struck at an undisclosed moment and must never render as a compan
 > that master rather than from hand-entered codes. **Never scrape a scrip code that did not come
 > from the active master**, and be suspicious of any hand-checked figure that did.
 
+> ### ⚠ A 200 is not a contract
+>
+> BSE serves its single-page-app shell — HTTP 200, `content-type: text/html`, ~14 KB — for download
+> URLs that do not exist:
+>
+> ```
+> …/download/BhavCopy/Equity/EQ_ISINCODE_180826.zip  →  200, 13,850 bytes, text/html
+> ```
+>
+> A fetcher that trusts the status code writes an empty price file, and every free-float figure on
+> the dashboard goes null on a day when nothing was wrong. So **validate the SHAPE, never the
+> status**: it must parse as CSV, carry the columns expected, and its own `TradDt` must be the date
+> requested. `assertBhavcopyShape` in `scripts/lib/bhavcopy.mjs` does all three and is proven by
+> pointing the fetcher at that URL.
+>
+> Same family as the delisted-scrip trap: the response is well-formed and about something else.
+
+> ### ⚠ A file-level date check cannot see a stale row
+>
+> A file whose `TradDt` is today can still carry a row copied from yesterday. The row-level tripwire
+> is **continuity**: today's `PrvsClsgPric` must equal yesterday's `ClsPric`, per scrip. Measured
+> 18→19 Aug 2026: **4,562 compared, 0 failures** — a sharp tripwire, not a noisy one.
+>
+> Note the true-negative shape: 53 scrips carried byte-identical open/high/low/close across both days.
+> Those are bonds and illiquid lines that genuinely did not trade, and they **pass** continuity. An
+> unchanged close is not a stale row.
+
+> ### ⚠ `not_found` from Munshot is not a fact about the symbol
+>
+> Measured the hard way. Under sustained load `fastapi.muns.io` begins answering
+> `status: "not_found"` for tickers it served correctly minutes earlier — RELIANCE included. It does
+> not return 429 and it does not say "rate limited"; it says the symbol does not exist.
+>
+> So **`not_found` is treated exactly like a timeout**: a failure for this run, never a durable fact.
+> Anything that cached it as "this company has no quote" would permanently blacklist real companies,
+> and the blacklist would look like data. `scripts/fetch-quote-stats.mjs` refuses to write below a
+> coverage floor for the same reason: a half-populated statistics file is worse than none, because
+> the missing half renders as an em dash that reads as a property of the company.
+
 > ### ⚠ A guard may never read its threshold from the value under test
 >
 > This is general, and it is the rule that the unit tripwire in `build-companies.mjs` broke on its
@@ -461,13 +580,20 @@ scripts/
   lib/report.mjs                   console tables, number formatting, check lists
   lib/bse.mjs                      BSE client + the ₹-crore string parser
   lib/resolve.mjs                  ticker → ISIN → NSE symbol + BSE scrip code
+  lib/bhavcopy.mjs                 EOD CSV parse + shape and continuity tripwires
+  lib/munshot.mjs                  Munshot batch client + rawQuote parser, pure
+  lib/recompute.mjs                free-float recompute, passive drift, flow primitives
   import-ishares.mjs               3 workbooks → public/data/msci-funds.json
   scrape-nse-freefloat.mjs         NSE pre-open → public/data/nse-freefloat.json
   fetch-bse-master.mjs             BSE scrip master → public/data/bse-scrip-master.json
   fetch-nse-universe.mjs           niftyindices CSVs → public/data/nse-universe.json
   scrape-bse-freefloat.mjs         per-scrip BSE float → public/data/bse-freefloat.json
+  fetch-bhavcopy.mjs               BSE EOD prices → public/data/prices.json
+  fetch-quote-stats.mjs            monthly ADV / splits → public/data/quote-stats.json
   build-companies.mjs              everything → public/data/companies.json
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
+  probe-liveness.mjs               is the quote feed live? reports, writes nothing
+  probe-chunk-size.mjs             largest safe upstream batch; reports only
   fixtures/ishares-{eem,smin,eems}.xls    the committed input workbooks
 public/
   index.html                       placeholder; the interface is a later prompt
@@ -477,7 +603,18 @@ public/
   data/bse-scrip-master.json       generated — do not hand-edit
   data/nse-universe.json           generated — do not hand-edit
   data/bse-freefloat.json          generated — do not hand-edit
+  data/prices.json                 generated — the committed EOD price floor
+  data/quote-stats.json            generated — monthly ADV, splits
   data/companies.json              generated — the record the interface reads
+  js/core/live.js                  visibility-aware poller
+  js/data/quotes.js                live overlay; memory only, never written back
+worker/
+  index.js                         static assets + POST /api/quotes
+  http.mjs                         ETag / 304 / CORS / cache-state helpers
+wrangler.jsonc                     Worker config; npx-only, no node_modules here
+.github/workflows/
+  daily-refresh.yml                weekdays 20:00 IST — bhavcopy → rebuild → commit
+  monthly-float.yml                1st of month — float + universe + stats → commit
 ```
 
 Every JSON file under `public/data/` is a **generated artefact that is committed**, so the static
@@ -497,12 +634,27 @@ node scripts/fetch-bse-master.mjs      # 1 request, ~1.7 MB
 node scripts/fetch-nse-universe.mjs    # 2 requests, the ISIN bridge
 node scripts/scrape-nse-freefloat.mjs  # 3 requests, 261 symbols
 node scripts/scrape-bse-freefloat.mjs  # ~3,600 requests, ~25 min — the long one
+node scripts/fetch-bhavcopy.mjs        # 1 request, the whole market's closes
+node scripts/fetch-quote-stats.mjs     # monthly ADV/splits; --concurrency 1 --gap-ms 1200
 node scripts/build-companies.mjs       # no network; joins everything
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-python3 -m http.server 8080 -d public  # the site
+python3 -m http.server 8080 -d public  # the site, EOD only — no live prices
+npx wrangler dev                       # the site WITH /api/quotes and live prices
 ```
+
+**The static site is the floor and must always work.** With `python3 -m http.server` there is no
+`/api/quotes`, the poller records `no-worker`, every row stays on its committed EOD price and the
+header says "Last close". That is the designed state, not a degradation — verify it after any change
+to the live path.
+
+`npx wrangler` installs into the npx cache, not into this repo. There is still **no `package.json`
+and no `node_modules` here**, and `git status` must keep proving it.
+
+The upstream token lives in `.dev.vars` locally (gitignored) and as a Worker secret in production
+(`npx wrangler secret put MUNS_TOKEN`). **It must never appear in `public/`** — grep the served site
+after any change to the Worker.
 
 `scrape-bse-freefloat.mjs --limit N` fetches only the largest N scrips and **writes nothing** — use
 it to check the endpoint is healthy before spending twenty-five minutes on the full run.

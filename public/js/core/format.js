@@ -137,6 +137,22 @@ export function relativeTime(value, now = new Date()) {
   return EM_DASH;
 }
 
+/** A signed day change, coloured by the caller. Null in, em dash out. */
+export function dayChange(value, places = 2) {
+  if (isMissing(value)) return EM_DASH;
+  return `${value > 0 ? '+' : ''}${num(value, places)}%`;
+}
+
+/** "12s ago" for a live tick — seconds matter here, unlike relativeTime. */
+export function tickAge(value, now = new Date()) {
+  const date = value instanceof Date ? value : parseFeedDate(value);
+  if (!date) return EM_DASH;
+  const seconds = Math.max(0, Math.round((now.getTime() - date.getTime()) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  return relativeTime(date, now);
+}
+
 /** Pluralise without a hand-typed count anywhere. */
 export function plural(count, singular, pluralForm = `${singular}s`) {
   return count === 1 ? singular : pluralForm;

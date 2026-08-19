@@ -58,7 +58,19 @@ export function provenanceBanner(freshness, { scopeLabel, filterLabel } = {}) {
     [
       'Free float is an exchange-published figure.',
       'Each row states whether its free float came from NSE or BSE; the two exchanges apply different float definitions and do not agree. ' +
-        'It is never computed from promoter holding. Free-float market cap is derived as float factor x full market cap unless the row says otherwise.',
+        'It is never computed from promoter holding. Free-float market cap is recomputed as float factor x shares outstanding x the price in force.',
+    ],
+    [
+      'Prices name their exchange and their tier.',
+      'A "live" price is an intraday NSE quote; an "eod" price is the committed BSE close; a "stale" price is a close carried forward because ' +
+        'the stock did not trade, with the day count in its own column — that is NOT the same as unchanged. NSE and BSE are different exchanges ' +
+        'and do not agree to the paisa, so a figure that moved may reflect the source changing rather than the stock.',
+    ],
+    [
+      'Weight drift requires no trade.',
+      'The drift columns show how far a weight has moved on price alone since the holdings date. An index fund holds each member in proportion ' +
+        'to its weight, so a price move changes both by the same proportion and forces no trade. Drift is never multiplied by AUM, and this file ' +
+        'contains no rupee flow figure.',
     ],
     [`Rows in this file: ${scopeLabel ?? 'as filtered on screen'}.`, filterLabel ?? ''],
   ];
