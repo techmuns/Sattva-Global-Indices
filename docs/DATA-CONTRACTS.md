@@ -588,6 +588,159 @@ output would be checkable** — that is the whole difference between it and a nu
 
 ---
 
+## The verification suite
+
+Two commands. Neither needs the other, and both exit non-zero if any check failed.
+
+```bash
+node scripts/verify-data.mjs                                   # 21 checks, no browser, no network
+node scripts/verify-ui.mjs                                     # 21 checks vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live  # vs `npx wrangler dev`
+node scripts/verify-data.mjs --prove                           # break each check; it must go red
+```
+
+`.github/workflows/verify.yml` runs both on every push and pull request, in both modes.
+
+### Every check is a bug that actually happened
+
+The suite is not a coverage exercise. Each assertion is a trap found while building prompts 1–5, so
+that undoing the fix turns something red:
+
+| | Data-layer assertion | The trap it remembers |
+| --- | --- | --- |
+| 1 | workbook counts and weight sums | positional column reads; a silently-misparsed third file |
+| 2 | segments strictly disjoint, EM SC ⊆ India SC | segment membership assumed rather than derived |
+| 3 | no cross-fund weight arithmetic | three denominators that no arithmetic relates |
+| 4 | `…Inr` vs the master's independent `Mktcap`, within 100× | ₹ crore leaking into a rupee field |
+| 5 | zero `parseFloat` call sites | `parseFloat("8,71,532.61")` → `8` |
+| 6 | free-float round-trip for every company | recomputing a factor from a price |
+| 7 | every verdict replays from its own `rulesFired` | a derivation shown beside an answer it did not produce |
+| 8 | no probability, in code or in the record | invented precision with no base rate behind it |
+| 9 | `driftPp` never multiplied | a rising weight printed as a forced trade |
+| 10 | migrations two-directional, never netted | a netted migration implying a market-clearing |
+| 11 | EM SC flows only where EM SC holds | "not sampled" rendered as zero |
+| 12 | quarantined ⇒ `unknown`, no flow | a confident verdict on a share count we do not trust |
+| 13 | `daysOfAdv` null, never 0 | zero days of volume reading as "instant" |
+| 14 | no formatter renders a real value as nothing | ₹0.10 Cr printed "₹0 Cr"; 0.00045% printed "0.000%" |
+| 15 | null weight never rendered or sorted as 0 | a fabricated zero sorting a company to the bottom |
+| 16 | every scrip Active in the master | BSE answering happily for a scrip delisted in 2023 |
+| 17 | shape guard rejects the HTML-with-200 fixture | a 200 that is not a contract |
+| 18 | row-level continuity across two committed days | a file dated today carrying yesterday's row |
+| 19 | `rawQuote` round-trips; absent ⇒ null | a digit-leading key swallowed into the previous value |
+| 20 | the collision guard fires when forced | two rows of one fund on one ISIN |
+| 21 | the naive tripwire is proved to exempt its own victim | a guard reading its threshold from the value under test |
+
+| | Interface assertion | The trap it remembers |
+| --- | --- | --- |
+| 22 | zero console errors beyond the two CDN families | filtering by message text, which hides real errors |
+| 23 | every row in the DOM; the count reads the array | a count that counts what it is verifying |
+| 24 | rendered `(ISIN, name)` pairs vs the source array | counting cannot catch a key collision |
+| 25 | scope toggle changes the count; denominator printed | a bare "X" with no "of Y" |
+| 26 | search by name/symbol/ISIN; filters AND | filters that replace rather than compose |
+| 27 | sort both ways; missing last in both | nulls sorting as zero |
+| 28 | the sort button survives its own click | `thead.innerHTML = …` detaching the focused node |
+| 29 | the star fills on the click, filters, survives reload | a glyph that disagrees with what is stored |
+| 30 | `?company=` survives a real `page.reload()` | a superseded panel's `onClose` clearing its successor's URL |
+| 31 | focus trapped, ESC closes, focus restored | a panel a keyboard cannot leave, or return from |
+| 32 | every `<th>` carries `scope="col"` | a header unannounced to a screen reader |
+| 33 | no sideways body scroll at 1440 / 1024 / 390 | wide content clipped rather than scrolled |
+| 34 | a scope switch never blocks past 400 ms | a rebuild that freezes the tab |
+| 35 | all three provenance tiers present and populated | a "modelled" tier that still says nothing |
+| 36 | verdict pills semantic; never the brand indigo | brand colour standing in for meaning |
+| 37 | CSV round-trips with every banner line | a workbook that leaves without its disclosure |
+| 38 | the freshness hero names every date and the oldest | a live price implying a live float factor |
+| 39 | `/api/quotes` live→hit; a bad ticker in `failed[]` | one bad symbol taking the batch down |
+| 39b | a tick repaints only changed rows | a rebuild throwing away the reader's search and sort |
+| 40 | the token appears in zero **served** files | checking the repo instead of what is served |
+| 41 | Worker unreachable ⇒ EOD, "Last close" | claiming live when no byte arrived |
+
+### SKIP is a result, and it is always explained
+
+- **Static mode** (`python3 -m http.server`): the live block reports SKIP. Running it here is the
+  point — it exercises the end-of-day floor, which is the state the site is in most of the time.
+- **Worker mode** (`npx wrangler dev`): `--require-live` turns any SKIP in the live block into a
+  failure, because there a skip means the live path was never exercised.
+- Every run prints **how many checks skipped and why**. A suite that quietly skips half of itself and
+  reports "all passed" manufactures confidence rather than providing it.
+
+Two checks skip when the Tailwind CDN is unreachable (offline or sandboxed CI): **33** entirely,
+because `overflow-auto` is inert without the stylesheet and the body then measures 1014 against a
+390 viewport — a fact about the network, not the layout; and the **pixel half of 36**, which falls
+back to asserting the class contract and says so in its note.
+
+### What the suite found on its first run
+
+Three defects, none of which any earlier check would have caught:
+
+- **A superseded drill panel cleared its successor's URL.** `openDrill()` begins with
+  `closeDrill()`, which fires the outgoing panel's `onClose` — and that handler's job is to remove
+  `?company=` from the URL. Opening a drill twice in quick succession (the cold-load path does)
+  therefore left a panel open above an address bar that no longer named it, so copying the link
+  shared a page with no drill on it. `closeDrill({ superseded: true })` now skips `onClose`.
+  Assertion 30 is the regression test.
+
+- **`fetchQuotes()` discarded `failed[]` on the not-ok path.** The Worker names every symbol it
+  could not resolve and why; the client threw that away and kept only "upstream". So during exactly
+  the outage the per-symbol detail exists to describe, `liveFailedSymbols()` was empty and the
+  sources modal could say nothing about which symbols were affected. Assertion 39's degraded-upstream
+  branch is what surfaced it.
+
+- **A real weight printed as "0.000%".** Genus Prime Infra is 0.00045% of EM Small-Cap; at three
+  decimals that reads as *not held*. Same company whose two flows printed "₹0 Cr". See §2.20 in
+  `CLAUDE.md`; assertion 14 runs every real weight and every real flow through its formatter.
+
+### Assertion 39 has three branches, because a degraded upstream is neither a pass nor a fail
+
+`/api/quotes` can be in three states, and collapsing them would make the check useless in exactly
+the situation it matters:
+
+1. **No Worker** — the static floor. SKIP, with the remedy printed.
+2. **Worker and upstream both healthy** — every assertion runs: `live` then `hit`, the bogus ticker
+   in `failed[]`, the real symbols resolved alongside it.
+3. **Worker healthy, upstream refusing everything** — `fastapi.muns.io` answers `not_found` for
+   tickers it served minutes earlier, RELIANCE included, and never says "rate limited". Measured
+   again while writing this suite. Here the resolution assertions cannot run, but the important ones
+   still can, and they are about **honesty rather than success**: `ok` is false, the reason is named,
+   `quotes` is empty rather than fabricated, and **every requested symbol appears in `failed[]` with
+   its own reason** — a dropped symbol would be an absence reported as nothing. The cache still has
+   to read `live` then `hit`.
+
+Branch 3 is deliberately specific. A vaguer version — "pass if the upstream might be down" — would
+let a genuinely broken Worker through on that excuse.
+
+The check also offsets its symbol slice at random. The cache key is a hash of the symbol set with a
+30-second TTL, so a fixed slice reads `hit` on the first call of a re-run, and the cache assertion
+would then be testing the previous run rather than this one.
+
+### `--prove`: a check that cannot fail is not a check
+
+`--prove` clones the context, applies each check's own `sabotage()`, and demands the check goes red.
+A check that survives is reported **CANNOT FAIL**, as a failure. This is not ceremony — the first
+`--prove` runs failed seven checks that had been passing:
+
+- **3** — the sabotage no longer matched the pattern it was written for, after the pattern was
+  tightened. It had been proving nothing since.
+- **19** — the captured `rawQuote` fixture contains no comma inside any value, so a naive
+  `split(',')` passed it. The fixture was real; it simply did not exercise the trap.
+- **25, 27, 29, 41** — the sabotage was a one-shot DOM edit, and each check's first act re-rendered
+  or reloaded the page, wiping it before a single assertion ran.
+- **33** — `documentElement.scrollWidth` is pinned by the `overflow-x: hidden` backstop in
+  `index.html`, so the assertion could never fail. It now measures `body.scrollWidth`, which sees
+  content pushed out of view. **Clipped overflow is worse than a scrollbar, not better.** Measured
+  with the stylesheet in force: body 1440/1440, 1024/1024 and 390/390, with the table scrolling
+  inside its own container at the lower two.
+
+Two of the sabotages then had to be repaired for a second reason: a `MutationObserver` whose
+callback writes to the thing it observes re-triggers itself for ever, and both hung the run rather
+than failing it. Assigning `textContent` fires a `characterData` mutation even when the value is
+unchanged, and `prepend()` is itself a `childList` mutation. Both now `disconnect()` while they
+write — which also clears the pending record queue, so the reconnect is safe. **A hang is an outage
+reported as nothing**, so the harness now carries a per-check deadline (60 s for data, 150 s for
+the interface, against a slowest healthy check of about 12 s) and a runaway check fails on its own
+line instead of stalling the run in silence.
+
+---
+
 ## Where this model is weakest
 
 Written down deliberately, and before a client finds it. Every layer under this model was built in

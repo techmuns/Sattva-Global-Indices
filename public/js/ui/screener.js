@@ -82,7 +82,12 @@ function closeIcon(label) {
 
 /** Right-slide panel, 480px, singleton. ESC and backdrop click close it. */
 export function openDrill({ title, subtitle, body, onClose, label }) {
-  closeDrill();
+  // SUPERSEDED, NOT CLOSED. Opening a drill over an existing one must not run
+  // the old panel's onClose: that handler's job is to record "no drill is
+  // showing", and it would clear `?company=` for the panel that just replaced
+  // it. The symptom is a drill sitting open above an address bar that no longer
+  // names it, so copying the link shares a page with no drill on it.
+  closeDrill({ superseded: true });
   const root = $('#drill-root');
   if (!root) return null;
 
@@ -106,13 +111,15 @@ export function openDrill({ title, subtitle, body, onClose, label }) {
 
   const release = trapFocus(panel, { label: label ?? title ?? 'Details' });
 
-  const close = () => {
+  // The event listeners below pass a click Event here; reading `.superseded`
+  // off one is simply undefined, so a user-driven close always runs onClose.
+  const close = ({ superseded = false } = {}) => {
     if (openDrillHandle?.wrap !== wrap) return;
     release();
     wrap.remove();
     document.removeEventListener('keydown', onKey);
     openDrillHandle = null;
-    onClose?.();
+    if (!superseded) onClose?.();
   };
 
   function onKey(event) {
@@ -132,8 +139,8 @@ export function openDrill({ title, subtitle, body, onClose, label }) {
   return openDrillHandle;
 }
 
-export function closeDrill() {
-  openDrillHandle?.close();
+export function closeDrill(options) {
+  openDrillHandle?.close(options);
 }
 
 export const isDrillOpen = () => openDrillHandle !== null;

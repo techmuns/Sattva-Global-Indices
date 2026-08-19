@@ -100,12 +100,7 @@ So a missing value:
 
 In JSON, missing is `null`. Never `0`, never `""`, never `"-"`.
 
-**And rounding must not manufacture a zero either.** A ₹1,023,939 flow is ₹0.1024 Cr; printed at the
-no-decimal precision the rest of the screen uses it reads **"₹0 Cr"**, which a reader takes as *no
-flow*. That is the same lie as a fabricated zero, arriving by a different route, and it lands on the
-smallest holdings in the smallest companies — the rows least likely to be checked. `inrFlow()` in
-`public/js/core/format.js` keeps two significant figures and says `<₹0.01 Cr` rather than round a
-real number to nothing. Five of the 201 flows needed it.
+Rounding can manufacture a zero by a different route, and that has its own rule — **§2.20**.
 
 ### 2.4 A failure is not an absence
 
@@ -387,6 +382,68 @@ factor when MSCI follows NSE, and an entry flow is an estimate of a weight that 
 **Keep it current.** A model whose limits are catalogued can be argued with; one whose limits are
 implicit gets traded on. When a rule changes, update that section in the same commit — it is part of
 the deliverable, not commentary on it.
+
+### 2.20 A formatter may never round a real value to something that reads as nothing
+
+This is a **different failure from §2.3 with the same consequence**, and it does not arrive as a
+null. It arrives as arithmetic.
+
+A ₹1,023,939 flow is ₹0.1024 Cr. Printed at the no-decimal precision the rest of the screen uses, it
+reads **"₹0 Cr"** — and a reader takes that as *no flow*. A weight of 0.00045% printed at three
+decimals reads **"0.000%"**, which says *not held* — the one thing this project is most careful never
+to say by accident. A fractional count reads "0". In each case a real quantity has been erased by its
+own formatter, and it always lands on **the smallest positions in the smallest companies**, which are
+the rows least likely to be eyeballed. Both of the cases measured in the committed record are the
+same company: Genus Prime Infra, 0.00139% of the India Small-Cap fund.
+
+So **every formatter that can meet a small number carries a floor**, in
+`public/js/core/format.js` and nowhere else:
+
+| | Below its precision, prints |
+| --- | --- |
+| `inrFlow()` | `<₹0.01 Cr` |
+| `pct()`, `factorPct()`, `signedPct()` | `<0.001%` / `>-0.001%` |
+| `pp()` | `<0.01 pp` |
+| `count()` | `<1` |
+
+**A genuine zero still prints as zero**, because none is a fact and a floor that swallowed it would
+trade one lie for another. Assertion 14 in `scripts/verify-data.mjs` runs every real weight and every
+real flow in the record through its formatter and fails on any that reads as nothing — and asserts
+the genuine zeros still read as zero.
+
+### 2.21 A negative control, or the measurement is of your own code
+
+The `scrip_id`-as-NSE-symbol run (§3.9) reported **26 of 157 candidates were a different company**.
+The replay reported **none were**. The difference was not the data: 43 of the "mismatches" were an
+absent name field scored as a wrong company, three were `&` against `and`, and the 60 "upstream
+failures" were the `not_found`-under-load trap. **The mismatch rate measured the normaliser.**
+
+What settled it was a control the first run did not have: three symbols that cannot exist
+(`ZZQXNOTREAL`, `XKCDFAKE1`, `QQZZWWVV`) all returned HTTP 404, proving the endpoint is an existence
+test and not a fuzzy matcher — and then reading the answer off the response's own `Exchange` field
+rather than off a string comparison we wrote.
+
+So: **before believing a rate, run the input that must fail.** If it passes, the instrument is
+measuring itself. And when a measurement covers only part of a population, it does not get written
+into a field that carries a stronger provenance — it gets its own field, or it gets discarded.
+
+### 2.22 Every guard is proved by breaking the thing it guards
+
+`node scripts/verify-data.mjs --prove` and `node scripts/verify-ui.mjs --prove` clone the context,
+sabotage precisely what each check exists to catch, and report **CANNOT FAIL — as a failure** for any
+check that survives. This is not decoration: the first `--prove` runs failed **seven** of the suite's own checks, every one
+of which had been reporting a tick:
+
+- a sabotage that no longer matched the pattern it was written for, after that pattern was tightened;
+- a captured fixture that happened not to contain the trap it was chosen for (no comma inside any
+  value, so a naive `split(',')` passed it);
+- four one-shot DOM sabotages wiped by the re-render or reload the check itself performs before a
+  single assertion ran;
+- an assertion on `documentElement.scrollWidth`, which the `overflow-x: hidden` backstop in
+  `index.html` pins to the viewport, so it could never fail at all.
+
+**A check that cannot fail is not a check.** Before adding one, break the thing it tests and confirm
+it goes red; if you cannot make it fail, say so in the report rather than counting it.
 
 ---
 
@@ -737,6 +794,7 @@ docs/DATA-CONTRACTS.md             every JSON shape, unit, source and cadence
 scripts/
   lib/spreadsheetml.mjs            SpreadsheetML 2003 reader, zero dependencies
   lib/report.mjs                   console tables, number formatting, check lists
+  lib/assert.mjs                   the verification harness: check / skip / prove
   lib/bse.mjs                      BSE client + the ₹-crore string parser
   lib/resolve.mjs                  ticker → ISIN → NSE symbol + BSE scrip code
   lib/bhavcopy.mjs                 EOD CSV parse + shape and continuity tripwires
@@ -750,10 +808,15 @@ scripts/
   fetch-bhavcopy.mjs               BSE EOD prices → public/data/prices.json
   fetch-quote-stats.mjs            monthly ADV / splits → public/data/quote-stats.json
   build-companies.mjs              everything → public/data/companies.json
+  verify-data.mjs                  21 data assertions; no browser, no network
+  verify-ui.mjs                    21 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
   fixtures/ishares-{eem,smin,eems}.xls    the committed input workbooks
+  fixtures/bhavcopy-spa-shell.html       BSE's SPA shell, served with HTTP 200
+  fixtures/bhavcopy-sample-2026081{8,9}.csv  two real days, for continuity
+  fixtures/munshot-rawquote-reliance.txt     one captured detail quote
 public/
   index.html                       placeholder; the interface is a later prompt
   js/config/thresholds.mjs         EVERY threshold, and nowhere else
@@ -780,6 +843,7 @@ wrangler.jsonc                     Worker config; npx-only, no node_modules here
 .github/workflows/
   daily-refresh.yml                weekdays 20:00 IST — bhavcopy → rebuild → commit
   monthly-float.yml                1st of month — float + universe + stats → commit
+  verify.yml                       every push — both suites, both modes
 ```
 
 Every JSON file under `public/data/` is a **generated artefact that is committed**, so the static
@@ -805,6 +869,12 @@ node scripts/reconcile-shares.mjs      # share-count outliers -> quarantine list
 node scripts/build-companies.mjs       # no network; joins everything
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
+
+node scripts/verify-data.mjs           # 21 assertions; no browser, no network
+node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
+node scripts/verify-ui.mjs             # 21 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
+node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 
 python3 -m http.server 8080 -d public  # the site, EOD only — no live prices
 npx wrangler dev                       # the site WITH /api/quotes and live prices

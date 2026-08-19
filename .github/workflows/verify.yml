@@ -1,0 +1,183 @@
+# The verification suite, on every push and every pull request.
+#
+# THIS IS THE JOB THAT MAKES THE PREVIOUS FIVE PROMPTS DURABLE. Every trap
+# found while building this repo — the sparse-cell shift, the ₹-crore
+# parseFloat, the delisted scrip, the SPA shell served with HTTP 200, the
+# self-exempting unit tripwire, the ₹0 Cr rounding, the superseded drill
+# panel clearing its own URL — has a check here. A future change cannot quietly
+# undo one of them without turning this red.
+#
+# TWO MODES, AND BOTH MATTER.
+#
+#   static   `python3 -m http.server` — no /api/quotes, so the live checks
+#            report SKIP. That run is worth doing: it exercises the end-of-day
+#            floor, which is the state the site is in most of the time.
+#   worker   `npx wrangler dev` — the live checks must actually run, so the
+#            job passes --require-live and a SKIP there becomes a failure.
+#
+# The worker job needs MUNS_TOKEN. Where the secret is absent — a fork, or a
+# pull request from one — it SKIPS THE JOB AND SAYS SO rather than running a
+# hollow version of it. A green tick for work that did not happen is the exact
+# failure this suite exists to prevent.
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  data:
+    name: Data (no browser, no network)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No package.json and no dependencies — Node is used bare.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: There is no package.json and no node_modules in this repo
+        run: |
+          if find . -path ./.git -prune -o \( -name package.json -o -name node_modules \) -print | grep -q .; then
+            echo "::error::a package.json or node_modules appeared — the no-dependency rule is broken"
+            find . -path ./.git -prune -o \( -name package.json -o -name node_modules \) -print
+            exit 1
+          fi
+          echo "clean: no package.json, no node_modules"
+
+      - name: No credential may be committed
+        run: |
+          if git grep -nIE 'MUNS_TOKEN\s*=\s*["'"'"'][^"'"'"']{8,}|Bearer [A-Za-z0-9._-]{20,}' -- . ':!*.md'; then
+            echo "::error::something that looks like a credential is committed"
+            exit 1
+          fi
+          echo "clean: no credential-shaped strings"
+
+      - name: verify-data
+        run: node scripts/verify-data.mjs
+
+      # Every check must still be capable of failing. A check that survives its
+      # own sabotage is decoration, and this is the only thing that notices.
+      - name: verify-data --prove (every check must fail on purpose)
+        run: node scripts/verify-data.mjs --prove
+
+      - name: The build must reproduce the committed record
+        run: |
+          cp public/data/companies.json /tmp/companies-committed.json
+          node scripts/build-companies.mjs
+          node -e '
+            const fs = require("fs");
+            const a = JSON.parse(fs.readFileSync("/tmp/companies-committed.json", "utf8"));
+            const b = JSON.parse(fs.readFileSync("public/data/companies.json", "utf8"));
+            delete a.builtAt; delete b.builtAt;
+            if (JSON.stringify(a) !== JSON.stringify(b)) {
+              console.error("::error::companies.json does not reproduce from its inputs — re-run build-companies.mjs and commit the result");
+              process.exit(1);
+            }
+            console.log("companies.json reproduces exactly, apart from builtAt");
+          '
+
+  ui-static:
+    name: Interface — static floor (live checks SKIP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Playwright is a global tool here, never a dependency of this repo.
+      - name: Install Playwright (globally, outside the repo)
+        run: |
+          npm install -g playwright@latest
+          npx --yes playwright install --with-deps chromium
+
+      - name: Serve the static site
+        run: |
+          python3 -m http.server 8080 -d public &
+          for i in $(seq 1 30); do
+            curl -fsS -o /dev/null http://127.0.0.1:8080/ && break
+            sleep 1
+          done
+          curl -fsS -o /dev/null http://127.0.0.1:8080/
+
+      - name: git status must still be clean after serving
+        run: |
+          test -z "$(git status --porcelain)" || { git status --porcelain; exit 1; }
+
+      - name: verify-ui (static)
+        run: NODE_PATH="$(npm root -g)" node scripts/verify-ui.mjs http://127.0.0.1:8080
+
+      - name: verify-ui --prove (every check must fail on purpose)
+        run: NODE_PATH="$(npm root -g)" node scripts/verify-ui.mjs http://127.0.0.1:8080 --prove
+
+  ui-worker:
+    name: Interface — Worker (--require-live, a SKIP is a failure)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # A fork has no secret. Say so and stop, rather than running a version of
+      # this job that cannot test what it claims to test.
+      - name: Is the upstream token available?
+        id: secret
+        env:
+          MUNS_TOKEN: ${{ secrets.MUNS_TOKEN }}
+        run: |
+          if [ -z "$MUNS_TOKEN" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::MUNS_TOKEN is not available (fork or unconfigured repo). The live block cannot be exercised here; the static job still ran."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Playwright (globally, outside the repo)
+        if: steps.secret.outputs.available == 'true'
+        run: |
+          npm install -g playwright@latest
+          npx --yes playwright install --with-deps chromium
+
+      - name: Start wrangler dev
+        if: steps.secret.outputs.available == 'true'
+        env:
+          MUNS_TOKEN: ${{ secrets.MUNS_TOKEN }}
+        run: |
+          # The secret reaches the Worker through the environment, never a file.
+          npx --yes wrangler@latest dev --port 8787 --ip 127.0.0.1 --local &
+          for i in $(seq 1 60); do
+            curl -fsS -o /dev/null http://127.0.0.1:8787/api/health && break
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8787/api/health
+
+      - name: verify-ui --require-live
+        if: steps.secret.outputs.available == 'true'
+        run: NODE_PATH="$(npm root -g)" node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live
+
+      # Assertion 39 can only be proved where a Worker is answering — in the
+      # static job it skips, and a skipped check is never proved. This is the
+      # only run that can hold it to the same standard as the rest.
+      - name: verify-ui --prove (the live block included)
+        if: steps.secret.outputs.available == 'true'
+        run: NODE_PATH="$(npm root -g)" node scripts/verify-ui.mjs http://127.0.0.1:8787 --prove
+
+      - name: The token must not have reached the repo or the served site
+        if: steps.secret.outputs.available == 'true'
+        run: |
+          test -z "$(git status --porcelain)" || { echo "::error::the run left files behind"; git status --porcelain; exit 1; }
+          if grep -rq "MUNS_TOKEN" public/; then
+            echo "::error::public/ names the token"
+            exit 1
+          fi
+          echo "clean: nothing written, nothing leaked"

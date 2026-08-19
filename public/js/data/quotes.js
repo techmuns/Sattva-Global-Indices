@@ -114,13 +114,26 @@ export async function fetchQuotes(symbols) {
       return { ok: false, reason: 'no-worker', detail: 'this deployment serves static files only' };
     }
     if (!response.ok) {
-      return { ok: false, reason: 'upstream', detail: `worker returned HTTP ${response.status}` };
+      return { ok: false, reason: 'upstream', detail: `worker returned HTTP ${response.status}`, failed: [] };
     }
 
     const cacheState = response.headers.get('x-siflows-cache');
     const json = await response.json();
     if (!json?.ok) {
-      return { ok: false, reason: json?.reason ?? 'upstream', detail: json?.detail ?? null, remedy: json?.remedy ?? null, cacheState };
+      // CARRY failed[] THROUGH. The Worker names every symbol it could not
+      // resolve and why — "upstream status not_found", a timeout, a rejection —
+      // and dropping that here would leave the interface knowing only that
+      // "something upstream" broke, during exactly the outage the per-symbol
+      // detail exists to describe. A failure is not an absence, and a failure
+      // reported without its parts is most of the way back to one.
+      return {
+        ok: false,
+        reason: json?.reason ?? 'upstream',
+        detail: json?.detail ?? null,
+        remedy: json?.remedy ?? null,
+        failed: Array.isArray(json?.failed) ? json.failed : [],
+        cacheState,
+      };
     }
     return { ok: true, ...json, cacheState };
   } catch (error) {

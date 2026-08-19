@@ -10,6 +10,19 @@
  * undefined and never coerces to 0. A missing value that renders as "0.00"
  * sorts, sums and ranks, and will quietly place a company at the bottom of a
  * table it does not belong in at all.
+ *
+ * AND A REAL VALUE IS NEVER ROUNDED UNTIL IT READS AS NOTHING. That is a
+ * separate failure with the same consequence, and it arrives by rounding
+ * rather than by a null: ₹1,023,939 is ₹0.1024 Cr, and at no-decimal precision
+ * it prints "₹0 Cr", which a reader takes as *no flow*. A weight of 0.0004%
+ * prints "0.000%". Four hundred shares of a company with a billion in issue
+ * prints "0" against a percentage column. In every case a real quantity has
+ * been erased by its own formatter, and it always happens to the smallest
+ * values in the smallest companies — the rows least likely to be checked.
+ *
+ * So each formatter below that can meet a small number carries a FLOOR: below
+ * the precision it can show, it says "<0.01" rather than "0". A genuine zero
+ * still prints as zero, because a genuine zero is a fact.
  */
 
 export const EM_DASH = '—';
@@ -63,29 +76,63 @@ export function inrFlow(rupees) {
   return `₹${num(crore, places)} Cr`;
 }
 
-/** A percentage that is already expressed in percent (a weight of 0.68215). */
+/**
+ * A percentage that is already expressed in percent (a weight of 0.68215).
+ *
+ * FLOORED. A weight of 0.0004% is a real position; printed at three decimals
+ * it reads "0.000%", which is indistinguishable from not held — and "not held"
+ * is the one thing this project is most careful never to say by accident.
+ */
 export function pct(value, places = 3) {
   if (isMissing(value)) return EM_DASH;
-  return `${num(value, places)}%`;
+  return `${floored(value, places)}%`;
 }
 
-/** A dimensionless fraction (a float factor of 0.4978) -> "49.78%". */
+/**
+ * Format to `places`, but never let a non-zero value round to zero.
+ * Returns "<0.001"-style text (sign preserved) instead.
+ */
+function floored(value, places) {
+  const smallest = 10 ** -places;
+  if (value !== 0 && Math.abs(value) < smallest / 2) {
+    return `${value < 0 ? '>-' : '<'}${num(smallest, places)}`;
+  }
+  return num(value, places);
+}
+
+/** A dimensionless fraction (a float factor of 0.4978) -> "49.78%". Floored. */
 export function factorPct(value, places = 2) {
   if (isMissing(value)) return EM_DASH;
-  return `${num(value * 100, places)}%`;
+  return `${floored(value * 100, places)}%`;
 }
 
-/** A difference in percentage points, signed. */
+/** A difference in percentage points, signed. Floored. */
 export function pp(value, places = 2) {
   if (isMissing(value)) return EM_DASH;
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${num(value, places)} pp`;
+  const text = floored(value, places);
+  // "+<0.01" reads as noise; the floored form already carries its direction.
+  const sign = value > 0 && !text.startsWith('<') ? '+' : '';
+  return `${sign}${text} pp`;
 }
 
-/** A signed percentage change. */
+/** A signed percentage change. Floored. */
 export function signedPct(value, places = 2) {
   if (isMissing(value)) return EM_DASH;
-  return `${value > 0 ? '+' : ''}${num(value, places)}%`;
+  const text = floored(value, places);
+  const sign = value > 0 && !text.startsWith('<') ? '+' : '';
+  return `${sign}${text}%`;
+}
+
+/**
+ * A count of things — shares, companies, rows. Counts are integers, so the
+ * only way one reads as nothing is if it genuinely is nothing; but a FRACTION
+ * of a unit reaching here would round away silently, so it is floored too.
+ * A count of exactly 0 still prints "0", because none is a fact.
+ */
+export function count(value) {
+  if (isMissing(value)) return EM_DASH;
+  if (value !== 0 && Math.abs(value) < 0.5) return value < 0 ? '>-1' : '<1';
+  return num(Math.round(value));
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
