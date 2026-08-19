@@ -275,6 +275,114 @@ company.
 
 ---
 
+### 2.13 A verdict is a label on a rule, and there is no probability
+
+The requirement asks for a probability of inclusion or exclusion. **We do not print one, and the
+reason is not squeamishness.** A probability needs a base rate; a base rate needs history — past
+reviews, MSCI's actual cut-off at each, and which companies at which distances were added or
+dropped. This repo holds one holdings file per fund. "68% likely" would be invented precision and
+the one figure on the dashboard a reader could not check.
+
+So every assessment is a **banded, rule-derived verdict with its working attached**. Each carries
+`rulesFired: [{ key, label, input, threshold, thresholdSource, result }]`, and
+`verdictFromRules()` replays that record to recover the verdict. **`build-companies.mjs` asserts the
+replay matches for every company** — a drill panel showing a derivation that did not produce the
+answer beside it is worse than a wrong answer, because it looks checkable and is not.
+
+The upgrade path to a genuine probability is in `docs/DATA-CONTRACTS.md`. It needs dated historical
+iShares holdings files, which BlackRock publish.
+
+### 2.14 Two thresholds, and they answer different questions
+
+**Do not reconcile them. Where they disagree, the disagreement is information.**
+
+| | Source | Answers | Measured |
+| --- | --- | --- | --- |
+| Desk bands | `config/thresholds.mjs` | index **entry and exit** — is a company in MSCI India IMI at all? | ₹3,500–4,000 Cr inclusion, ₹2,000–2,400 Cr exclusion |
+| Observed boundary | current constituents | **which segment** — Standard or Small Cap? | Standard floor ₹18,521 Cr, Small Cap ceiling ₹70,169 Cr |
+
+They are an order of magnitude apart because they are different boundaries, not competing estimates.
+Measured: **0%** of Standard constituents, **20%** of Small Cap constituents and **85%** of unheld
+companies fall below ₹3,500 Cr — the desk band sits exactly at the unheld/Small-Cap line.
+
+Every verdict names the threshold that produced it and where that threshold came from.
+
+> ### ⚠ The observed floor cannot classify a constituent — it IS one
+>
+> The Standard floor is the smallest Standard constituent, so "is this Standard constituent below
+> the floor?" can never be true. That is the guard-reads-its-own-threshold trap (§3.8) wearing a
+> different hat.
+>
+> The non-circular test is a **rank crossing against the whole universe**: MSCI Standard holds N
+> India names, so take the top N companies by free-float market cap across the entire record. A
+> Standard constituent outside that top N has been overtaken; a non-Standard company inside it has
+> overtaken. Each is measured against the *other* segment and the unheld universe, never against its
+> own segment's own extremum. On the committed data that yields 19 migration-down and 12
+> migration-up candidates — small, specific and checkable.
+
+### 2.15 The segments are disjoint and EM Small-Cap only samples
+
+Measured on the committed holdings: `EM ∩ India SC = 0`, `EM ∩ EM SC = 0`. So segment membership is
+**derived**, not assumed — and `assertDisjoint()` re-checks it every build, because a future holdings
+file that breaks the pattern invalidates the derivation.
+
+**EM Small-Cap holds 408 of India Small-Cap's 454 India companies and zero that India Small-Cap
+lacks.** It samples the segment; India Small-Cap replicates it. So an entry draws a flow from India
+Small-Cap **for certain** and from EM Small-Cap **only if that fund already samples the company**. A
+company EM SC does not hold has no basis for an EM SC estimate: the output is **"not sampled"**,
+never zero.
+
+### 2.16 Only a trade-implying verdict gets a rupee figure
+
+`stable`, `unknown` and `passiveDrift` produce **none**, ever. The four shapes that do, and how
+certain each is:
+
+| Shape | Certainty |
+| --- | --- |
+| **Exit** — the whole current position | nearly a **measurement**: the holdings file states the position exactly |
+| **Entry** — a new position | **estimated**: target weight = the company's free float ÷ the segment's total free float, and both halves are shown |
+| **Migration** | **two flows, never netted** — small-cap funds sell, EM buys. Different funds, different directions; netting them would imply a market-clearing that does not happen |
+| **Not sampled** | no figure at all, and it says so |
+
+`daysOfAdv` is the number a trader acts on. Where `advQty` is unknown it is **`null`** and renders an
+em dash — never zero, never "instant".
+
+### 2.17 A suspect input produces `unknown`, not a confident answer
+
+`sharesOutstanding` feeds free-float market cap, which decides every verdict. A wrong share count
+does not produce a visibly broken row — it produces a confident, well-formatted, **wrong** verdict.
+
+`scripts/reconcile-shares.mjs` compares BSE's implied share count against Munshot's, each derived
+inside its own source so no price difference leaks in. A disagreement is usually an **exact rational
+ratio** (10×, 2×, 1.5×, 0.5×) because corporate actions are exact — which proves a corporate action
+is involved but **not which side missed it**. Only a third source can settle that, and this project
+has one: NSE's published free float, covering 261 symbols.
+
+Anything a third source does not settle is **quarantined**: `verdict: 'unknown'` with the reason
+attached. A hypothesis is not a resolution, and a verdict computed from a share count we do not
+trust is worse than no verdict.
+
+### 2.18 The review calendar is an assumption
+
+MSCI reviews quarterly in February, May, August and November — that much is public. The **exact
+effective date and the price-snapshot convention are not things this project can cite.** They live in
+`public/js/model/calendar.js`, every surface says "assumed", and correcting them is a one-line edit.
+Do not let a plausible date harden into an apparent fact by being rendered without its caveat.
+
+### 2.19 The model's own weaknesses are written down, not discovered later
+
+`docs/DATA-CONTRACTS.md` → **"Where this model is weakest"** is a ranked, measured list of every
+load-bearing assumption under the verdicts and flows: no backtest exists, size is a necessary and
+not a sufficient condition, liquidity never gates a verdict, 64 of the 145 non-stable verdicts sit
+within ±20% of the threshold that produced them, 72 of the 87 inclusion verdicts rest on a BSE float
+factor when MSCI follows NSE, and an entry flow is an estimate of a weight that does not exist yet.
+
+**Keep it current.** A model whose limits are catalogued can be argued with; one whose limits are
+implicit gets traded on. When a rule changes, update that section in the same commit — it is part of
+the deliverable, not commentary on it.
+
+---
+
 ---
 
 ## 3. Facts about the data that will cost you an hour if you rediscover them
@@ -472,6 +580,17 @@ request; it is struck at an undisclosed moment and must never render as a compan
 > Those are bonds and illiquid lines that genuinely did not trade, and they **pass** continuity. An
 > unchanged close is not a stale row.
 
+> ### ⚠ `/stock-data/batch` currently answers UNAUTHENTICATED
+>
+> Measured: `POST https://fastapi.muns.io/stock-data/batch` returns HTTP 200 with real prices and
+> **no `Authorization` header at all**, and it accepts an obviously-invalid bearer token without
+> complaint. The client's quote data is publicly readable by anyone who knows the URL, and that is
+> worth telling them.
+>
+> The Worker still sends the token and still refuses to run without `MUNS_TOKEN`. Making the token
+> optional by accident would turn the day it *starts* being enforced into what looks like an outage.
+> (`/sql/*` is properly protected — 403 `Not authenticated` without a token.)
+
 > ### ⚠ `not_found` from Munshot is not a fact about the symbol
 >
 > Measured the hard way. Under sustained load `fastapi.muns.io` begins answering
@@ -566,6 +685,39 @@ is the wrong company, and the wrongness is invisible downstream because both row
 The same ISIN across *different* funds is normal — the two small-cap funds hold hundreds of the same
 companies.
 
+> ### ⚠ The `scrip_id`-as-NSE-symbol question has an answer, and the name test is the wrong test
+>
+> 452 companies carry a BSE `scrip_id` that *looks* like an NSE symbol but have no entry in the
+> 750-name `nse-universe.json`, so `nseSymbol` is `null` for them. Munshot answers per-symbol and
+> was used as an independent third source. **Two runs disagreed, and the disagreement is the
+> lesson.**
+>
+> Run 1 tested "does Munshot's company name match BSE's, exactly after normalisation" and reported
+> 71 verified / 26 mismatched / 60 upstream failures out of 157. Run 2 replayed the same
+> deterministic candidate order and got 109 / 46 / **0** out of 155. Inspecting the 46:
+>
+> - **43 returned `Company Name: "N/A"`** — no name at all. The test scored "missing name" as
+>   "wrong company".
+> - **3 were `&` versus `and`** — *Kovai Medical Center **&** Hospital Ltd* against *Kovai Medical
+>   Center **and** Hospital Limited*, and two more of the same shape. The normaliser strips
+>   `LIMITED`/`LTD`/`COMPANY` but never mapped `&` → `AND`.
+>
+> **Not one of the 46 was a different company.** The mismatch rate measured the normaliser. And run
+> 1's 60 "failures" were the `not_found`-under-load trap wearing a different hat — they all resolved
+> on the replay.
+>
+> The response carries the answer directly. `Exchange` is `NSI` — Yahoo's NSE code — with a live
+> non-zero price for every candidate checked, against a `RELIANCE` control that reads the same. Three
+> deliberately impossible symbols (`ZZQXNOTREAL`, `XKCDFAKE1`, `QQZZWWVV`) all returned **HTTP 404**,
+> so the endpoint is a genuine existence test and not a fuzzy matcher. `NSDL` is the counter-example
+> that proves the discriminator: `Exchange: "N/A"`, price `0` — served, but not confirmed listed.
+>
+> **So the test is `Exchange === 'NSI'` AND a non-zero price — never the name.** Nothing was written
+> into the data from a partial 155-of-452 pass: `nseSymbol` is asserted from `nse-universe.json` on
+> ISIN and nowhere else (above), and a second, weaker provenance smuggled into the same field would
+> be invisible to every reader of it. A future run that wants these must cover all 452 and land them
+> in a **separate field carrying its own provenance**.
+
 ---
 
 ---
@@ -605,7 +757,13 @@ public/
   data/bse-freefloat.json          generated — do not hand-edit
   data/prices.json                 generated — the committed EOD price floor
   data/quote-stats.json            generated — monthly ADV, splits
+  data/share-reconciliation.json   generated — share-count outliers and quarantines
   data/companies.json              generated — the record the interface reads
+  js/model/thresholds.js           desk bands + the observed boundary, both labelled
+  js/model/segments.js             constituent → segment; disjointness re-checked
+  js/model/assess.js               the rules engine → verdict + rulesFired
+  js/model/flows.js                price a trade-implying verdict, and only those
+  js/model/calendar.js             review dates (assumed, configurable)
   js/core/live.js                  visibility-aware poller
   js/data/quotes.js                live overlay; memory only, never written back
 worker/
@@ -636,6 +794,7 @@ node scripts/scrape-nse-freefloat.mjs  # 3 requests, 261 symbols
 node scripts/scrape-bse-freefloat.mjs  # ~3,600 requests, ~25 min — the long one
 node scripts/fetch-bhavcopy.mjs        # 1 request, the whole market's closes
 node scripts/fetch-quote-stats.mjs     # monthly ADV/splits; --concurrency 1 --gap-ms 1200
+node scripts/reconcile-shares.mjs      # share-count outliers -> quarantine list
 node scripts/build-companies.mjs       # no network; joins everything
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only

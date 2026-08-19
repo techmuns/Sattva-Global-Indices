@@ -8,7 +8,7 @@
  */
 
 import { $, el, escapeHtml } from '../core/dom.js';
-import { cr, inr, pct, factorPct, num, shortDate, dayChange, plural, EM_DASH } from '../core/format.js';
+import { cr, inr, pct, factorPct, num, shortDate, dayChange, signedPct, plural, EM_DASH } from '../core/format.js';
 import * as data from '../data/companies.js';
 import * as state from '../core/state.js';
 import * as quotes from '../data/quotes.js';
@@ -18,6 +18,11 @@ import { sectionHead, statStrip, scoreTable, openDrill, closeDrill } from '../ui
 import { sourceChip, fundChip, missing } from '../ui/visual.js';
 import { exportCsv } from '../ui/export.js';
 import { REVIEW_THRESHOLDS, crore, toCrore } from '../config/thresholds.mjs';
+import { observedBoundary, rankByFreeFloat, THRESHOLD_SOURCE } from '../model/thresholds.js';
+import { segmentOf, segmentFloatTotals, SEGMENTS } from '../model/segments.js';
+import { assess, VERDICTS, DISCLOSURE, TRADE_IMPLYING } from '../model/assess.js';
+import { estimateFlows } from '../model/flows.js';
+import { nextReview } from '../model/calendar.js';
 
 const FUND_ORDER = ['eem', 'smin', 'eems'];
 
@@ -71,6 +76,85 @@ export function liveView(company) {
       prevClose && prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : null,
     basis: 'floatFactor × sharesOutstanding × live NSE price',
   };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The model, re-run against whatever price is in force
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Verdicts are stored in companies.json against the committed end-of-day
+ * price. When live quotes are in force the free-float market caps move, so the
+ * assessment is re-run here against the live view — exactly as free-float
+ * market cap itself is recomputed rather than served stale.
+ *
+ * The whole context (boundary, ranks, segment totals) is rebuilt, not just the
+ * one company's float: a rank crossing is a comparison against every other
+ * company, so recomputing one row against a stale ranking would be wrong in
+ * precisely the cases the model exists to catch. It is O(n log n) on 1,202
+ * rows — a couple of milliseconds — and it runs once per tick, not once per row.
+ */
+let modelState = null;
+
+/** A company as it currently stands: EOD fields overlaid with any live price. */
+function liveCompany(company) {
+  const view = liveView(company);
+  if (!view.live) return company;
+  return { ...company, freeFloatMcapInr: view.freeFloatMcapInr, priceInr: view.price };
+}
+
+export function rebuildModel() {
+  const source = data.all();
+  const live = source.map(liveCompany);
+  const boundary = observedBoundary(live, segmentOf);
+  const ranks = rankByFreeFloat(live, data.keyOf);
+  const floatTotals = segmentFloatTotals(live);
+  const quarantined = new Set(
+    source.filter((c) => c.shareCountQuarantine).map((c) => data.keyOf(c)),
+  );
+
+  const assessments = new Map();
+  const flows = new Map();
+  const context = { boundary, ranks, quarantined, keyOf: data.keyOf };
+  const flowContext = { flowPrimitives: data.flowPrimitives(), segmentFloatTotals: floatTotals };
+
+  for (const company of live) {
+    const key = data.keyOf(company);
+    const assessment = assess(company, context);
+    assessments.set(key, assessment);
+    flows.set(key, estimateFlows(company, assessment, flowContext));
+  }
+
+  modelState = { boundary, ranks, floatTotals, assessments, flows, builtAt: new Date() };
+  return modelState;
+}
+
+export const modelBoundary = () => modelState?.boundary ?? null;
+
+/** The assessment in force. Falls back to the stored EOD one before first build. */
+export function assessmentFor(company) {
+  return modelState?.assessments.get(data.keyOf(company)) ?? company.assessment ?? null;
+}
+
+export function flowsFor(company) {
+  return modelState?.flows.get(data.keyOf(company)) ?? company.flowEstimate ?? { flows: [], notSampled: [], shape: null };
+}
+
+const VERDICT_TONE = {
+  positive: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  caution: 'bg-amber-50 text-amber-800 ring-amber-200',
+  negative: 'bg-rose-50 text-rose-700 ring-rose-200',
+  // Slate, never brand indigo: a verdict is a semantic state, and the brand
+  // ramp is reserved for identity so the two can never be confused.
+  neutral: 'bg-slate-100 text-slate-600 ring-slate-200',
+};
+
+function verdictPill(verdict, { title } = {}) {
+  const meta = VERDICTS[verdict] ?? VERDICTS.unknown;
+  return (
+    `<span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${VERDICT_TONE[meta.tone]}"`
+    + ` title="${escapeHtml(title ?? `${meta.detail} ${DISCLOSURE}`)}">${escapeHtml(meta.label)}</span>`
+  );
 }
 
 /** The chip that says which exchange priced this row, and how fresh it is. */
@@ -129,8 +213,21 @@ function buildStats(scopeRows, scope) {
   const bseInView = scopeRows.filter((c) => c.floatSource === 'bse').length;
   const noneInView = inView - withFloatInView;
 
-  const held = cov.held ?? null;
   const fresh = data.freshness();
+
+  // Verdict counts, derived from the assessments in force — never typed.
+  const verdictCounts = {};
+  for (const company of scopeRows) {
+    const verdict = assessmentFor(company)?.verdict ?? 'unknown';
+    verdictCounts[verdict] = (verdictCounts[verdict] ?? 0) + 1;
+  }
+  const sum = (...keys) => keys.reduce((a, k) => a + (verdictCounts[k] ?? 0), 0);
+  const counts = {
+    inclusion: sum('likely-inclusion', 'possible-inclusion'),
+    exclusion: sum('exclusion-risk', 'likely-exclusion'),
+    migration: sum('migration-up', 'migration-down'),
+    unknown: sum('unknown'),
+  };
 
   const fundLines = FUND_ORDER.map((id) => {
     const f = data.fundCoverage(id);
@@ -204,27 +301,35 @@ function buildStats(scopeRows, scope) {
       },
     },
     {
-      label: 'Index members',
-      // Deliberately NOT a summed weight. Three funds' weights have three
-      // different denominators; adding them produces a number that means
-      // nothing and looks authoritative.
-      value: held === null ? EM_DASH : num(held),
-      detail: `held by at least one fund · ${plural(FUND_ORDER.length, 'fund')} tracked separately`,
-      // Holdings COUNTS per fund. Deliberately not weights: three funds'
-      // weights have three denominators and stacking them here would invite
-      // exactly the addition this project forbids.
-      extra: FUND_ORDER.map((id) => {
-        const f = data.fundCoverage(id);
-        return f ? cardRow(f.shortName, `${num(f.holdings)} holdings`) : '';
-      }).join(''),
+      label: 'Review outlook',
+      value: `${num(counts.inclusion)} · ${num(counts.exclusion)} · ${num(counts.migration)}`,
+      detail: `inclusion candidates · exclusion risks · migrations, of ${num(inView)} in view`,
+      extra:
+        cardRow('Inclusion candidates', num(counts.inclusion)) +
+        cardRow('Exclusion risks', num(counts.exclusion)) +
+        cardRow('Migrations', num(counts.migration)) +
+        cardRow('Unknown (input not trusted)', num(counts.unknown)),
       help: {
-        title: 'Why there is no total weight here',
+        title: 'What these verdicts are, and are not',
         body:
           '<div class="space-y-3 text-sm leading-relaxed text-slate-600">' +
-          '<p>A weight is a percentage <em>of the fund it sits inside</em>. The three funds have three different denominators, so summing or averaging their weights produces a figure with no meaning — while looking exactly like a real one.</p>' +
-          '<p>So the funds are reported separately, always:</p>' +
-          `<div class="space-y-1.5 rounded-xl bg-slate-50 p-3">${fundLines}</div>` +
-          '<p class="text-xs text-slate-400">Each line is that fund\'s own India weight and its own coverage. Nothing on this screen adds a number from one row to a number from another.</p>' +
+          `<p><strong>${escapeHtml(DISCLOSURE)}</strong></p>` +
+          '<p>The requirement asked for a probability of inclusion or exclusion. We cannot honestly print one. ' +
+          'A probability needs a base rate, and a base rate needs history — past reviews, what MSCI\'s cut-off ' +
+          'actually was each time, and which companies at which distances were added or dropped. This build holds ' +
+          'one holdings file per fund, dated ' + escapeHtml(shortDate(data.freshness().feeds.find((f) => f.id === 'ishares')?.date)) + '. ' +
+          '"68% likely" would be invented precision, and it would be the one number here a reader could not check.</p>' +
+          '<p>So each verdict is a <strong>label on a rule</strong>. Open any row to see every rule that fired, its input, ' +
+          'its threshold, and where that threshold came from.</p>' +
+          '<div class="space-y-1.5 rounded-xl bg-slate-50 p-3">' +
+          Object.keys(VERDICTS)
+            .filter((k) => verdictCounts[k])
+            .map((k) => `<div class="flex justify-between gap-3 text-xs"><span class="font-semibold text-slate-700">${escapeHtml(VERDICTS[k].label)}</span><span class="tabular-nums text-slate-600">${escapeHtml(num(verdictCounts[k]))} of ${escapeHtml(num(inView))}</span></div>`)
+            .join('') +
+          '</div>' +
+          `<p class="text-xs text-slate-400">Two thresholds produce these, and they are not the same thing. The desk's bands ` +
+          `(${escapeHtml(REVIEW_THRESHOLDS.inclusion.label)}, ${escapeHtml(REVIEW_THRESHOLDS.exclusion.label)}) decide index ENTRY and EXIT; ` +
+          `the observed constituent boundary decides which SEGMENT a company belongs in. MSCI does not publish its size cut-offs in advance.</p>` +
           '</div>',
       },
     },
@@ -395,6 +500,126 @@ function fundsSectionHtml(company) {
  * the weight did. This block says so in those words, every time, because the
  * obvious reading of a rising weight is the wrong one.
  */
+/**
+ * The Assessment section — the verdict, then the whole derivation.
+ *
+ * The rules table is the point. A verdict with no visible working is an opinion
+ * dressed as a measurement, and this is the one tier of number on the dashboard
+ * a reader cannot check against an exchange. So every rule that fired shows its
+ * input, its threshold, and WHOSE threshold it was.
+ */
+function assessmentSectionHtml(company) {
+  const assessment = assessmentFor(company);
+  if (!assessment) return '<p class="text-xs text-slate-500">Not yet assessed.</p>';
+
+  const meta = VERDICTS[assessment.verdict] ?? VERDICTS.unknown;
+  const review = nextReview();
+
+  let html =
+    '<div class="rounded-xl bg-slate-50/70 p-3">'
+    + `<div class="flex items-center gap-2">${verdictPill(assessment.verdict)}`
+    + `<span class="text-xs text-slate-600">${escapeHtml(meta.detail)}</span></div>`;
+
+  if (company.shareCountQuarantine) {
+    html +=
+      '<p class="mt-2 rounded-lg bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-900 ring-1 ring-amber-200">'
+      + '<strong>Share count quarantined.</strong> '
+      + escapeHtml(company.shareCountQuarantine.reason)
+      + ' Free-float market cap is floatFactor × sharesOutstanding × price, so every threshold comparison '
+      + 'below it would rest on a number we do not trust. No verdict is offered rather than a confident wrong one.</p>';
+  }
+
+  if (assessment.distancePct !== null) {
+    html += `<p class="mt-2 text-xs text-slate-600">Distance to the threshold this turned on: `
+      + `<strong class="tabular-nums">${escapeHtml(signedPct(assessment.distancePct))}</strong>.</p>`;
+  }
+  html += '</div>';
+
+  // ---- the rules ----
+  if (assessment.rulesFired.length) {
+    html +=
+      '<div class="mt-3 overflow-hidden rounded-xl ring-1 ring-slate-100">'
+      + '<table class="w-full text-left text-[11px]"><thead class="bg-slate-50"><tr>'
+      + '<th scope="col" class="px-2 py-1.5 font-bold uppercase tracking-wide text-slate-500">Rule</th>'
+      + '<th scope="col" class="px-2 py-1.5 text-right font-bold uppercase tracking-wide text-slate-500">Input</th>'
+      + '<th scope="col" class="px-2 py-1.5 text-right font-bold uppercase tracking-wide text-slate-500">Threshold</th>'
+      + '<th scope="col" class="px-2 py-1.5 font-bold uppercase tracking-wide text-slate-500">Source</th>'
+      + '<th scope="col" class="px-2 py-1.5 font-bold uppercase tracking-wide text-slate-500">Result</th>'
+      + '</tr></thead><tbody>';
+    for (const rule of assessment.rulesFired) {
+      // A rank rule's numbers are ranks; everything else is rupees.
+      const isRank = rule.key.startsWith('rank-crossing');
+      const fmt = (v) => (v === null || v === undefined ? '—' : isRank ? num(v) : `₹${cr(v)} Cr`);
+      const source = THRESHOLD_SOURCE[rule.thresholdSource];
+      html +=
+        '<tr class="border-t border-slate-50">'
+        + `<td class="px-2 py-1.5 text-slate-700">${escapeHtml(rule.label)}</td>`
+        + `<td class="px-2 py-1.5 text-right tabular-nums text-slate-900">${escapeHtml(fmt(rule.input))}</td>`
+        + `<td class="px-2 py-1.5 text-right tabular-nums text-slate-900">${escapeHtml(fmt(rule.threshold))}</td>`
+        + `<td class="px-2 py-1.5 text-slate-500"${source ? ` title="${escapeHtml(source.detail)}"` : ''}>${escapeHtml(source?.label ?? rule.thresholdSource)}</td>`
+        + `<td class="px-2 py-1.5 font-semibold text-slate-700">${escapeHtml(rule.result)}</td>`
+        + '</tr>';
+      if (rule.note) {
+        html += `<tr class="border-t border-slate-50"><td colspan="5" class="px-2 pb-1.5 text-[10px] leading-relaxed text-slate-400">${escapeHtml(rule.note)}</td></tr>`;
+      }
+    }
+    html += '</tbody></table></div>';
+  }
+
+  // ---- the flows ----
+  const { flows, notSampled, shape } = flowsFor(company);
+  if (flows.length || notSampled.length) {
+    html += `<h4 class="mt-4 mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">Estimated flow${shape === 'migration' ? ' — a migration is two flows, never netted' : ''}</h4>`;
+    for (const flow of flows) {
+      const buying = flow.direction === 'buy';
+      html +=
+        `<div class="mb-2 rounded-xl p-3 ring-1 ${buying ? 'bg-emerald-50/60 ring-emerald-100' : 'bg-rose-50/60 ring-rose-100'}">`
+        + `<div class="mb-1.5 flex items-center gap-2">${fundChip(flow.fundId, flow.fundShortName)}`
+        + `<span class="text-[11px] font-bold uppercase tracking-wide ${buying ? 'text-emerald-700' : 'text-rose-700'}">${buying ? 'buys' : 'sells'}</span>`
+        + `<span class="ml-auto text-[10px] text-slate-500">${escapeHtml(flow.certainty === 'measured-position' ? 'position size measured' : 'target weight estimated')}</span></div>`
+        + '<dl>'
+        + drillRow('Flow', `<span class="${buying ? 'text-emerald-700' : 'text-rose-700'}">₹${escapeHtml(num(Math.abs(flow.flowCrore), 0))} Cr</span>`)
+        + drillRow('Shares', flow.flowShares === null ? missing('no price, so no share count') : escapeHtml(num(Math.abs(flow.flowShares))))
+        + drillRow(
+            'Days of volume',
+            flow.daysOfAdv === null
+              ? missing('no average daily volume on record — this is not zero days')
+              : `${escapeHtml(num(flow.daysOfAdv, 2))} days`,
+            { title: flow.advSource ? `Average daily volume from ${flow.advSource}` : '' },
+          )
+        + drillRow('Target weight', `${escapeHtml(num(flow.targetWeightPp, 5))} pp`)
+        + '</dl>'
+        + `<p class="mt-1.5 text-[10px] leading-relaxed text-slate-500">${escapeHtml(flow.basis.formula)}`
+        + (flow.basis.numeratorInr
+            ? ` — ₹${num(Math.round(toCrore(flow.basis.numeratorInr)))} Cr of ₹${num(Math.round(toCrore(flow.basis.denominatorInr)))} Cr across ${num(flow.basis.denominatorMembers)} ${SEGMENTS[flow.basis.segment]?.label ?? flow.basis.segment} members`
+            : '')
+        + `. ${escapeHtml(flow.fundShortName)} AUM $${num(flow.aumUsd / 1e9, 2)} bn as of ${escapeHtml(shortDate(flow.aumAsOf))}, at ${escapeHtml(num(flow.fxRate, 5))} ₹/$.`
+        + (flow.note ? ` ${escapeHtml(flow.note)}` : '')
+        + '</p></div>';
+    }
+    for (const skipped of notSampled) {
+      html +=
+        '<div class="mb-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-100">'
+        + `<div class="mb-1 flex items-center gap-2">${fundChip(skipped.fundId, skipped.fundShortName)}`
+        + '<span class="text-[11px] font-bold uppercase tracking-wide text-slate-500">not sampled</span></div>'
+        + `<p class="text-[11px] leading-relaxed text-slate-600">${escapeHtml(skipped.reason)}</p></div>`;
+    }
+  } else if (assessment.verdict === 'stable') {
+    html +=
+      '<p class="mt-3 rounded-xl bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">'
+      + 'No rule fired, so nothing here implies a trade and no rupee figure is produced. '
+      + 'A weight that has drifted on price alone is shown below and requires no trade either.</p>';
+  }
+
+  html +=
+    '<p class="mt-3 rounded-xl bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-900 ring-1 ring-amber-200">'
+    + `<strong>${escapeHtml(DISCLOSURE)}</strong>`
+    + (review ? ` Aimed at the next review, <strong>${escapeHtml(review.label)}</strong> — an assumed date, effective ${escapeHtml(review.effectiveDate)}, ${escapeHtml(num(review.daysRemaining))} days away. ${escapeHtml(review.convention.attribution)}` : '')
+    + '</p>';
+
+  return html;
+}
+
 function driftSectionHtml(company) {
   const drift = company.passiveDrift;
   if (!drift || Object.keys(drift).length === 0) {
@@ -493,8 +718,10 @@ function provenanceSectionHtml(company) {
     'index weight, quantity and market value (BlackRock); free-float and full market cap (NSE or BSE, as marked); price (BSE).</p>' +
     '<p class="rounded-lg bg-white p-2.5 ring-1 ring-slate-100"><span class="font-bold text-slate-700">Derived by us:</span> ' +
     'the float factor, shares outstanding (full market cap ÷ price, both BSE) and free-float market cap — each with its formula shown beside it above.</p>' +
-    '<p class="rounded-lg bg-white p-2.5 ring-1 ring-slate-100"><span class="font-bold text-slate-700">Modelled:</span> ' +
-    'nothing. There is no forecast on this screen — no probability of inclusion or exclusion has been produced yet.</p>' +
+    '<p class="rounded-lg bg-white p-2.5 ring-1 ring-slate-100"><span class="font-bold text-slate-700">Modelled by us:</span> ' +
+    'the segment placement, the verdict and any flow estimate. These are rules we wrote, run against the desk\'s ' +
+    'thresholds and the observed constituent boundary — every one shows its working in the Assessment section above. ' +
+    'They are not probabilities and not MSCI\'s decision.</p>' +
     '</div>'
   );
 }
@@ -518,6 +745,7 @@ function openCompanyDrill(key, { onClose } = {}) {
     label: `${company.name} details`,
     body:
       drillSection('Identity', identity) +
+      drillSection('Assessment', assessmentSectionHtml(company)) +
       drillSection('Free float', floatSectionHtml(company)) +
       drillSection('Index participation', fundsSectionHtml(company)) +
       drillSection('Weight drift — no trade required', driftSectionHtml(company)) +
@@ -548,10 +776,17 @@ const watchStar = (isin) => {
 export function renderCompanies(host, { onStatusChange } = {}) {
   let table = null;
   let lastView = null;
+  let statsHost = null;
   const refreshHeaderStatus = () => onStatusChange?.();
+  /** The strip counts verdicts, so a verdict flip makes it stale. */
+  const repaintStats = () => {
+    if (statsHost) statsHost.replaceChildren(buildStats(data.forScope(state.getScope()), state.getScope()));
+  };
 
   function build() {
     const scope = state.getScope();
+    // The model must exist before anything renders a verdict.
+    rebuildModel();
     const rows = data.forScope(scope);
     const cov = data.coverage();
 
@@ -579,9 +814,49 @@ export function renderCompanies(host, { onStatusChange } = {}) {
       }),
     );
 
-    host.append(el('div', { class: 'mb-6' }, [buildStats(rows, scope)]));
+    statsHost = el('div', { class: 'mb-6' }, [buildStats(rows, scope)]);
+    host.append(statsHost);
 
     const columns = [
+      {
+        label: 'Verdict',
+        align: 'left',
+        html: true,
+        sortValue: (row) => {
+          // Ordered by how much a desk should care, not alphabetically.
+          const order = ['likely-inclusion', 'migration-up', 'possible-inclusion', 'migration-down', 'exclusion-risk', 'likely-exclusion', 'stable', 'unknown'];
+          return order.indexOf(assessmentFor(row)?.verdict ?? 'unknown');
+        },
+        defaultDir: 'asc',
+        get: (row) => {
+          const assessment = assessmentFor(row);
+          if (!assessment) return missing('not yet assessed');
+          const quarantine = row.shareCountQuarantine;
+          return verdictPill(assessment.verdict, {
+            title: quarantine
+              ? `Unknown: ${quarantine.reason}`
+              : `${VERDICTS[assessment.verdict]?.detail ?? ''} ${DISCLOSURE}`,
+          });
+        },
+      },
+      {
+        label: 'Distance',
+        align: 'right',
+        html: true,
+        sortValue: (row) => assessmentFor(row)?.distancePct ?? null,
+        get: (row) => {
+          const assessment = assessmentFor(row);
+          if (!assessment || assessment.distancePct === null) {
+            return missing('no threshold comparison — this company has no verdict to measure against');
+          }
+          const rule = assessment.rulesFired[assessment.rulesFired.length - 1];
+          const tone = assessment.distancePct >= 0 ? 'text-slate-700' : 'text-amber-700';
+          return `<span class="${tone} font-semibold" title="${escapeHtml(
+            `${signedPct(assessment.distancePct)} from the threshold this verdict turned on`
+            + `${rule ? ` (${rule.label}, ${THRESHOLD_SOURCE[rule.thresholdSource]?.label ?? rule.thresholdSource})` : ''}`,
+          )}">${escapeHtml(signedPct(assessment.distancePct, 1))}</span>`;
+        },
+      },
       {
         label: 'Free float (₹ Cr)',
         align: 'right',
@@ -744,6 +1019,16 @@ export function renderCompanies(host, { onStatusChange } = {}) {
           options: sizeBands(),
         },
         {
+          id: 'verdict',
+          label: 'Verdict',
+          allLabel: 'Any verdict',
+          options: Object.keys(VERDICTS).map((key) => ({
+            value: key,
+            label: VERDICTS[key].label,
+            match: (row) => assessmentFor(row)?.verdict === key,
+          })),
+        },
+        {
           id: 'watch',
           label: 'Watchlist',
           allLabel: 'All companies',
@@ -814,6 +1099,26 @@ export function renderCompanies(host, { onStatusChange } = {}) {
               label: `${data.fundCoverage(id)?.shortName ?? id} weight drift pp (price only, no trade required)`,
               value: (r) => r.passiveDrift?.[id]?.driftPp ?? '',
             })),
+            { label: 'Verdict (modelled, not MSCI)', value: (r) => VERDICTS[assessmentFor(r)?.verdict ?? 'unknown']?.label ?? '' },
+            { label: 'Segment', value: (r) => SEGMENTS[assessmentFor(r)?.segment ?? 'outside']?.label ?? '' },
+            { label: 'Distance to threshold %', value: (r) => assessmentFor(r)?.distancePct ?? '' },
+            { label: 'Threshold source', value: (r) => {
+              const rules = assessmentFor(r)?.rulesFired ?? [];
+              const last = rules[rules.length - 1];
+              return last ? (THRESHOLD_SOURCE[last.thresholdSource]?.label ?? last.thresholdSource) : '';
+            } },
+            { label: 'Rules fired', value: (r) => (assessmentFor(r)?.rulesFired ?? []).map((x) => `${x.label}: ${x.result}`).join(' | ') },
+            { label: 'Share count quarantined', value: (r) => (r.shareCountQuarantine ? 'yes' : '') },
+            ...FUND_ORDER.map((id) => ({
+              label: `${data.fundCoverage(id)?.shortName ?? id} estimated flow INR Cr (modelled)`,
+              value: (r) => flowsFor(r).flows.find((f) => f.fundId === id)?.flowCrore ?? '',
+            })),
+            ...FUND_ORDER.map((id) => ({
+              label: `${data.fundCoverage(id)?.shortName ?? id} flow days of volume`,
+              value: (r) => flowsFor(r).flows.find((f) => f.fundId === id)?.daysOfAdv ?? '',
+            })),
+            { label: 'Flow basis', value: (r) => flowsFor(r).flows.map((f) => `${f.fundShortName} ${f.direction}: ${f.certainty}`).join(' | ') },
+            { label: 'Not sampled by', value: (r) => flowsFor(r).notSampled.map((n) => n.fundShortName).join(' | ') },
             ...FUND_ORDER.map((id) => ({
               label: `${data.fundCoverage(id)?.shortName ?? id} weight % (of that fund only)`,
               value: (r) => r.funds?.[id]?.weightPct ?? '',
@@ -852,13 +1157,37 @@ export function renderCompanies(host, { onStatusChange } = {}) {
       refreshHeaderStatus();
       return;
     }
-    if (Array.isArray(event.changed) && event.changed.length && table) {
-      table.updateRows(event.changed);
+    if (!table) { refreshHeaderStatus(); return; }
+
+    // A price move changes free-float market cap, which can move a company
+    // across a threshold. So the model is re-run — the WHOLE context, because a
+    // rank crossing is a comparison against every other company and one row
+    // re-assessed against a stale ranking would be wrong in exactly the cases
+    // this exists to catch. O(n log n) on 1,202 rows, once per tick.
+    const before = new Map(data.all().map((c) => [data.keyOf(c), assessmentFor(c)?.verdict ?? null]));
+    rebuildModel();
+
+    const verdictChanged = [];
+    for (const company of data.all()) {
+      const key = data.keyOf(company);
+      if (before.get(key) !== (assessmentFor(company)?.verdict ?? null)) verdictChanged.push(key);
     }
+
+    // Repaint price changes AND verdict changes — a row whose verdict flipped
+    // has a stale pill even if its price cell happened not to move.
+    const changed = [...new Set([...(event.changed ?? []), ...verdictChanged])];
+    if (changed.length) table.updateRows(changed);
+
+    // A verdict flip can change the ROW SET when the verdict filter is on, and
+    // that IS a structural change — the only one a tick may cause.
+    if (verdictChanged.length && table.view.filters.verdict) table.refresh();
+
+    // The stat strip counts verdicts, so it goes stale on a flip.
+    if (verdictChanged.length) repaintStats();
+
     refreshHeaderStatus();
-    // If the drill is showing one of the changed companies, refresh it too.
     const open = getParam('company');
-    if (open && event.changed?.includes(open)) openCompanyDrill(open);
+    if (open && changed.includes(open)) openCompanyDrill(open);
   });
 
   /**

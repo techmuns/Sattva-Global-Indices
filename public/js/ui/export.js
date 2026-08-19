@@ -51,6 +51,14 @@ export function provenanceBanner(freshness, { scopeLabel, filterLabel } = {}) {
       `As-of dates — ${dates}.${governing}`,
     ],
     [
+      'VERDICTS ARE MODELLED BY US. They are not MSCI\'s decision and not probabilities.',
+      'Each verdict is a label produced by rules we wrote, run against the desk\'s own inclusion and exclusion bands and '
+        + 'against the segment boundary observed in the current constituents. MSCI derives its size cut-offs globally at each '
+        + 'quarterly review and does not publish them in advance. The "Rules fired" and "Threshold source" columns carry the '
+        + 'whole derivation for every row; a verdict with a quarantined share count is reported as Unknown rather than guessed. '
+        + 'Flow figures are estimates except where the column says the position size was measured from the holdings file.',
+    ],
+    [
       'Weights belong to one fund only.',
       'A weight is a percentage of the fund named in its column heading. The three funds have different denominators, ' +
         'so weights must never be summed, averaged or ranked across columns. An empty weight cell means NOT HELD by that fund — it is not a zero weight.',

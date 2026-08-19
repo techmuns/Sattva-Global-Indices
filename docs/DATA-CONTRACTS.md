@@ -464,6 +464,246 @@ the holdings date. **No rupee flow figure exists anywhere in this build.**
 
 ---
 
+## The model — segments, verdicts and flows
+
+Five modules under `public/js/model/`. They are plain ES modules, imported by the browser AND by
+`scripts/build-companies.mjs`, so there is one implementation and two sets of inputs: the build
+assesses against the committed end-of-day price, the interface re-assesses against whatever price is
+in force. Verdicts stored in `companies.json` are therefore **the EOD verdict**, exactly as
+`freeFloatMcapInr` already is.
+
+### `segments.js` — membership is derived, not assumed
+
+Measured on the committed holdings: `EM ∩ India SC = 0`, `EM ∩ EM SC = 0`, `India SC ∩ EM SC = 408`.
+
+| Held by | Segment |
+| --- | --- |
+| EM ETF | MSCI India Standard (large + mid) |
+| India Small-Cap and/or EM Small-Cap | MSCI India Small Cap |
+| none of the three | outside MSCI India IMI |
+
+`assertDisjoint()` re-checks this every build. **EM Small-Cap is a strict subset of India Small-Cap**
+— 408 of 454, zero names India SC lacks — so it samples the segment while India SC replicates it.
+That distinction drives flow estimation and is asserted too.
+
+### `thresholds.js` — two thresholds, deliberately not reconciled
+
+| | Source | Question | Committed value |
+| --- | --- | --- | --- |
+| Desk bands | `config/thresholds.mjs` | index entry / exit | ₹3,500–4,000 Cr, ₹2,000–2,400 Cr |
+| Observed boundary | current constituents | which segment | floor ₹18,521 Cr, ceiling ₹70,169 Cr |
+
+`observedBoundary()` returns both extremes, the companies that define them, the overlap and the
+**rank cutoff** — the Nth-largest free float where N is the Standard constituent count. The rank
+cutoff exists because the floor cannot classify a Standard constituent: the floor *is* one.
+
+### `assess.js` — the rules engine
+
+`assess(company, context)` returns `{ verdict, segment, distancePct, rulesFired, notes }`. Every rule
+records `{ key, label, input, threshold, thresholdSource, result }`.
+
+| Verdict | Rule |
+| --- | --- |
+| `likely-inclusion` | unheld, free float ≥ the desk's upper inclusion band |
+| `possible-inclusion` | unheld, inside the desk's inclusion band |
+| `migration-up` | a Small Cap constituent ranking inside the top N by free float |
+| `migration-down` | a Standard constituent ranking outside the top N |
+| `exclusion-risk` | a constituent inside the desk's exclusion band |
+| `likely-exclusion` | a constituent below the desk's lower exclusion band |
+| `stable` | no rule fired |
+| `unknown` | the share count is quarantined, or there is no free-float reading |
+
+`verdictFromRules(rulesFired)` replays the record and recovers the verdict; the build asserts the
+replay matches **for every company**. A drill showing a derivation that did not produce the answer
+beside it is worse than a wrong answer, because it looks checkable and is not.
+
+**There is no probability anywhere.** See §2.13 of CLAUDE.md and the upgrade path below.
+
+### `flows.js` — only trade-implying verdicts
+
+```
+flowInr    = targetWeightPp × inrPerWeightPoint(fund)
+flowShares = flowInr / priceInr
+daysOfAdv  = flowShares / advQty        // null, never 0, where advQty is unknown
+```
+
+`certainty` is `measured-position` for an exit (the holdings file states the position exactly) and
+`estimated` for an entry (target weight = the company's free float ÷ the segment's total, and the
+record carries both). A migration produces **two** flows with opposite signs, never netted.
+`notSampled[]` records a fund that has no basis for an estimate rather than emitting a zero.
+
+### `calendar.js` — assumed dates
+
+Quarterly Feb/May/Aug/Nov is public. The effective date and snapshot convention are **not cited**;
+`CONVENTION.confirmed` is `false` and every surface says "assumed".
+
+### Fields these add to `companies[]`
+
+| Field | Meaning |
+| --- | --- |
+| `segment` | `standard` \| `smallcap` \| `outside`, derived |
+| `assessment` | `{ verdict, distancePct, rulesFired, notes, disclosure, basis }` |
+| `flowEstimate` | `{ shape, flows[], notSampled[] }`, or `null` |
+| `shareCountQuarantine` | `{ reason, gapPct }` when the share count could not be corroborated |
+
+Top level gains `model` — segment counts, the observed boundary, verdict counts, the next review, and
+the disclosure string that must accompany any verdict.
+
+---
+
+## `public/data/share-reconciliation.json`
+
+| | |
+| --- | --- |
+| **Produced by** | `node scripts/reconcile-shares.mjs` |
+| **Why** | `sharesOutstanding` feeds free-float market cap, which decides every verdict. A wrong share count produces a confident, well-formatted, wrong answer. |
+
+Compares BSE's implied share count (`MktCapFull / LTP`) against Munshot's (`Market Cap / Current
+Price`) — each derived inside its own source, so no price difference leaks in. A disagreement is
+adjudicated against NSE's published free float where NSE covers the company; where it does not, the
+company is **quarantined** and its verdict becomes `unknown`.
+
+`quarantinedIsins[]` is what `build-companies.mjs` reads.
+
+---
+
+## The route to a real probability
+
+The requirement asked for a probability of inclusion or exclusion, and this build does not provide
+one. It is reachable, and this is what it would take:
+
+1. **Historical iShares holdings.** BlackRock publish per-date holdings files at the same URL pattern
+   as the committed fixtures. Fetching, say, three years of month-end files for the three funds gives
+   the constituent set at each date.
+2. **Reconstruct the events.** Diffing consecutive files yields entries, exits and segment
+   migrations, dated to a review.
+3. **Reconstruct the distances.** For each event, the company's free-float market cap at that date
+   (which needs historical prices — bhavcopy is available per day, and the float factor changes only
+   quarterly) gives its distance from the then-observed boundary.
+4. **Fit a base rate.** Entries and exits binned by distance-to-threshold give an empirical
+   probability curve, and the observed cut-off per review gives the boundary's own volatility.
+
+Cost: roughly 100 workbook fetches and a few thousand bhavcopy days, plus a fitting step. **The
+output would be checkable** — that is the whole difference between it and a number invented today.
+
+---
+
+## Where this model is weakest
+
+Written down deliberately, and before a client finds it. Every layer under this model was built in
+this repo, so these are not suspicions — they are the known load-bearing assumptions, ranked by how
+much a portfolio manager would lose by not knowing about them.
+
+### 1. Nothing here has ever been checked against a review
+
+Every figure is computed from today's data. There is no backtest, no hit rate, no measured
+false-positive rate, and no evidence that a `likely-inclusion` verdict has ever preceded an
+inclusion. The model is *reasonable*; it is not *validated*, and those are different claims. The
+section above is the route to closing this, and until it is closed, the verdict column is an
+ordering of candidates and not a forecast of outcomes.
+
+### 2. The verdict tests a necessary condition, not a sufficient one
+
+Size is one of MSCI's screens. It also applies liquidity screens (annualised traded value ratio and
+months of trading), a minimum free-float requirement, foreign-room limits, a minimum length of
+listing, and buffer rules that deliberately resist churn near the boundary. **None of those are in
+this model.** So the inclusion list is an *upper bound* on entries: it will contain names MSCI
+passes over, and the model has no way to say which. The same is true in reverse for exclusions,
+where the buffer rule is the specific thing missing — MSCI does not exclude a company the moment it
+crosses a line.
+
+### 3. Liquidity is displayed but never gates a verdict
+
+`daysOfAdv` annotates a flow and nothing more. **30 of the 201 flows have no ADV reading at all**,
+so even the annotation is incomplete. Liquidity is among the most common reasons a large-enough
+company is not included, which makes this the single largest missing screen in §2.
+
+### 4. Verdicts are sensitive to a threshold nobody published
+
+**64 of the 145 non-stable verdicts sit within ±20% of the threshold that produced them** (36 within
+±10%). The desk's band is a rule of thumb, not MSCI's rule, and a 20% move in it — well inside the
+uncertainty of an unpublished heuristic — reclassifies roughly 44% of the actionable list. The
+Distance column exists so a reader can see this per row, but the aggregate is the number that
+matters: *most of the interesting names are near the line, because that is what "interesting" means
+here.*
+
+### 5. The segment boundary is inferred from three funds, and a fund is not an index
+
+Segments are derived from which iShares fund holds a company. Two consequences:
+
+- **EM Small Cap samples.** It holds 408 of the India Small-Cap fund's 454. A company it does not
+  hold may be a genuine index member the fund chose not to sample, so "not held by EM Small Cap"
+  is not "not in the index". `isSampledByEmSmallCap()` keeps this visible and `flows.js` refuses to
+  print a figure for a name the fund does not hold — but the underlying ambiguity is unresolved.
+- **The India Small-Cap fund is treated as the small-cap roster.** It is one vendor's replication of
+  one index, with its own tracking decisions.
+
+### 6. The overlap is wide, and inside it size does not determine segment
+
+Standard floor ₹18,521 Cr (SBI Cards), Small-Cap ceiling ₹70,169 Cr (Laurus Labs) — **3.79× wide,
+157 companies inside it** (105 standard, 38 small cap, 14 unheld). Within that band, free-float size
+alone cannot say which segment a company belongs to; migration verdicts there rest on the
+rank-crossing test, which is a *proxy* for MSCI's actual cut-off. MSCI derives that cut-off globally
+at each review and does not publish it in advance.
+
+### 7. Most inclusion candidates are measured on the exchange MSCI does not follow
+
+**72 of the 87 inclusion verdicts rest on a BSE float factor**, because NSE's pre-open endpoint
+covers 261 names and the candidates are by definition not among the largest. NSE and BSE disagree by
+about 1% on RELIANCE; on a small cap the gap is unmeasured and could be larger. The desk's own rule
+is that MSCI follows NSE — so the rank these candidates hold is measured on the wrong exchange, and
+the model cannot currently do better for them.
+
+### 8. An entry flow is an estimate of a weight that does not exist yet
+
+An **exit** flow is measured: the fund's position is a line in the workbook. An **entry** flow is
+modelled — the company's weight is estimated as its free float over the segment's float total, then
+multiplied by fund AUM. The segment total is itself this model's segment assignment. So an entry
+flow inherits every error in §5, §6 and §7 at once. `flows.js` marks it `certainty: 'estimated'`
+against the exit's `'measured-position'`; a reader who ignores that distinction will treat the two
+as equally solid, and they are not.
+
+### 9. AUM and FX are as of the holdings date, not today
+
+`fundAumUsd` and `fxRate` both come from the committed workbooks (17 Aug 2026). A rupee flow is
+right to the extent the fund has neither grown nor shrunk since. That is days now; it is months if
+the fixtures are not refreshed, and nothing on screen decays to warn about it.
+
+### 10. Share count is derived, and the reconciliation can only catch disagreements
+
+`sharesOutstanding = fullMcapInr / price`, both from BSE, and every free-float figure multiplies by
+it. `reconcile-shares.mjs` compares that against Munshot's independently derived count and
+quarantined 4 companies. It finds counts that **disagree** between two sources; it cannot find one
+where both sources are stale in the same way, and it cannot adjudicate an exact corporate-action
+ratio without a third source — which is precisely why those 4 are quarantined rather than corrected.
+
+### 11. The calendar is an assumption, and the snapshot date is the part that matters
+
+`CONVENTION.confirmed` is `false`. The effective date is assumed to be the last business day of the
+review month; **the price snapshot window is unconfirmed**. If MSCI strikes its snapshot weeks
+before the effective date, then the distances that decide the review are the ones on *that* date,
+not today's — and this model has no snapshot-date mode. It always answers "if the review were
+struck on today's prices".
+
+### 12. The candidate universe floor is provably safe; the master's timestamp is not
+
+The BSE scrape covers every active scrip with indicative full market cap ≥ ₹2,000 Cr, plus every
+held name — **978 of the 978 active scrips above the desk's ₹3,500 Cr entry band**. Free float can
+never exceed full market cap, so a company below that floor cannot be an entry candidate at today's
+price: the floor is safe by construction, not by luck. The soft spot is that `Mktcap` in the scrip
+master is struck at an undisclosed moment. **118 active scrips sit between ₹1,500 Cr and ₹2,000 Cr**,
+and one that has re-rated sharply since the master was cut would be invisible to the scrape and
+therefore to the model.
+
+### What would move the needle most
+
+In order: (1) the historical backtest in the section above — it converts everything here from
+plausible to measured; (2) an ATVR liquidity screen, which is the largest missing rule and is
+computable from data already fetched; (3) NSE free-float coverage beyond 261 names, which is
+blocked on `/api/quote-equity` and is the reason §7 exists.
+
+---
+
 ## Resolution: how a holding becomes a company
 
 `scripts/lib/resolve.mjs`. Pure, deterministic, no I/O.
@@ -537,16 +777,17 @@ read-only and drives nothing a human cannot already do.
 
 These will get contracts in this document when they land, and not before:
 
-- **Weight history** — quarter-on-quarter weight deltas per fund, the input to flow estimates.
-  Requires storing dated snapshots of `msci-funds.json`, which nothing does yet.
-- **Flow estimates** — `Δweight × totalMarketValueUsd`. Tier 2; the formula renders with the number.
-- **Review forecasts** — inclusion / exclusion / re-weight probabilities. **Tier 3**: rendered with
-  the rules that fired, the thresholds used, and the fact that those thresholds are the desk's
-  assumption and not MSCI's published rule. Thresholds already live in
-  `public/js/config/thresholds.mjs`; nothing may add a second home for one.
-- **The inclusion/exclusion probability.** The screener renders company, free float, index
-  participation and weights; the modelled tier is not built. The drill panel's provenance section
-  says so in those words rather than leaving a reader to infer it.
+- **Weight history** — quarter-on-quarter weight deltas per fund, measured rather than modelled.
+  Requires storing dated snapshots of `msci-funds.json`, which nothing does yet. This is also step 1
+  of "The route to a real probability" above, and the two want the same files.
+- **A calibrated probability.** Deliberately absent, not overlooked. The verdict column is a label
+  on rules that fired, and the route to replacing it with a fitted base rate is set out above. Until
+  a backtest exists, nothing here may render a percentage of inclusion.
+- **A liquidity screen.** `daysOfAdv` annotates a flow; no ATVR test gates a verdict. It is the
+  largest missing MSCI rule and is computable from data already fetched.
+- **A snapshot-date mode.** Every distance is struck on today's price. MSCI's own price-snapshot
+  window is unconfirmed (`calendar.js`), and if it sits weeks before the effective date, that is the
+  date the model should be answering on.
 
 ### Known gaps in what *is* built
 
@@ -572,6 +813,14 @@ These will get contracts in this document when they land, and not before:
   entities start trading. Any future work here should target REIT free float and nothing else.
 - **`nseSymbol` is only available for the 750 companies in the niftyindices lists.** A company
   resolved to a BSE scrip outside those lists carries `nseSymbol: null`, which is honest and does
-  cost the NSE float comparison for that name.
-- **Free float is a monthly snapshot.** The stored `floatFactor` is price-independent by design, so
-  a daily price re-values it — but nothing in this repo fetches a daily price yet.
+  cost the NSE float comparison for that name. **The route to closing it is now measured**: 452 of
+  those companies carry a BSE `scrip_id` that looks like an NSE symbol, and Munshot's per-symbol
+  response confirms one directly via `Exchange === 'NSI'` plus a non-zero price — with HTTP 404 for
+  impossible symbols, so it is a real existence test. A 155-company sample confirmed every candidate
+  that returned data. Nothing was written from a partial pass; see the warning box in `CLAUDE.md`
+  §3.9 for why the company-name test was the wrong test, and why these must land in a **separate
+  field with its own provenance** rather than in `nseSymbol`.
+- **Free float is a monthly snapshot re-valued daily.** The stored `floatFactor` is price-independent
+  by design, and `prices.json` plus the live overlay re-value it every day. What is still monthly is
+  the factor and the share count — a price arriving never restamps them, and the oldest input governs
+  the freshness claim on screen.

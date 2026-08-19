@@ -55,6 +55,15 @@ import { buildIndex, resolveAll, CONFIRMED, NOT_LISTED } from './lib/resolve.mjs
 import {
   recomputeFreeFloat, choosePrice, dayChangePct, passiveDrift, flowPrimitives,
 } from './lib/recompute.mjs';
+// The model runs in the browser AND here. Same modules, different inputs: the
+// build assesses against the committed EOD price, the browser re-assesses
+// against whatever price is in force. Verdicts are therefore stored as the EOD
+// verdict, exactly as freeFloatMcapInr already is.
+import { observedBoundary, rankByFreeFloat } from '../public/js/model/thresholds.js';
+import { segmentOf, assertDisjoint, segmentFloatTotals } from '../public/js/model/segments.js';
+import { assess, verdictFromRules, VERDICTS, DISCLOSURE } from '../public/js/model/assess.js';
+import { estimateFlows } from '../public/js/model/flows.js';
+import { nextReview } from '../public/js/model/calendar.js';
 import { renderTable, num, round, CheckList } from './lib/report.mjs';
 import {
   SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
@@ -87,6 +96,10 @@ function main() {
   // failure — the site must build from the committed exchange data alone.
   const quoteStatsPath = join(REPO, 'public', 'data', 'quote-stats.json');
   const quoteStats = existsSync(quoteStatsPath) ? JSON.parse(readFileSync(quoteStatsPath, 'utf8')) : null;
+  // Companies whose share count could not be corroborated. Their verdicts
+  // become `unknown` rather than a confident answer on a suspect input.
+  const reconPath = join(REPO, 'public', 'data', 'share-reconciliation.json');
+  const reconciliation = existsSync(reconPath) ? JSON.parse(readFileSync(reconPath, 'utf8')) : null;
 
   const checks = new CheckList('build');
 
@@ -388,6 +401,129 @@ function main() {
     };
   }
 
+
+  // ---- segments, boundary, verdicts and flows ----------------------------
+  //
+  // The segment derivation rests on the three funds being disjoint. That is a
+  // measured fact on the committed data, not an assumption, so it is re-checked
+  // here every build: if a future holdings file breaks it, the derivation is
+  // invalid and this must fail rather than silently pick a segment.
+  const disjoint = assertDisjoint(out);
+  checks.assert(
+    disjoint.ok,
+    'no company is held by the EM ETF and by a small-cap fund (the segments are disjoint)',
+    disjoint.violations.slice(0, 5).map((v) => `${v.name}: ${v.funds.join('+')}`).join(' | '),
+  );
+  checks.assert(
+    disjoint.emSmallCapIsSubset,
+    'EM Small-Cap holds no India company that India Small-Cap lacks (it samples the segment)',
+    disjoint.emSmallCapOnly.slice(0, 5).map((c) => c.name).join(' | '),
+  );
+
+  const keyOfCompany = (c) => c.isin ?? `bse:${c.bseScripCode}`;
+  const boundary = observedBoundary(out, segmentOf);
+  const ranks = rankByFreeFloat(out, keyOfCompany);
+  const floatTotals = segmentFloatTotals(out);
+  const quarantined = new Set(reconciliation?.quarantinedIsins ?? []);
+
+  const assessContext = { boundary, ranks, quarantined, keyOf: keyOfCompany };
+  const flowContext = { flowPrimitives: flowPrimitivesByFund, segmentFloatTotals: floatTotals };
+
+  const verdictCounts = {};
+  const replayFailures = [];
+  for (const company of out) {
+    const assessment = assess(company, assessContext);
+    const replayed = verdictFromRules(assessment.rulesFired);
+    if (replayed !== assessment.verdict) {
+      replayFailures.push(`${company.name}: assess() said ${assessment.verdict}, replay said ${replayed}`);
+    }
+
+    const { flows, notSampled, shape } = estimateFlows(company, assessment, flowContext);
+
+    company.segment = assessment.segment;
+    company.assessment = {
+      verdict: assessment.verdict,
+      distancePct: assessment.distancePct,
+      rulesFired: assessment.rulesFired,
+      notes: assessment.notes,
+      // Stated on the record, not only on the screen — this travels into the
+      // export and into anything that reads the file directly.
+      disclosure: DISCLOSURE,
+      basis: 'end-of-day price; the interface re-assesses against a live price when one is in force',
+    };
+    company.flowEstimate = flows.length || notSampled.length
+      ? { shape, flows, notSampled }
+      : null;
+    if (quarantined.has(keyOfCompany(company))) {
+      const finding = reconciliation.findings.find((f) => f.isin === company.isin);
+      company.shareCountQuarantine = { reason: finding?.cause ?? 'share count could not be corroborated', gapPct: finding?.gapPct ?? null };
+    } else {
+      company.shareCountQuarantine = null;
+    }
+
+    verdictCounts[assessment.verdict] = (verdictCounts[assessment.verdict] ?? 0) + 1;
+  }
+
+  // A verdict whose recorded derivation does not reproduce it is worse than a
+  // wrong verdict: the drill would show a derivation that did not produce the
+  // answer beside it, which looks checkable and is not.
+  checks.assert(
+    replayFailures.length === 0,
+    'every verdict is reproducible from its own rulesFired record',
+    replayFailures.slice(0, 5).join(' | '),
+  );
+
+  // No quarantined company may carry a confident verdict.
+  const confidentQuarantine = out.filter(
+    (c) => c.shareCountQuarantine && c.assessment.verdict !== 'unknown',
+  );
+  checks.assert(
+    confidentQuarantine.length === 0,
+    'no company with a quarantined share count carries a confident verdict',
+    confidentQuarantine.slice(0, 5).map((c) => `${c.name}=${c.assessment.verdict}`).join(' | '),
+  );
+
+  // `stable` and `unknown` never produce a rupee figure.
+  const stableWithFlow = out.filter(
+    (c) => ['stable', 'unknown'].includes(c.assessment.verdict) && (c.flowEstimate?.flows?.length ?? 0) > 0,
+  );
+  checks.assert(
+    stableWithFlow.length === 0,
+    'no stable or unknown verdict carries a rupee flow figure',
+    stableWithFlow.slice(0, 5).map((c) => c.name).join(' | '),
+  );
+
+  // A migration is two flows in opposite directions, never netted.
+  const badMigrations = out.filter((c) => {
+    if (c.flowEstimate?.shape !== 'migration') return false;
+    const dirs = new Set(c.flowEstimate.flows.map((f) => f.direction));
+    return !(dirs.has('buy') && dirs.has('sell'));
+  });
+  checks.assert(
+    badMigrations.length === 0,
+    'every migration carries both a buy and a sell, in different funds',
+    badMigrations.slice(0, 5).map((c) => c.name).join(' | '),
+  );
+
+  // EM Small-Cap only ever gets a flow for a company it currently samples.
+  const badEmSc = out.filter((c) =>
+    (c.flowEstimate?.flows ?? []).some((f) => f.fundId === 'eems' && !c.funds?.eems),
+  );
+  checks.assert(
+    badEmSc.length === 0,
+    'EM Small-Cap gets a flow only for companies it currently holds',
+    badEmSc.slice(0, 5).map((c) => c.name).join(' | '),
+  );
+
+  // daysOfAdv is null, never zero, where the volume is unknown.
+  const zeroAdv = out.filter((c) =>
+    (c.flowEstimate?.flows ?? []).some((f) => f.advQty === null && f.daysOfAdv !== null),
+  );
+  checks.assert(
+    zeroAdv.length === 0,
+    'daysOfAdv is null where average daily volume is unknown',
+    zeroAdv.slice(0, 5).map((c) => c.name).join(' | '),
+  );
 
   // ---- the unit tripwire -------------------------------------------------
   // BSE publishes ₹ crore; everything here is rupees. A crore value that leaks
@@ -695,6 +831,71 @@ function main() {
       '  Neither is averaged into the other and both stay on every record.\n',
   );
 
+  // ---- the model ---------------------------------------------------------
+  process.stdout.write('\n\nSegments — derived from the holdings, disjointness re-checked every build\n\n');
+  process.stdout.write(
+    renderTable(
+      [
+        { key: 'segment', label: 'Segment', align: 'left' },
+        { key: 'n', label: 'Companies', align: 'right' },
+        { key: 'median', label: 'Median free float', align: 'right' },
+      ],
+      [
+        { segment: 'MSCI India Standard (EM ETF)', n: num(disjoint.counts.standard), median: `₹${num(Math.round(toCrore(boundary.standardMedianInr)))} Cr` },
+        { segment: 'MSCI India Small Cap', n: num(disjoint.counts.smallcap), median: `₹${num(Math.round(toCrore(boundary.smallCapMedianInr)))} Cr` },
+        { segment: 'Outside MSCI India IMI', n: num(disjoint.counts.outside), median: `₹${num(Math.round(toCrore(boundary.outsideMedianInr)))} Cr` },
+      ],
+    ),
+  );
+  process.stdout.write(
+    `\n  disjoint: ${disjoint.ok ? 'yes — no company in two segments' : 'NO — VIOLATIONS'}` +
+    ` | EM Small-Cap is a strict subset of India Small-Cap: ${disjoint.emSmallCapIsSubset ? 'yes' : 'NO'}` +
+    ` (${num(disjoint.emSmallCapSampled)} of ${num(disjoint.indiaSmallCapTotal)} sampled)\n`,
+  );
+
+  process.stdout.write('\n\nObserved boundary — measured from current constituents, not assumed\n\n');
+  process.stdout.write(
+    renderTable(
+      [
+        { key: 'what', label: 'Measure', align: 'left' },
+        { key: 'v', label: 'Value', align: 'right' },
+        { key: 'who', label: 'Company', align: 'left' },
+      ],
+      [
+        { what: 'Standard floor (smallest Standard constituent)', v: `₹${num(Math.round(toCrore(boundary.standardFloorInr)))} Cr`, who: boundary.standardFloorCompany?.name ?? '—' },
+        { what: 'Small Cap ceiling (largest Small Cap constituent)', v: `₹${num(Math.round(toCrore(boundary.smallCapCeilingInr)))} Cr`, who: boundary.smallCapCeilingCompany?.name ?? '—' },
+        { what: 'overlap width', v: `₹${num(Math.round(toCrore(boundary.overlapWidthInr)))} Cr`, who: `${boundary.overlapRatio?.toFixed(2)}x` },
+        { what: 'companies inside the overlap', v: num(boundary.overlapCount), who: `standard ${boundary.overlapBySegment.standard} · small cap ${boundary.overlapBySegment.smallcap} · outside ${boundary.overlapBySegment.outside}` },
+        { what: `rank cutoff (${boundary.standardCount}th largest free float)`, v: `₹${num(Math.round(toCrore(boundary.rankCutoffInr)))} Cr`, who: boundary.rankCutoffCompany?.name ?? '—' },
+      ],
+    ),
+  );
+  process.stdout.write(
+    '\n\n  The Standard floor cannot classify a Standard constituent — it IS the smallest one, so a\n' +
+    '  "below the floor" test can never fire. The rank cutoff is the non-circular discriminator:\n' +
+    '  it compares each company against the whole universe rather than against its own segment.\n',
+  );
+
+  process.stdout.write('\n\nVerdicts\n\n');
+  process.stdout.write(
+    renderTable(
+      [
+        { key: 'verdict', label: 'Verdict', align: 'left' },
+        { key: 'n', label: 'Companies', align: 'right' },
+        { key: 'what', label: 'Rule', align: 'left' },
+      ],
+      Object.keys(VERDICTS)
+        .filter((k) => verdictCounts[k])
+        .map((k) => ({ verdict: VERDICTS[k].label, n: `${num(verdictCounts[k])} of ${num(out.length)}`, what: VERDICTS[k].detail })),
+    ),
+  );
+  const review = nextReview();
+  process.stdout.write(
+    `\n\n  ${DISCLOSURE}\n` +
+    `  Next review (ASSUMED): ${review?.label ?? '—'}, effective ${review?.effectiveDate ?? '—'}, ${review?.daysRemaining ?? '—'} days away.\n` +
+    `  ${num(quarantined.size)} company(ies) carry "unknown" because their share count could not be corroborated.\n`,
+  );
+
   // ---- unresolved --------------------------------------------------------
   process.stdout.write(
     `\n\nUnresolved holdings — ${num(unresolved.length)} rows kept with a stated reason\n\n`,
@@ -760,6 +961,25 @@ function main() {
       ? { capturedAt: quoteStats.capturedAt, companyCount: quoteStats.companyCount, source: quoteStats.source }
       : null,
     flowPrimitives: flowPrimitivesByFund,
+    model: {
+      disclosure: DISCLOSURE,
+      basis: 'Verdicts here are computed against the committed end-of-day price. The interface '
+        + 're-assesses against a live price when one is in force, exactly as free-float market cap is.',
+      segments: disjoint.counts,
+      segmentsDisjoint: disjoint.ok,
+      emSmallCapIsSubsetOfIndiaSmallCap: disjoint.emSmallCapIsSubset,
+      emSmallCapSampled: disjoint.emSmallCapSampled,
+      indiaSmallCapTotal: disjoint.indiaSmallCapTotal,
+      observedBoundary: boundary,
+      segmentFloatTotals: floatTotals,
+      verdictCounts,
+      quarantinedCount: quarantined.size,
+      nextReview: nextReview(),
+      thresholdSources: {
+        desk: "the desk's own band — MSCI does not publish its size cut-offs in advance",
+        observed: 'measured from where MSCI has actually placed companies today',
+      },
+    },
     resolutionMethodCounts: methodCounts,
     floatFactorDisagreement: {
       comparedCompanies: disagreements.length,
