@@ -1,0 +1,218 @@
+# The product, as shipped
+
+What is on the screen and why. For behaviour that is *data* rather than *interface*, see
+`docs/DATA-CONTRACTS.md`; for the traps behind it, `docs/HANDOFF.md`.
+
+---
+
+## 1. Navigation and scope
+
+One route: `#/companies`. `public/js/core/router.js` owns the hash and holds two parameters.
+
+**`scope`** — the toggle in the header, `Held` / `All`.
+
+| | Rows | Means |
+| --- | --- | --- |
+| `Held` | 619 | held by at least one of the three funds |
+| `All` | 1,202 | every company in the record, held or not |
+
+The scope is a genuine filter on the record, not a view of a subset — the denominator on screen
+changes with it and every count reads **"X of Y"**. The 583 unheld companies are the inclusion
+candidates; without `All` there is nothing to forecast.
+
+**`company=<ISIN>`** — mirrors the open drill panel, so a row can be shared. Arriving at that URL by
+paste, by Back, or by reload opens the panel. Keyed on **ISIN**, never a ticker: a ticker is a label,
+two exchanges spell it differently, and codes get reused when companies delist.
+
+---
+
+## 2. Design tokens
+
+Declared once in `public/index.html` and nowhere else. Light theme only. Tailwind from the CDN — no
+CSS build.
+
+```
+Brand    --brand-500 #6366f1 → --brand-mid #a855f7 → --brand-end #ec4899
+Semantic --positive #059669  --caution #d97706  --negative #e11d48  --neutral #64748b
+Page     --page-bg  #f8fafc
+```
+
+**The brand ramp carries no meaning.** It marks the product — the wordmark, the freshness hero — and
+nothing else. A verdict, a day change, a data-quality warning: all semantic, never brand. This is
+enforced, not just documented: **assertion 36** samples a pill for each of the eight verdicts and
+fails if any carries an indigo utility class or computes to an indigo pixel. Measured on the shipped
+build: 4 colour families (emerald, amber, rose, slate), 0 indigo.
+
+Typography is **Inter** for body with **Plus Jakarta Sans** for display headings, both from Google
+Fonts; numbers are tabular throughout, because columns of figures that do not align are columns
+nobody scans.
+
+---
+
+## 3. The screener
+
+**Stat strip**, four cards, each with a denominator:
+
+| Card | Shows |
+| --- | --- |
+| Companies in view | 1,202 of 1,202 · held 619 / candidates 583 |
+| Free-float coverage | 1,201 of 1,202 have a reading · from NSE 208, from BSE 993, no reading 1 |
+| Review outlook | inclusion candidates · exclusion risks · migrations, of the rows in view |
+| Data freshness | the **oldest** feed, with every feed's date beneath it |
+
+The freshness card names the oldest input rather than the newest. A live price does not make a
+month-old float factor live.
+
+**Columns**: Company · Verdict · Distance · Free float (₹ Cr) · Day % · Float % · Full mcap (₹ Cr) ·
+EM wt % · India SC wt % · EM SC wt % · Funds.
+
+Every weight column names its fund. There is no combined weight column and there never will be — the
+three funds have different denominators and no arithmetic relates them. Assertion 3 greps the
+codebase for cross-fund weight aggregation.
+
+**Filters**, five, and they **AND** rather than replace: Fund · Float source · Size band · Verdict ·
+Watchlist. Assertion 26 exercises each one alone and then asserts that two together produce exactly
+the intersection.
+
+**Table behaviour**: sort by any column, ascending and descending, with **missing values sorting last
+in both directions** — a null is not a zero and must not rank as one. Rows stream in so 1,202 rows do
+not block the main thread, and `data-rows-pending` clears when the fill completes; that attribute is
+what the test suite waits on, never a sleep. A live price tick repaints **only the rows whose price
+moved** and leaves the reader's search, filters, sort and watchlist untouched.
+
+**Wide content scrolls inside its own container**; the page body never scrolls sideways. Measured
+with the stylesheet in force: body 1440/1440, 1024/1024, 390/390, with the table scrolling internally
+at the lower two.
+
+---
+
+## 4. The drill panel
+
+Seven sections, in this order:
+
+1. **Identity** — name, NSE symbol, BSE scrip code, ISIN, sector and where the sector came from.
+2. **Assessment** — the verdict, the distance, and the **rules table**: each rule's input, threshold,
+   threshold *source*, and result. This sits above Free float deliberately: it is the modelled
+   content, and a reader must meet its working before its conclusion.
+3. **Free float** — the factor, the source exchange, both factors where NSE and BSE disagree, and the
+   formula that produced the rupee figure.
+4. **Index participation** — the per-fund weight, quantity and market value. Not held renders as an
+   em dash with a title saying so.
+5. **Weight drift — no trade required.** Named that way in the heading, not in a footnote.
+6. **Flow primitives — inputs, not results.** Fund AUM and FX rate, both as of the holdings date.
+7. **Provenance** — the three tiers, each naming what on this row belongs to it.
+
+Focus is trapped inside the panel, ESC closes it, and focus returns to the row that opened it.
+
+---
+
+## 5. The model
+
+### Segments
+
+Derived from fund membership, never assumed: **Standard 165 · Small Cap 454 · outside 583.**
+Verified disjoint on every build — EM ∩ India SC = 0, EM ∩ EM SC = 0 — because a future holdings file
+that breaks the pattern would invalidate the derivation.
+
+**EM Small-Cap samples; India Small-Cap replicates.** EM SC holds 408 of India SC's 454 India
+companies and zero that India SC lacks. So an entry draws a flow from India Small-Cap for certain and
+from EM Small-Cap **only if that fund already samples the company**. Where it does not, the output is
+**"not sampled"** — never zero. Assertion 11 asserts no EM SC flow exists without a holding.
+
+### Two thresholds, deliberately not reconciled
+
+| | Source | Answers | Measured |
+| --- | --- | --- | --- |
+| **Desk bands** | `public/js/config/thresholds.mjs` | index **entry and exit** | ₹3,500–4,000 Cr inclusion, ₹2,000–2,400 Cr exclusion |
+| **Observed boundary** | current constituents | **which segment** | Standard floor ₹18,521 Cr (SBI Cards), Small Cap ceiling ₹70,169 Cr (Laurus Labs) |
+
+They are an order of magnitude apart because they are different boundaries, not competing estimates.
+0% of Standard constituents, 20% of Small Cap and 85% of unheld companies fall below ₹3,500 Cr — the
+desk band sits exactly at the unheld/Small-Cap line. The overlap between floor and ceiling is 3.79×
+wide and contains 157 companies; inside it, size alone cannot say which segment a company belongs to.
+
+**The desk bands are the desk's rule of thumb, not MSCI's published rule**, and every surface using
+them says so in words the reader sees.
+
+**The observed floor cannot classify a constituent — it *is* one.** "Is this Standard constituent
+below the Standard floor?" can never be true. Migration therefore uses a **rank crossing against the
+whole universe**: MSCI Standard holds N India names, so take the top N companies by free float across
+the entire record. A Standard constituent outside that top N has been overtaken; a non-Standard
+company inside it has overtaken. Each is measured against the *other* segment and the unheld
+universe, never against its own segment's own extremum.
+
+### Verdict vocabulary
+
+| Verdict | Count | Means |
+| --- | --- | --- |
+| `stable` | 1,052 | comfortably inside its segment; no trade implied |
+| `likely-inclusion` | 72 | unheld, above the desk's upper entry band |
+| `possible-inclusion` | 15 | unheld, between the two entry bands |
+| `migration-up` | 12 | a Small Cap constituent now ranking inside Standard |
+| `migration-down` | 19 | a Standard constituent overtaken out of the top N |
+| `exclusion-risk` | 16 | held, below the desk's upper exit band |
+| `likely-exclusion` | 11 | held, below the desk's lower exit band |
+| `unknown` | 5 | an input we do not trust — no verdict offered |
+
+**There is no probability, and that is a decision rather than an omission** — see
+`docs/CLIENT-BRIEF.md` §2. Every verdict carries `rulesFired`, and `verdictFromRules()` replays the
+verdict from that record alone; the build asserts the replay matches for all 1,202 companies.
+
+`unknown` is reserved for a suspect input. Four companies have share counts that disagree between two
+sources by an exact corporate-action ratio, which proves a corporate action is involved but not which
+side is stale; they are quarantined rather than guessed, and carry no verdict and no flow.
+
+### How flows are priced
+
+**Only a trade-implying verdict gets a rupee figure.** `stable`, `unknown` and passive drift produce
+none, ever.
+
+| Shape | Certainty |
+| --- | --- |
+| **Exit** — the whole current position | nearly a **measurement**: the holdings file states it exactly |
+| **Entry** — a new position | **estimated**: target weight = company free float ÷ segment total free float, both shown |
+| **Migration** | **two flows, never netted** — small-cap funds sell, EM buys, on different days for different reasons |
+| **Not sampled** | no figure at all, and it says so |
+
+`daysOfAdv` is the number a trader acts on. Where average daily volume is unknown it is **`null`** and
+renders as an em dash — never zero, never "instant". 30 of the 201 flows are in that state.
+
+### The review calendar is an assumption
+
+MSCI reviews quarterly in February, May, August and November; that much is public. The **exact
+effective date and the price-snapshot convention are not things this project can cite.** They live in
+`public/js/model/calendar.js`, every surface says "assumed", and correcting them is a one-line edit.
+
+---
+
+## 6. The honesty rules, as they appear on screen
+
+These are the product, not decoration around it. The full doctrine is `CLAUDE.md` §2.
+
+- **Three tiers never look alike.** Measured, derived and modelled are visually and verbally
+  distinct, and the drill's Provenance section names which of this row's figures belong to each.
+- **Missing is never zero.** Absent renders as an em dash with a title saying *which kind* of missing;
+  it is excluded from every total and denominator, and sorts to its own group at the end in **both**
+  directions.
+- **A real value is never rounded to nothing.** Every formatter that can meet a small number carries a
+  floor — `<₹0.01 Cr`, `<0.001%`, `<1` — because "₹0 Cr" reads as *no flow* and "0.000%" reads as
+  *not held*. A genuine zero still prints as zero.
+- **A failure is not an absence.** A blocked scrape, a 403, an expired session each reach the screen
+  in those words. The sources modal names which feed failed and why.
+- **Always print the denominator.** Every count reads "X of Y", and no figure in any caption or
+  heading is typed by hand — all derive from the module that owns the data.
+- **Provenance survives an export.** Seven banner rows lead every CSV, including
+  *"VERDICTS ARE MODELLED BY US. They are not MSCI's decision and not probabilities."* A filtered
+  export says which filter produced it.
+- **Live is claimed only when a byte arrived**, and only during 09:15–15:30 IST. Otherwise the pill
+  reads "Last close · BSE" with the trade date.
+
+---
+
+## 7. Where this model is weakest
+
+Twelve ranked, measured limits — no backtest, size is necessary but not sufficient, liquidity never
+gates a verdict, 64 of the 145 non-stable verdicts sit within ±20% of their threshold, and more.
+
+**They live in `docs/DATA-CONTRACTS.md` → "Where this model is weakest" and are not duplicated here.**
+Read them before quoting anything on this screen to someone who will act on it.

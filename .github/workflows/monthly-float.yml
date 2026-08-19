@@ -11,7 +11,11 @@ name: Monthly float refresh
 
 on:
   schedule:
-    - cron: '30 20 1 * *' # 02:00 IST on the 1st
+    # 20:30 UTC on the 1st is 02:00 IST on the SECOND — cron is evaluated in UTC
+    # and this one crosses midnight. The job is monthly and nothing depends on
+    # the calendar day, so the schedule stands; the arithmetic is stated here
+    # because the comment used to claim the 1st and was wrong by a day.
+    - cron: '30 20 1 * *' # 02:00 IST on the 2nd
   workflow_dispatch:
 
 concurrency:

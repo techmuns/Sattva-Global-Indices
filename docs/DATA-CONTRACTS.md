@@ -389,7 +389,9 @@ for; the fetcher is tested against that exact URL.
 
 *Continuity.* A file dated today can still carry a row copied from yesterday, which a file-level date
 check cannot see. So today's `PrvsClsgPric` must equal yesterday's `ClsPric`, per scrip. Measured
-18→19 Aug 2026: 4,562 compared, **0 failures**. Scrips with byte-identical bars across two days pass —
+18→19 Aug 2026: 4,562 compared, **0 failures** — measured over two complete bhavcopy files, which are
+not committed; the reproducible figure is `prices.json → continuity`, **1,195 compared, 0 failures**,
+over the universe the pipeline tracks. Scrips with byte-identical bars across two days pass —
 an unchanged close is a stock that did not trade, not a stale row.
 
 ---

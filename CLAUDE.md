@@ -638,7 +638,10 @@ request; it is struck at an undisclosed moment and must never render as a compan
 >
 > A file whose `TradDt` is today can still carry a row copied from yesterday. The row-level tripwire
 > is **continuity**: today's `PrvsClsgPric` must equal yesterday's `ClsPric`, per scrip. Measured
-> 18→19 Aug 2026: **4,562 compared, 0 failures** — a sharp tripwire, not a noisy one.
+> 18→19 Aug 2026: **4,562 compared, 0 failures** — a sharp tripwire, not a noisy one. That figure
+> came from comparing two complete bhavcopy files, which are **not committed**; what is reproducible
+> here is `prices.json → continuity`, which records the same check over the 1,199-company universe
+> the pipeline tracks: **1,195 compared, 0 failures**.
 >
 > Note the true-negative shape: 53 scrips carried byte-identical open/high/low/close across both days.
 > Those are bonds and illiquid lines that genuinely did not trade, and they **pass** continuity. An
