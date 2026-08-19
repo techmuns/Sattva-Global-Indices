@@ -100,6 +100,13 @@ So a missing value:
 
 In JSON, missing is `null`. Never `0`, never `""`, never `"-"`.
 
+**And rounding must not manufacture a zero either.** A ₹1,023,939 flow is ₹0.1024 Cr; printed at the
+no-decimal precision the rest of the screen uses it reads **"₹0 Cr"**, which a reader takes as *no
+flow*. That is the same lie as a fabricated zero, arriving by a different route, and it lands on the
+smallest holdings in the smallest companies — the rows least likely to be checked. `inrFlow()` in
+`public/js/core/format.js` keeps two significant figures and says `<₹0.01 Cr` rather than round a
+real number to nothing. Five of the 201 flows needed it.
+
 ### 2.4 A failure is not an absence
 
 A blocked scrape, an HTTP 403, an expired session, a workbook that failed its checks — each is its

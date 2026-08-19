@@ -8,7 +8,7 @@
  */
 
 import { $, el, escapeHtml } from '../core/dom.js';
-import { cr, inr, pct, factorPct, num, shortDate, dayChange, signedPct, plural, EM_DASH } from '../core/format.js';
+import { cr, inr, inrFlow, pct, factorPct, num, shortDate, dayChange, signedPct, plural, EM_DASH } from '../core/format.js';
 import * as data from '../data/companies.js';
 import * as state from '../core/state.js';
 import * as quotes from '../data/quotes.js';
@@ -578,7 +578,7 @@ function assessmentSectionHtml(company) {
         + `<span class="text-[11px] font-bold uppercase tracking-wide ${buying ? 'text-emerald-700' : 'text-rose-700'}">${buying ? 'buys' : 'sells'}</span>`
         + `<span class="ml-auto text-[10px] text-slate-500">${escapeHtml(flow.certainty === 'measured-position' ? 'position size measured' : 'target weight estimated')}</span></div>`
         + '<dl>'
-        + drillRow('Flow', `<span class="${buying ? 'text-emerald-700' : 'text-rose-700'}">₹${escapeHtml(num(Math.abs(flow.flowCrore), 0))} Cr</span>`)
+        + drillRow('Flow', `<span class="${buying ? 'text-emerald-700' : 'text-rose-700'}">${escapeHtml(inrFlow(flow.flowInr))}</span>`)
         + drillRow('Shares', flow.flowShares === null ? missing('no price, so no share count') : escapeHtml(num(Math.abs(flow.flowShares))))
         + drillRow(
             'Days of volume',

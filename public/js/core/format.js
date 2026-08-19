@@ -40,6 +40,29 @@ export function inr(rupees, places = 0) {
   return `₹${cr(rupees, places)} Cr`;
 }
 
+/**
+ * Rupees -> a ₹ crore figure whose precision adapts so that a REAL VALUE IS
+ * NEVER PRINTED AS ZERO.
+ *
+ * A flow of ₹1,023,939 is ₹0.1024 Cr. At the fixed no-decimal precision the
+ * rest of this screen uses, it renders "₹0 Cr" — and "₹0 Cr" reads as *no
+ * flow*, which is the same lie as rendering a missing value as zero. It is
+ * only ever a small holding in a tiny company, which is exactly the row a
+ * reader is least likely to check.
+ *
+ * So: keep at least two significant figures, and where even that would round
+ * away, say "<₹0.01 Cr" rather than claim a zero. A genuine zero cannot occur
+ * here — a flow of nothing is not a flow and never reaches this formatter.
+ */
+export function inrFlow(rupees) {
+  if (isMissing(rupees)) return EM_DASH;
+  const crore = Math.abs(rupees) / RUPEES_PER_CRORE;
+  if (crore === 0) return '₹0 Cr';
+  if (crore < 0.01) return '<₹0.01 Cr';
+  const places = crore >= 100 ? 0 : crore >= 10 ? 1 : 2;
+  return `₹${num(crore, places)} Cr`;
+}
+
 /** A percentage that is already expressed in percent (a weight of 0.68215). */
 export function pct(value, places = 3) {
   if (isMissing(value)) return EM_DASH;
