@@ -42,6 +42,7 @@ jobs:
   data:
     name: Data (no browser, no network)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -94,6 +95,7 @@ jobs:
   ui-static:
     name: Interface — static floor (live checks SKIP)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -102,13 +104,28 @@ jobs:
 
       # Playwright is a global tool here, never a dependency of this repo.
       # Playwright is a global tool here, never a dependency of this repo, so the
-      # global CLI does the browser install too. `npx --yes playwright install`
-      # re-resolves and fetches a SECOND copy of the package before it starts,
-      # which is minutes of nothing on a cold runner.
+      # global CLI does the browser install too. Two things this deliberately
+      # does NOT do:
+      #
+      #   `npx --yes playwright install` re-resolves and fetches a SECOND copy
+      #   of the package before it starts — minutes of nothing on a cold runner.
+      #
+      #   `--with-deps` shells out to apt-get, which on ubuntu-latest hung for
+      #   over fourteen minutes on the first two runs of this workflow. The
+      #   runner image already carries the libraries Chromium needs, so the
+      #   browser download alone is enough; if a future image drops them, the
+      #   fallback below installs just those packages.
       - name: Install Playwright (globally, outside the repo)
+        timeout-minutes: 10
         run: |
           npm install -g playwright@latest
-          playwright install --with-deps chromium
+          playwright install chromium
+          node -e "require('playwright').chromium.launch().then(b => b.close()).then(
+            () => console.log('chromium launches'),
+            async (e) => {
+              console.log('chromium did not launch, installing system deps:', e.message.split('\n')[0]);
+              require('child_process').execSync('npx --yes playwright install-deps chromium', { stdio: 'inherit' });
+            })"
 
       - name: Serve the static site
         run: |
@@ -133,6 +150,7 @@ jobs:
   secret:
     name: Is the upstream token configured?
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       available: ${{ steps.check.outputs.available }}
     steps:
@@ -154,6 +172,7 @@ jobs:
     # green tick over work that did not happen.
     if: needs.secret.outputs.available == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -161,13 +180,28 @@ jobs:
           node-version: '22'
 
       # Playwright is a global tool here, never a dependency of this repo, so the
-      # global CLI does the browser install too. `npx --yes playwright install`
-      # re-resolves and fetches a SECOND copy of the package before it starts,
-      # which is minutes of nothing on a cold runner.
+      # global CLI does the browser install too. Two things this deliberately
+      # does NOT do:
+      #
+      #   `npx --yes playwright install` re-resolves and fetches a SECOND copy
+      #   of the package before it starts — minutes of nothing on a cold runner.
+      #
+      #   `--with-deps` shells out to apt-get, which on ubuntu-latest hung for
+      #   over fourteen minutes on the first two runs of this workflow. The
+      #   runner image already carries the libraries Chromium needs, so the
+      #   browser download alone is enough; if a future image drops them, the
+      #   fallback below installs just those packages.
       - name: Install Playwright (globally, outside the repo)
+        timeout-minutes: 10
         run: |
           npm install -g playwright@latest
-          playwright install --with-deps chromium
+          playwright install chromium
+          node -e "require('playwright').chromium.launch().then(b => b.close()).then(
+            () => console.log('chromium launches'),
+            async (e) => {
+              console.log('chromium did not launch, installing system deps:', e.message.split('\n')[0]);
+              require('child_process').execSync('npx --yes playwright install-deps chromium', { stdio: 'inherit' });
+            })"
 
       - name: Start wrangler dev
         env:
