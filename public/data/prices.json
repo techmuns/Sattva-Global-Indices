@@ -1,22 +1,56 @@
 {
   "source": "BSE end-of-day bhavcopy — bseindia.com/download/BhavCopy/Equity",
   "note": "End-of-day BSE prices, committed so the static site renders with no Worker and no network. A scrip absent from the file did NOT trade: its last close is carried forward with staleDays > 0 and source \"bhavcopy-bse-carried\". Live NSE prices, where available, overlay this in memory only and are never written back here.",
-  "capturedAt": "2026-08-20T14:54:07.809Z",
+  "capturedAt": "2026-08-20T20:24:17.005Z",
   "tradeDate": "2026-08-20",
   "fileRowCount": 5000,
-  "universeCount": 1203,
-  "pricedCount": 1203,
-  "carriedForwardCount": 0,
-  "missingCount": 0,
-  "coveragePct": 100,
+  "universeCount": 1226,
+  "pricedCount": 1220,
+  "carriedForwardCount": 2,
+  "missingCount": 4,
+  "coveragePct": 99.511,
   "continuity": {
     "against": "2026-08-19",
-    "compared": 1198,
+    "compared": 1219,
     "failures": [],
-    "noCounterpart": 3802
+    "noCounterpart": 3781
   },
-  "carriedForward": [],
-  "missing": [],
+  "carriedForward": [
+    {
+      "scripCode": "543655",
+      "name": "Anzen India Energy Yield Plus Trust",
+      "lastTradeDate": "2026-08-19",
+      "staleDays": 1
+    },
+    {
+      "scripCode": "544374",
+      "name": "Roadstar Infra Investment Trust",
+      "lastTradeDate": "2026-08-19",
+      "staleDays": 1
+    }
+  ],
+  "missing": [
+    {
+      "scripCode": "543385",
+      "scripId": "NHIT",
+      "name": "National Highways Infra Trust"
+    },
+    {
+      "scripCode": "541300",
+      "scripId": "INTERISE",
+      "name": "INTERISE TRUST"
+    },
+    {
+      "scripCode": "543925",
+      "scripId": "MIT",
+      "name": "Maple Infrastructure Trust"
+    },
+    {
+      "scripCode": "544005",
+      "scripId": "ISCITRUST",
+      "name": "Intelligent Supply Chain Infrastructure Trust"
+    }
+  ],
   "prices": {
     "500002": {
       "scripCode": "500002",
@@ -10728,6 +10762,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "540526": {
+      "scripCode": "540526",
+      "isin": "INE183W23014",
+      "symbol": "IRBINVIT",
+      "tradeDate": "2026-08-20",
+      "open": 64.11,
+      "high": 64.79,
+      "low": 63.48,
+      "close": 63.54,
+      "prevClose": 64.48,
+      "volume": 153718,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "540530": {
       "scripCode": "540530",
       "isin": "INE031A01017",
@@ -10753,6 +10801,20 @@
       "close": 921.7,
       "prevClose": 921.15,
       "volume": 1382,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
+    "540565": {
+      "scripCode": "540565",
+      "isin": "INE219X23014",
+      "symbol": "INDIGRID",
+      "tradeDate": "2026-08-20",
+      "open": 177.75,
+      "high": 177.75,
+      "low": 174.22,
+      "close": 175.62,
+      "prevClose": 176.69,
+      "volume": 63794,
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
@@ -11582,6 +11644,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "542543": {
+      "scripCode": "542543",
+      "isin": "INE05KD23015",
+      "symbol": "ENERGYINF",
+      "tradeDate": "2026-08-20",
+      "open": 74.11,
+      "high": 74.29,
+      "low": 74,
+      "close": 74.1,
+      "prevClose": 74.35,
+      "volume": 475000,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "542597": {
       "scripCode": "542597",
       "isin": "INE255X01014",
@@ -11593,6 +11669,20 @@
       "close": 692,
       "prevClose": 707.05,
       "volume": 22717,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
+    "542602": {
+      "scripCode": "542602",
+      "isin": "INE041025011",
+      "symbol": "EMBASSY",
+      "tradeDate": "2026-08-20",
+      "open": 436,
+      "high": 437.75,
+      "low": 432.3,
+      "close": 435.15,
+      "prevClose": 435.9,
+      "volume": 105921,
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
@@ -11918,6 +12008,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "543217": {
+      "scripCode": "543217",
+      "isin": "INE0CCU25019",
+      "symbol": "MINDSPACE",
+      "tradeDate": "2026-08-20",
+      "open": 499.89,
+      "high": 499.89,
+      "low": 497.47,
+      "close": 498,
+      "prevClose": 496.87,
+      "volume": 3561,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "543220": {
       "scripCode": "543220",
       "isin": "INE027H01010",
@@ -11929,6 +12033,20 @@
       "close": 998.7,
       "prevClose": 996.45,
       "volume": 47587,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
+    "543225": {
+      "scripCode": "543225",
+      "isin": "INE0BWS23018",
+      "symbol": "ALTIUSINVIT",
+      "tradeDate": "2026-08-20",
+      "open": 171.01,
+      "high": 173,
+      "low": 171.01,
+      "close": 173,
+      "prevClose": 172,
+      "volume": 175000,
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
@@ -12170,6 +12288,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "543261": {
+      "scripCode": "543261",
+      "isin": "INE0FDU25010",
+      "symbol": "BIRET",
+      "tradeDate": "2026-08-20",
+      "open": 343.99,
+      "high": 344.67,
+      "low": 342,
+      "close": 343.78,
+      "prevClose": 341.83,
+      "volume": 2072,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "543265": {
       "scripCode": "543265",
       "isin": "INE0DD101019",
@@ -12349,6 +12481,20 @@
       "close": 659.8,
       "prevClose": 665.9,
       "volume": 21232,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
+    "543290": {
+      "scripCode": "543290",
+      "isin": "INE0GGX23010",
+      "symbol": "PGINVIT",
+      "tradeDate": "2026-08-20",
+      "open": 100.49,
+      "high": 100.49,
+      "low": 99.57,
+      "close": 99.73,
+      "prevClose": 99.61,
+      "volume": 81801,
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
@@ -13304,6 +13450,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "543655": {
+      "scripCode": "543655",
+      "isin": "INE0MIZ23019",
+      "symbol": "ANZEN",
+      "tradeDate": "2026-08-19",
+      "open": 132,
+      "high": 132,
+      "low": 132,
+      "close": 132,
+      "prevClose": 131,
+      "volume": 25000,
+      "staleDays": 1,
+      "source": "bhavcopy-bse-carried"
+    },
     "543657": {
       "scripCode": "543657",
       "isin": "INE128X01021",
@@ -13500,6 +13660,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "543899": {
+      "scripCode": "543899",
+      "isin": "INE0NR623014",
+      "symbol": "CUBEINVIT",
+      "tradeDate": "2026-08-20",
+      "open": 157.44,
+      "high": 157.99,
+      "low": 156.81,
+      "close": 157.12,
+      "prevClose": 157.5,
+      "volume": 9824,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "543904": {
       "scripCode": "543904",
       "isin": "INE634S01028",
@@ -13511,6 +13685,20 @@
       "close": 2385,
       "prevClose": 2391,
       "volume": 5147,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
+    "543913": {
+      "scripCode": "543913",
+      "isin": "INE0NDH25011",
+      "symbol": "NXST",
+      "tradeDate": "2026-08-20",
+      "open": 169,
+      "high": 169.09,
+      "low": 167.61,
+      "close": 167.91,
+      "prevClose": 168.62,
+      "volume": 6172,
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
@@ -14298,6 +14486,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "544137": {
+      "scripCode": "544137",
+      "isin": "INE0NHL23019",
+      "symbol": "INDUSINVIT",
+      "tradeDate": "2026-08-20",
+      "open": 133.21,
+      "high": 135,
+      "low": 133.21,
+      "close": 133.96,
+      "prevClose": 134.58,
+      "volume": 112077,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "544138": {
       "scripCode": "544138",
       "isin": "INE0MB501011",
@@ -15068,6 +15270,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "544338": {
+      "scripCode": "544338",
+      "isin": "INE0Z8Z23013",
+      "symbol": "CAPINVIT",
+      "tradeDate": "2026-08-20",
+      "open": 77.55,
+      "high": 77.55,
+      "low": 76.77,
+      "close": 77.05,
+      "prevClose": 77.04,
+      "volume": 124041,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "544342": {
       "scripCode": "544342",
       "isin": "INE0RYC01010",
@@ -15165,6 +15381,20 @@
       "volume": 25252,
       "staleDays": 0,
       "source": "bhavcopy-bse"
+    },
+    "544374": {
+      "scripCode": "544374",
+      "isin": "INE0JEI23010",
+      "symbol": "ROADSTAR",
+      "tradeDate": "2026-08-19",
+      "open": 61,
+      "high": 61.01,
+      "low": 61,
+      "close": 61.01,
+      "prevClose": 60.3,
+      "volume": 550000,
+      "staleDays": 1,
+      "source": "bhavcopy-bse-carried"
     },
     "544379": {
       "scripCode": "544379",
@@ -15558,6 +15788,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "544481": {
+      "scripCode": "544481",
+      "isin": "INE1JAR25012",
+      "symbol": "KRT",
+      "tradeDate": "2026-08-20",
+      "open": 116.03,
+      "high": 116.49,
+      "low": 115.61,
+      "close": 116.07,
+      "prevClose": 116.03,
+      "volume": 15453,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "544484": {
       "scripCode": "544484",
       "isin": "INE304W01038",
@@ -15863,6 +16107,20 @@
       "close": 1762.2,
       "prevClose": 1797.75,
       "volume": 12779,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
+    "544579": {
+      "scripCode": "544579",
+      "isin": "INE1UA823019",
+      "symbol": "ANANTAM",
+      "tradeDate": "2026-08-20",
+      "open": 105.1,
+      "high": 105.38,
+      "low": 105,
+      "close": 105.38,
+      "prevClose": 105.1,
+      "volume": 703,
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
@@ -16314,6 +16572,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "544734": {
+      "scripCode": "544734",
+      "isin": "INE2PB023011",
+      "symbol": "RIIT",
+      "tradeDate": "2026-08-20",
+      "open": 123.99,
+      "high": 123.99,
+      "low": 120.17,
+      "close": 121.68,
+      "prevClose": 123.35,
+      "volume": 13485,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "544739": {
       "scripCode": "544739",
       "isin": "INE05HV01027",
@@ -16356,6 +16628,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "544753": {
+      "scripCode": "544753",
+      "isin": "INE2Q7823014",
+      "symbol": "CITIUSINVT",
+      "tradeDate": "2026-08-20",
+      "open": 112.77,
+      "high": 115.11,
+      "low": 112.77,
+      "close": 113.98,
+      "prevClose": 111.91,
+      "volume": 7989,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "544754": {
       "scripCode": "544754",
       "isin": "INE12F801023",
@@ -16367,6 +16653,20 @@
       "close": 302.3,
       "prevClose": 300.3,
       "volume": 142847,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
+    "544758": {
+      "scripCode": "544758",
+      "isin": "INE2OVN25015",
+      "symbol": "BAGMANE",
+      "tradeDate": "2026-08-20",
+      "open": 107.35,
+      "high": 107.5,
+      "low": 106.8,
+      "close": 107.14,
+      "prevClose": 107.31,
+      "volume": 6808,
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },

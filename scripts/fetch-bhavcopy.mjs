@@ -170,7 +170,17 @@ async function main() {
       + '              so there is no previous day to compare against. Skipped — comparing a day\n'
       + '              with itself would fail almost every scrip and say nothing about the data.\n',
     );
-    continuity = { compared: 0, failures: [], skipped: 0, against: null, skippedReason: 'same trade date as the stored file' };
+    // Carry the stored file's own continuity record forward rather than blanking
+    // it. The comparison that was made when THIS trade date was first fetched is
+    // still the evidence for this trade date — replacing it with zeroes would
+    // erase a real check and leave the committed artefact claiming nothing was
+    // ever verified.
+    continuity = previous.continuity && previous.continuity.compared > 0
+      ? { ...previous.continuity, carriedForwardFrom: previous.tradeDate,
+          note: 'this run re-fetched the same trade date; the continuity evidence recorded when '
+            + 'it was first fetched is carried forward unchanged' }
+      : { compared: 0, failures: [], skipped: 0, against: null,
+          skippedReason: 'same trade date as the stored file, and the stored file had no continuity record either' };
   } else if (previous?.prices) {
     const previousClose = new Map(
       Object.entries(previous.prices)

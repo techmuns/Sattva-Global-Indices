@@ -193,8 +193,17 @@ function main() {
         nseSymbol: record.nseSymbol,
         nseSymbolSource: record.nseSymbolSource ?? null,
         bseScripCode: record.bseScripCode,
+        // A HELD company with no BSE scrip code needs the same stated reason an
+        // unheld one gets. It is the case that matters most — a position we hold
+        // and cannot price is a hole in the product, and an em dash with no
+        // explanation reads as a fact about the company (2.3).
+        noBseReason: record.bseScripCode ? null
+          : 'not on BSE at all — an NSE-only listing, checked against every one of BSE\'s '
+            + '12,685 active scrips by ISIN. NSE publishes free float for about 250 symbols '
+            + 'and this is not one of them, so no exchange publishes a figure for it.',
         sector: bse?.sector ?? null,
         sectorSource: bse?.sector ? 'bse' : null,
+        instrumentKind: bse?.instrumentKind ?? null,
         _bse: bse,
         funds: { eem: null, smin: null, eems: null },
         _resolutions: [],
@@ -238,6 +247,7 @@ function main() {
       bseScripCode: scrip.scripCode,
       sector: scrip.sector,
       sectorSource: scrip.sector ? 'bse' : null,
+      instrumentKind: scrip.instrumentKind ?? null,
       _bse: scrip,
       funds: { eem: null, smin: null, eems: null },
       _resolutions: [{ method: 'not-held', via: 'bse-universe', confidence: 'exact' }],
@@ -277,19 +287,20 @@ function main() {
     // WHY this company has no BSE record, in words, because "no reading" with no
     // reason is the absence that reads as a fact about the company — 2.3/2.4.
     //
-    // Measured on this export, the overwhelming majority of these are REITs and
-    // InvITs: Embassy Office Parks, Mindspace, Nexus Select, Brookfield India,
-    // IndiGrid, IRB InvIT, PowerGrid InvIT, Cube Highways, Knowledge Realty and
-    // the rest. BSE's `segment=Equity` filter excludes them CORRECTLY — they are
-    // a different instrument class, not a missing name — and NSE's free-float set
-    // does not carry them either.
+    // This used to catch the REITs and InvITs too, wrongly: BSE files them under
+    // GROUP=IF, outside `segment=Equity`, and publishes free float for all of
+    // them. The master is now fetched wide enough to see them, so what is left
+    // here is the genuine article — scrips BSE has SUSPENDED, and companies that
+    // are not on BSE at all.
     const seedCode = row.bseScripCode;
     const noBseReason = seedCode
       ? `the seed list gives BSE code ${seedCode}, but that code is not in BSE's active `
-        + 'EQUITY master. Almost always a REIT or an InvIT, which BSE files outside the '
-        + 'equity segment; sometimes a suspended line. Not fetched, because a code the '
-        + 'active master does not carry may belong to a delisted company.'
-      : 'no BSE code in the seed list — an NSE-only listing.';
+        + 'master under any segment — BSE has it Suspended. Not fetched: BSE answers for a '
+        + 'suspended scrip with a clean-looking factor and Category "Listed", and the active '
+        + 'master is the only thing that says otherwise.'
+      : 'not on BSE at all — an NSE-only listing, checked against every one of BSE\'s '
+        + '12,685 active scrips by ISIN. NSE publishes free float for about 250 symbols '
+        + 'and this is not one of them, so no exchange publishes a figure for it.';
     companies.set(key, {
       isin: row.isin,
       name: row.name,
@@ -454,6 +465,8 @@ function main() {
       // it is not the working scrip code.
       seedBseScripCode: company.seedBseScripCode ?? null,
       noBseReason: company.noBseReason ?? null,
+      // 'equity' | 'invit-reit' | null. BSE's own GROUP code decides it.
+      instrumentKind: company.instrumentKind ?? null,
       sector: company.sector,
       sectorSource: company.sectorSource,
       fullMcapInr,

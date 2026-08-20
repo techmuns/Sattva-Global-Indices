@@ -92,6 +92,50 @@ export const CONFIRMED = [
     bseScripCode: '544390',
     why: 'demerged Siemens Energy India Ltd. Separate listed company from Siemens Ltd; separate ISIN.',
   },
+
+  // ---- the four REITs, moved here from NOT_LISTED on 20 Aug 2026 ----------
+  //
+  // They sat in NOT_LISTED with the reason "REIT — not in BSE's equity segment
+  // and not in the NSE free-float set". The first half was true and the
+  // conclusion drawn from it was wrong: BSE's `segment=Equity` filter excludes
+  // REITs and InvITs, but BSE PUBLISHES MktCapFull AND MktCapFF FOR ALL OF THEM.
+  // Nothing was asking, because the scrip master was fetched through that
+  // filter. Measured 20 Aug 2026: 24 of 24 InvIT/REIT codes returned a usable
+  // factor and 24 of 24 confirmed their ISIN through BSE's own ComHeader.
+  //
+  // Pinned rather than left to the matchers, for the reason the old NOT_LISTED
+  // entry gave: EMBASSY must never be matched to Embassy Developments Ltd
+  // (EMBDL / 532832), a different company with a similar name. A pin is exact
+  // and, unlike a comment, it is ASSERTED against the master on every run.
+  //
+  // Note the ISIN series. A REIT unit is INE…25… and an equity share is INE…01…,
+  // so Embassy Office Parks REIT (INE041025011) and Embassy Developments Ltd
+  // could not collide even if a matcher tried.
+  {
+    ticker: 'EMBASSY',
+    isin: 'INE041025011',
+    bseScripCode: '542602',
+    why: 'Embassy Office Parks REIT. BSE GROUP=IF, outside the equity segment but fully priced '
+      + 'and float-published by BSE. Must never map to Embassy Developments Ltd (EMBDL/532832).',
+  },
+  {
+    ticker: 'BIRET',
+    isin: 'INE0FDU25010',
+    bseScripCode: '543261',
+    why: 'Brookfield India Real Estate Trust REIT. BSE GROUP=IF.',
+  },
+  {
+    ticker: 'NXST',
+    isin: 'INE0NDH25011',
+    bseScripCode: '543913',
+    why: 'Nexus Select Trust REIT. BSE GROUP=IF.',
+  },
+  {
+    ticker: 'MINDSPACE',
+    isin: 'INE0CCU25019',
+    bseScripCode: '543217',
+    why: 'Mindspace Business Parks REIT. BSE GROUP=IF.',
+  },
 ];
 
 /**
@@ -106,27 +150,6 @@ export const CONFIRMED = [
  * a real ticker is not suppressed by this table.
  */
 export const NOT_LISTED = [
-  {
-    ticker: 'EMBASSY',
-    namePrefix: 'EMBASSY OFFICE PARKS REIT',
-    reason: 'REIT — not in BSE\'s equity segment and not in the NSE free-float set. '
-      + 'Must not be matched to Embassy Developments Ltd (EMBDL/532832), a different company.',
-  },
-  {
-    ticker: 'BIRET',
-    namePrefix: 'BROOKFIELD INDIA REAL ESTATE TRUST',
-    reason: 'REIT — not in BSE\'s equity segment and not in the NSE free-float set.',
-  },
-  {
-    ticker: 'NXST',
-    namePrefix: 'NEXUS SELECT TRUST REIT',
-    reason: 'REIT — not in BSE\'s equity segment and not in the NSE free-float set.',
-  },
-  {
-    ticker: 'MINDSPACE',
-    namePrefix: 'MINDSPACE BUSINESS PARKS REIT',
-    reason: 'REIT — not in BSE\'s equity segment and not in the NSE free-float set.',
-  },
   {
     ticker: '--',
     namePrefix: 'GSPL TRANSMISSION',

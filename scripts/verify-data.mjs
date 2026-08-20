@@ -925,6 +925,52 @@ async function main() {
     },
   }, ctx);
 
+  await suite.check({
+    id: 25,
+    what: 'InvITs and REITs are in the universe, and a suspended scrip still is not',
+    clone: deepClone,
+    run: (c) => {
+      // BSE's `segment=Equity` filter excludes GROUP=IF entirely. Fetching the
+      // master through it was why 22 companies above the desk's floor — four of
+      // them HELD — carried no free-float reading at all.
+      const invits = c.master.scrips.filter((s) => s.instrumentKind === 'invit-reit');
+      ok(invits.length > 0,
+        "the scrip master must carry BSE's InvIT/REIT group, not just segment=Equity",
+        `${invits.length} scrips with instrumentKind 'invit-reit'`);
+
+      // The four the funds actually hold must resolve AND be priced. These were
+      // pinned as NOT_LISTED until 20 Aug 2026 on the belief that no source had
+      // them; BSE had them all along.
+      const HELD_REITS = ['INE041025011', 'INE0FDU25010', 'INE0NDH25011', 'INE0CCU25019'];
+      const missing = [];
+      for (const isin of HELD_REITS) {
+        const company = c.companies.find((x) => x.isin === isin);
+        if (!company) { missing.push(`${isin}: not in the record at all`); continue; }
+        if (!company.held) missing.push(`${company.name}: resolved but not marked held`);
+        if (company.freeFloatMcapInr === null) missing.push(`${company.name}: no free-float reading`);
+        if (company.floatFactorBse === null) missing.push(`${company.name}: no BSE float factor`);
+      }
+      empty(missing, 'every REIT the funds hold is resolved, held and priced', (m) => m);
+
+      // And the guard that stops us fetching a scrip the active master does not
+      // carry must still hold. Colab Platforms and RRP Semiconductor are
+      // SUSPENDED on BSE, and BSE answers for both with a clean-looking factor
+      // and Category "Listed" — the 3.8 trap, live.
+      const SUSPENDED = ['542866', '504346'];
+      const wrongly = c.companies.filter((x) => SUSPENDED.includes(x.bseScripCode));
+      empty(wrongly, 'a suspended scrip is never fetched, however willingly BSE answers for it',
+        (x) => `${x.name} is carrying suspended scrip ${x.bseScripCode}`);
+
+      const priced = c.companies.filter((x) => x.instrumentKind === 'invit-reit' && x.freeFloatMcapInr !== null);
+      return `${invits.length} InvIT/REIT scrips in the master · ${priced.length} priced in the record · `
+        + `all 4 held REITs resolved · ${SUSPENDED.length} suspended codes still excluded`;
+    },
+    sabotage: (c) => {
+      // The failure this check exists for: the master goes back to equity-only.
+      c.master.scrips = c.master.scrips.filter((s) => s.instrumentKind !== 'invit-reit');
+    },
+  }, ctx);
+
   process.exit(suite.report([
     `Sources scanned: ${ctx.sources.length} .js/.mjs files under ${SCAN_ROOTS.join(', ')}`,
     `Record under test: ${ctx.companies.length} companies, built ${ctx.companiesFile.builtAt}`,

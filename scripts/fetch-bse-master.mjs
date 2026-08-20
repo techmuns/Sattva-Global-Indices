@@ -35,7 +35,7 @@ import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { bseGet, SCRIP_MASTER_URL, parseGroupedNumber, parseCroreToRupees } from './lib/bse.mjs';
+import { bseGet, SCRIP_MASTER_URL, SCRIP_MASTER_ALL_URL, parseGroupedNumber, parseCroreToRupees } from './lib/bse.mjs';
 import { renderTable, num } from './lib/report.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -51,20 +51,63 @@ const FLOOR = { scrips: 4000, withIneIsin: 3500 };
 async function main() {
   process.stdout.write('\nBSE scrip master — api.bseindia.com/BseIndiaAPI/api/ListofScripData\n\n');
 
-  const result = await bseGet(SCRIP_MASTER_URL);
+  // Two requests, because BSE's `segment=Equity` filter EXCLUDES every REIT and
+  // InvIT — all 27 of them, including four the iShares funds hold. See the note
+  // on SCRIP_MASTER_ALL_URL for what the second request is doing and why it
+  // needs to be checked rather than trusted.
+  const equityResult = await bseGet(SCRIP_MASTER_URL);
+  if (!equityResult.ok) {
+    process.stderr.write(
+      `Could not read the equity scrip master: ${equityResult.reason}\n` +
+        'This is an OUTAGE, not an empty universe. Nothing written.\n\n',
+    );
+    process.exit(1);
+  }
+  const result = await bseGet(SCRIP_MASTER_ALL_URL);
   if (!result.ok) {
     process.stderr.write(
-      `Could not read the scrip master: ${result.reason}\n` +
+      `Could not read the all-segments scrip master: ${result.reason}\n` +
         'This is an OUTAGE, not an empty universe. Nothing written.\n\n',
     );
     process.exit(1);
   }
 
+  const equityRows = Array.isArray(equityResult.json) ? equityResult.json : null;
   const rows = Array.isArray(result.json) ? result.json : null;
-  if (!rows) {
-    process.stderr.write('The scrip master response was not an array. Nothing written.\n\n');
+  if (!rows || !equityRows) {
+    process.stderr.write('A scrip master response was not an array. Nothing written.\n\n');
     process.exit(1);
   }
+
+  // THE LOAD-BEARING ASSERTION. `segment=ALL_SEGMENTS` is not a documented BSE
+  // filter — it works because BSE falls through to everything for a value it
+  // does not recognise. If a future release starts honouring it, this request
+  // would quietly return a narrower set and the universe would lose thousands
+  // of scrips with nothing to show for it. So the wide response must contain
+  // every code the narrow one returned.
+  const wideCodes = new Set(rows.map((r) => String(r.SCRIP_CD ?? '').trim()));
+  const missingFromWide = equityRows
+    .map((r) => String(r.SCRIP_CD ?? '').trim())
+    .filter((code) => code !== '' && !wideCodes.has(code));
+  if (missingFromWide.length > 0 || rows.length <= equityRows.length) {
+    process.stderr.write(
+      '\nThe all-segments request is NOT a superset of the equity request.\n'
+      + `  equity rows ${equityRows.length}, all-segments rows ${rows.length}, `
+      + `codes missing from the wide set ${missingFromWide.length}`
+      + `${missingFromWide.length ? ` (e.g. ${missingFromWide.slice(0, 5).join(', ')})` : ''}\n\n`
+      + 'BSE has changed how it treats the `segment` parameter. Read the note on\n'
+      + 'SCRIP_MASTER_ALL_URL in scripts/lib/bse.mjs and find the value that now\n'
+      + 'returns every instrument class. Nothing written.\n\n',
+    );
+    process.exit(1);
+  }
+  const equityCodes = new Set(equityRows.map((r) => String(r.SCRIP_CD ?? '').trim()));
+
+  // BSE's own GROUP code is what separates the instrument classes, NOT the row's
+  // `Segment` field — IndiGrid's Segment reads "Equity" exactly like Reliance's.
+  // `IF` is the InvIT / REIT group: 27 scrips, all Active, none of them returned
+  // by segment=Equity.
+  const INVIT_REIT_GROUP = 'IF';
 
   const scrips = [];
   const skipped = [];
@@ -75,6 +118,16 @@ async function main() {
       skipped.push({ scripCode, scripId, reason: 'missing scrip code or scrip id' });
       continue;
     }
+    const group = String(row.GROUP ?? '').trim() || null;
+    // Everything the equity request already returned, plus InvITs and REITs.
+    // Debt, preference and the rest of the 12,685 are a different instrument
+    // class and are dropped WITH A REASON rather than silently.
+    const isEquity = equityCodes.has(scripCode);
+    const isInvitReit = group === INVIT_REIT_GROUP;
+    if (!isEquity && !isInvitReit) {
+      skipped.push({ scripCode, scripId, group, reason: 'not equity and not an InvIT/REIT (GROUP ' + String(group) + ')' });
+      continue;
+    }
     const isinRaw = String(row.ISIN_NUMBER ?? '').trim();
     scrips.push({
       scripCode,
@@ -82,7 +135,11 @@ async function main() {
       name: String(row.Scrip_Name ?? '').trim(),
       issuerName: String(row.Issuer_Name ?? '').trim() || null,
       isin: /^IN[A-Z0-9]{10}$/.test(isinRaw) ? isinRaw : null,
-      group: String(row.GROUP ?? '').trim() || null,
+      group,
+      // Which instrument class this is. An InvIT or a REIT is a real, priced,
+      // free-float-publishing security, and it is NOT an equity — anything that
+      // ranks or sums across the two must say so.
+      instrumentKind: isInvitReit ? 'invit-reit' : 'equity',
       faceValue: parseGroupedNumber(row.FACE_VALUE),
       // Indicative only. Selects the scrape universe; never renders as a market cap.
       indicativeFullMcapInr: parseCroreToRupees(row.Mktcap),
@@ -132,7 +189,12 @@ async function main() {
   );
 
   if (skipped.length > 0) {
-    process.stdout.write(`\n\n${num(skipped.length)} row(s) skipped for missing identifiers.\n`);
+    const otherClass = skipped.filter((x) => x.reason.startsWith('not equity')).length;
+    process.stdout.write(
+      `\n\n${num(skipped.length)} row(s) from the all-segments master were not kept: `
+      + `${num(otherClass)} are another instrument class (debt, preference, hybrid and the rest), `
+      + `${num(skipped.length - otherClass)} had no usable identifier.\n`,
+    );
   }
 
   if (scrips.length !== REFERENCE.scrips || withIneIsin !== REFERENCE.withIneIsin) {
@@ -175,7 +237,8 @@ async function main() {
   }
 
   const payload = {
-    source: 'BSE India — api.bseindia.com/BseIndiaAPI/api/ListofScripData (segment=Equity, status=Active)',
+    source: 'BSE India — api.bseindia.com/BseIndiaAPI/api/ListofScripData '
+      + '(status=Active; the equity segment plus GROUP=IF, which is InvITs and REITs)',
     note:
       'indicativeFullMcapInr selects the scrape universe only. It is BSE\'s Mktcap field converted ' +
       'from ₹ crore to rupees, struck at a moment this endpoint does not disclose, and must not ' +

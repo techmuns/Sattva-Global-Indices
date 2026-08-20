@@ -325,7 +325,8 @@ The join, and the only file the interface should read.
 | `nseSymbolSource` | `'nse-universe'` \| `'seed'` \| null | Which file asserted it. Where both speak they must agree or the build stops. |
 | `bseScripCode` | string \| null | `null` for NSE-only listings — CDSL and BSE Ltd are real examples. |
 | `seedBseScripCode` | string \| null | A BSE code the seed named that the **active** master does not carry. Kept visible, never fetched — a code the active master lacks may belong to a delisted company. |
-| `noBseReason` | string \| null | Why this company has no BSE record, in words. Almost always a REIT/InvIT outside BSE's equity segment, or an NSE-only listing. |
+| `noBseReason` | string \| null | Why this company has no BSE record, in words. Either the scrip is **Suspended** on BSE, or the company is not on BSE at all. |
+| `instrumentKind` | `'equity'` \| `'invit-reit'` \| null | BSE's own `GROUP` code decides it: `IF` is the InvIT/REIT group. An InvIT unit is a real, priced, free-float-publishing security and it is **not** an equity share — anything that ranks or sums across the two has to say which is which. |
 | `fullMcapInr` | number \| null, ₹ | Tier 1, BSE. |
 | `sharesOutstanding` | number \| null | **Tier 2** — `fullMcapInr / priceInr`, both BSE. |
 | `priceInr`, `priceSource`, `priceAsOf` | | Tier 1, BSE. |

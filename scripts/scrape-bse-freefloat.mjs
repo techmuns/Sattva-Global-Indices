@@ -109,9 +109,60 @@ function requireFile(path, how) {
   return null;
 }
 
+/**
+ * How many times a null market cap is re-asked before it is believed.
+ *
+ * ---------------------------------------------------------------------------
+ * A NULL FROM BSE IS NOT A FACT ABOUT THE COMPANY
+ * ---------------------------------------------------------------------------
+ * Measured the hard way on 20 Aug 2026. Under sustained load BSE starts
+ * answering HTTP 200 with a well-formed body and `MktCapFull: null` for scrips
+ * it served correctly minutes earlier. The run degraded from 320 ms/scrip to
+ * 1,366 ms/scrip and produced 98 "failures" — CESC, ATUL, KAJARIACER, GESHIP,
+ * CAPLIPOINT, SAGILITY among them. Every one of those returned a proper figure
+ * on a quiet re-probe seconds after the run ended:
+ *
+ *     500084 CESC        MktCapFull "20,758.43"  MktCapFF "9,841.66"
+ *     500027 ATUL        MktCapFull "19,196.47"  MktCapFF "10,332.40"
+ *     500233 KAJARIACER  MktCapFull "19,180.88"  MktCapFF "9,946.38"
+ *
+ * This is the Munshot `not_found` trap (3.7) in a second place: a soft "no data"
+ * that looks like an answer. `bseGet` cannot retry it because HTTP 200 with a
+ * parseable body IS a successful transfer — the retry has to live here, where
+ * the SHAPE is judged rather than the status.
+ *
+ * A company that genuinely has no market cap — an ETF, a suspended line — still
+ * lands in failed[] after the retries, which is correct. It just has to say so
+ * three times.
+ */
+const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+const NULL_MCAP_RETRIES = 3;
+const NULL_MCAP_BACKOFF_MS = 2500;
+
+/** Gap between the one-at-a-time re-asks in the quiet sweep-up after the pool. */
+const SWEEP_GAP_MS = 1200;
+
 async function readScrip(scrip) {
-  const [trading, header, com] = await Promise.all([
-    bseGet(stockTradingUrl(scrip.scripCode)),
+  // StockTrading carries the two numbers this whole file exists for, so it is
+  // the one that gets re-asked when the answer is shaped like an outage.
+  let trading = null;
+  let fullMcapInr = null;
+  let freeFloatMcapInr = null;
+  for (let attempt = 0; attempt <= NULL_MCAP_RETRIES; attempt += 1) {
+    if (attempt > 0) await sleep(NULL_MCAP_BACKOFF_MS * attempt);
+    trading = await bseGet(stockTradingUrl(scrip.scripCode));
+    if (!trading.ok) continue;
+    fullMcapInr = parseCroreToRupees(trading.json?.MktCapFull);
+    freeFloatMcapInr = parseCroreToRupees(trading.json?.MktCapFF);
+    // A "-" is BSE saying it publishes nothing for this instrument, which is a
+    // real answer and must not be retried. A null or an absent field is the
+    // load-shedding shape above, and must.
+    const saidNothing = trading.json?.MktCapFull === '-' || trading.json?.MktCapFF === '-';
+    if (fullMcapInr !== null || saidNothing) break;
+  }
+
+  const [header, com] = await Promise.all([
     bseGet(scripHeaderUrl(scrip.scripCode)),
     bseGet(comHeaderUrl(scrip.scripCode)),
   ]);
@@ -120,11 +171,13 @@ async function readScrip(scrip) {
     return { scrip, ok: false, reason: `StockTrading: ${trading.reason}` };
   }
 
-  const fullMcapInr = parseCroreToRupees(trading.json?.MktCapFull);
-  const freeFloatMcapInr = parseCroreToRupees(trading.json?.MktCapFF);
-
   if (fullMcapInr === null) {
-    return { scrip, ok: false, reason: `no usable MktCapFull (${JSON.stringify(trading.json?.MktCapFull)})` };
+    return {
+      scrip,
+      ok: false,
+      reason: `no usable MktCapFull (${JSON.stringify(trading.json?.MktCapFull)}) `
+        + `after ${NULL_MCAP_RETRIES} re-asks`,
+    };
   }
   if (freeFloatMcapInr === null) {
     return { scrip, ok: false, reason: `no usable MktCapFF (${JSON.stringify(trading.json?.MktCapFF)})` };
@@ -162,6 +215,10 @@ async function readScrip(scrip) {
       // The master's ISIN is authoritative; ComHeader's is the cross-check.
       isin: scrip.isin,
       isinFromComHeader: comIsin,
+      // 'equity' or 'invit-reit'. An InvIT unit is a real, priced, free-float-
+      // publishing security and it is NOT an equity share — anything that ranks
+      // or sums across the two has to say which is which.
+      instrumentKind: scrip.instrumentKind ?? 'equity',
       sector: com.ok ? (String(com.json?.IndustryNew ?? '').trim() || null) : null,
       fullMcapInr,
       freeFloatMcapInr,
@@ -281,6 +338,40 @@ async function main() {
       );
     },
   });
+
+  // ---- the quiet sweep-up ------------------------------------------------
+  //
+  // The per-scrip re-asks inside readScrip() happen while the pool is still
+  // running, so they are made under exactly the load that caused the null. The
+  // fix that actually works is to wait until the pool has STOPPED and ask again
+  // slowly. Measured 20 Aug 2026: a run at concurrency 8 produced 98 nulls, and
+  // every one of the six spot-checked returned a proper figure on a single quiet
+  // request seconds after the run ended. A second run with in-pool retries alone
+  // still left 16 — ABB, TRENT, INDUSINDBK, HAVELLS, SWIGGY among them, none of
+  // which is a company without a market capitalisation.
+  //
+  // One at a time, with a real gap. This is the last chance a scrip gets before
+  // it is called a failure, so it is worth the seconds.
+  const stragglers = results.filter((r) => !r.ok);
+  if (stragglers.length > 0) {
+    process.stdout.write(
+      `\n  ${num(stragglers.length)} scrip(s) failed under load. Re-asking one at a time, `
+      + `${SWEEP_GAP_MS} ms apart, now the pool has stopped.\n`,
+    );
+    let recovered = 0;
+    for (const straggler of stragglers) {
+      await sleep(SWEEP_GAP_MS);
+      const retry = await readScrip(straggler.scrip);
+      if (retry.ok) {
+        results[results.indexOf(straggler)] = retry;
+        recovered += 1;
+      }
+    }
+    process.stdout.write(
+      `  recovered ${num(recovered)} of ${num(stragglers.length)}; `
+      + `${num(stragglers.length - recovered)} still unreadable and going to failed[].\n`,
+    );
+  }
   const elapsedMs = Date.now() - startedAt;
 
   const okResults = results.filter((r) => r && r.ok);

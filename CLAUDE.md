@@ -123,8 +123,8 @@ only place these figures may come from):
 | Fund | Holdings resolved | With a free-float reading | India weight covered |
 | --- | --- | --- | --- |
 | EM ETF | 165 of 165 | 165 of 165 | 11.3% of 11.3% |
-| India Small-Cap | 454 of 461 | 453 of 461 | 97.3% of 99.7% |
-| EM Small-Cap | 408 of 414 | 407 of 414 | 20.8% of 21.3% |
+| India Small-Cap | 458 of 461 | 457 of 461 | 99.6% of 99.7% |
+| EM Small-Cap | 412 of 414 | 411 of 414 | 21.2% of 21.3% |
 
 That is after adding BSE. **Measured on NSE alone on 20 Aug 2026: 208 of 1,249 companies, and by
 India weight 97.4% / 22.4% / 22.2%** — the large caps are fine and the small caps, exactly where
@@ -135,15 +135,23 @@ And the source split, from the same `coverage` block:
 
 | Where the figure came from | Companies |
 | --- | --- |
-| BSE, the only exchange publishing for that company | 997 |
+| BSE, the only exchange publishing for that company | 1,020 |
 | BSE, both publish and they agree within 2% | 183 |
 | NSE, both publish and they differ by more than 2% | 23 |
 | NSE, BSE has no reading at all | 3 |
-| No reading from either exchange | 43 |
+| No reading from either exchange | 21 |
 
-The 43 are not a failure to try. 24 are REITs and InvITs BSE files outside the equity segment, 18
-are NSE-only listings NSE itself does not publish free float for, and 1 is in the BSE universe with
-no factor. Every one carries the reason on its record.
+The 21 are not a failure to try, and **every one carries its reason on its record**:
+
+- **19 are not on BSE at all** — checked by ISIN against every one of BSE's 12,685 active scrips.
+  They are NSE-only listings, and NSE publishes free float for about 250 symbols, none of them
+  these. No exchange publishes a figure. Six are NSE-listed InvITs; the rest are mostly Emerge names.
+- **2 are Suspended on BSE** — Colab Platforms (542866) and RRP Semiconductor (504346). BSE still
+  answers for both with a clean-looking factor and `Category: "Listed"`; only the active master says
+  otherwise, and it is believed. See §3.8.
+
+This was **43** until 20 Aug 2026. The 22 that closed were REITs and InvITs, and they were never a
+data problem — see §3.8 on `segment=Equity`.
 
 So: **every count on screen reads "X of Y"**, never a bare X. And **no figure in any registry,
 caption, heading or doc may be typed by hand** — derive it from the module that owns the data, so it
@@ -701,6 +709,36 @@ request; it is struck at an undisclosed moment and must never render as a compan
 
 `INDUSTRY` in the master is `null` for every row. Sector comes from `ComHeader.IndustryNew`.
 
+> ### ⚠ `segment=Equity` silently excludes every REIT and InvIT
+>
+> `ListofScripData?segment=Equity&status=Active` returns 4,975 scrips and **not one of BSE's 27
+> `GROUP=IF` scrips** — Embassy Office Parks, Mindspace, Nexus Select, Brookfield India, IndiGrid,
+> IRB InvIT, PowerGrid InvIT, Knowledge Realty and the rest. All 27 are Active. **BSE publishes
+> `MktCapFull` and `MktCapFF` for every one of them**, and confirms each ISIN through `ComHeader`.
+>
+> Fetching the master through that filter is why 22 companies above the desk's floor carried no
+> free-float reading at all, four of them **held by the funds**. Nothing was broken; nothing was
+> asking.
+>
+> The distinction is `GROUP`, **not** the row's own `Segment` field — IndiGrid's `Segment` reads
+> `"Equity"` exactly like Reliance's. Only `GROUP` separates `IF` from `A`/`B`/`X`.
+>
+> Measured behaviour of the `segment` parameter, `status=Active`:
+>
+> | `segment=` | rows |
+> | --- | --- |
+> | `Equity` | 4,975 |
+> | `ETF` | 264 |
+> | *empty* | 0 |
+> | **anything else** | **12,685 — the complete set** |
+>
+> So BSE recognises two filters and **falls through to everything for a value it does not know**.
+> That is a trap in both directions: a typo silently widens the universe, and a release that starts
+> honouring the value would silently narrow it. `SCRIP_MASTER_ALL_URL` therefore uses an obviously
+> fake sentinel (`ALL_SEGMENTS`) and `fetch-bse-master.mjs` **asserts the wide response is a strict
+> superset of the equity one**, so a change in BSE's behaviour fails loudly instead of quietly
+> costing 12,000 scrips.
+
 > ### ⚠ BSE serves delisted scrips as though nothing happened
 >
 > `StockTrading` and `ComHeader` answer happily for a **delisted** scrip code and return that
@@ -1042,16 +1080,21 @@ it can be re-run and reasoned about without touching an endpoint.
 | Fund | Resolved | Unresolved |
 | --- | --- | --- |
 | EM ETF | 165 of 165 | 0 |
-| India Small-Cap | 454 of 461 | 7 |
-| EM Small-Cap | 408 of 414 | 6 |
+| India Small-Cap | 458 of 461 | 3 |
+| EM Small-Cap | 412 of 414 | 2 |
 
 Method histogram across all 1,040 holding rows: `scrip_id` 996, `scrip_code` 16, `isin` 7, `name` 5,
-`confirmed` 3, unresolved 13. **Zero collisions.**
+`confirmed` 11, unresolved 5. **Zero collisions.**
 
-The 13 unresolved rows are not spelling problems and no resolver will fix them:
+The 5 unresolved rows are not spelling problems and no resolver will fix them:
 
-- **four REITs** — Embassy Office Parks, Brookfield India, Nexus Select, Mindspace. Not in BSE's
-  equity segment and not in NSE's free-float set. A different instrument class, not a missing name.
+- ~~**four REITs**~~ — **resolved on 20 Aug 2026.** Embassy Office Parks, Brookfield India, Nexus
+  Select and Mindspace sat here with the reason "not in BSE's equity segment and not in NSE's
+  free-float set". The first half was true and **the conclusion drawn from it was wrong**: BSE files
+  REITs and InvITs under `GROUP=IF`, outside `segment=Equity`, and publishes `MktCapFull` and
+  `MktCapFF` for all of them. The master was being fetched through that filter, so nothing ever
+  asked. All four are now pinned in `CONFIRMED`, asserted against the master every run, and priced.
+  Together they are 2.26% of the India Small-Cap fund.
 - **the `--` rows** — GSPL Transmission, Triveni Power Transmission, Inox Renewable Solutions.
   Demerged entities that have not started trading. NSE carries two of them only as placeholders
   (`DUMMYTRVN`, `DUMMYINXGN`, ISINs beginning `DUM`), which are not traded securities.

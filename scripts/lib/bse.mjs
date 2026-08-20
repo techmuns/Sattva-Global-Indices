@@ -178,9 +178,43 @@ export function bseGet(url) {
   });
 }
 
-/** The whole active-equity scrip master, in one request (~1.7 MB). */
+/** The active-EQUITY scrip master, in one request (~1.7 MB). 4,975 scrips. */
 export const SCRIP_MASTER_URL =
   `${API}/ListofScripData/w?Group=&Scripcode=&industry=&segment=Equity&status=Active`;
+
+/**
+ * The whole active scrip master, every instrument class. 12,685 scrips.
+ *
+ * ---------------------------------------------------------------------------
+ * THIS URL RELIES ON AN UNRECOGNISED `segment` VALUE, AND THAT IS DELIBERATE
+ * ---------------------------------------------------------------------------
+ * Measured 20 Aug 2026 against ListofScripData with `status=Active`:
+ *
+ *     segment=Equity          ->  4,975 rows
+ *     segment=ETF             ->    264 rows
+ *     segment=<empty>         ->      0 rows
+ *     segment=<anything else> -> 12,685 rows   (InvIT, REIT, Debt, Hybrid, …
+ *                                               every value tried returned the
+ *                                               same complete set)
+ *
+ * So BSE recognises exactly two filters and falls through to EVERYTHING for any
+ * value it does not know. That is a trap in both directions: a typo silently
+ * widens the universe, and a future release that starts honouring the value
+ * would silently narrow it to nothing.
+ *
+ * `ALL_SEGMENTS` is therefore not a value BSE documents — it is a sentinel
+ * chosen to be obviously not a real segment, and fetch-bse-master.mjs ASSERTS
+ * that what comes back is a strict superset of the equity request. If BSE ever
+ * starts treating it as a filter, that assertion fails loudly instead of the
+ * universe quietly losing 12,000 scrips.
+ *
+ * The reason we need it at all: REITs and InvITs sit in `GROUP: "IF"` and BSE's
+ * `segment=Equity` filter excludes all 27 of them — including Embassy Office
+ * Parks, Mindspace, Nexus Select and Brookfield India, which the iShares funds
+ * hold. BSE publishes MktCapFull and MktCapFF for every one; nothing was asking.
+ */
+export const SCRIP_MASTER_ALL_URL =
+  `${API}/ListofScripData/w?Group=&Scripcode=&industry=&segment=ALL_SEGMENTS&status=Active`;
 
 /** Free float and full market cap for one scrip. Carries MktCapFull / MktCapFF. */
 export const stockTradingUrl = (scripCode) =>
