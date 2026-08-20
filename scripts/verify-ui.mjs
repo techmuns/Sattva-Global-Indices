@@ -77,11 +77,71 @@ function isCdnNoise(url) {
   try { return CDN_HOSTS.some((re) => re.test(new URL(url).hostname)); } catch { return false; }
 }
 
-function attachConsole(page, bucket) {
+/**
+ * The third family: the no-Worker probe on the static floor.
+ *
+ * `python3 -m http.server` answers a POST with **501 Unsupported method**, and
+ * the browser logs that to the console. It is not a defect — it is the floor
+ * working as designed. `quotes.js` treats 404 / 405 / 501 on this route as
+ * `no-worker` by name ("this deployment serves static files only"), assertion
+ * 41 asserts every row then falls back to its committed close, and assertion 39
+ * skips for the same reason.
+ *
+ * This was a FLAKY failure, not a new one. The poller fires on a timer, so
+ * whether its first POST landed before assertion 22 read the bucket was a race:
+ * the same commit passed on a fast runner and failed on a slow one. Classifying
+ * it is the fix; widening "acceptable console errors" is not.
+ *
+ * Deliberately narrow, so it cannot hide a real fault:
+ *   - only when there is NO Worker. Against `wrangler dev` a failing
+ *     /api/quotes is a genuine error and still fails assertion 22.
+ *   - only this origin and only this exact path.
+ *   - only the three statuses the application itself recognises.
+ *   - counted and reported in its own bucket, never merged into the CDN count.
+ */
+const NO_WORKER_STATUSES = /\b(404|405|501)\b/;
+
+function isDesignedNoWorkerProbe(url, text, { base, hasWorker }) {
+  if (hasWorker || !url) return false;
+  try {
+    const parsed = new URL(url);
+    if (`${parsed.protocol}//${parsed.host}` !== new URL(base).origin) return false;
+    if (parsed.pathname !== '/api/quotes') return false;
+  } catch { return false; }
+  return NO_WORKER_STATUSES.test(text ?? '');
+}
+
+/**
+ * Is this /api/quotes on the origin under test, whatever the failure text?
+ * Used only inside a declared induced-noise window.
+ */
+function isQuotesRoute(url, base) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return `${parsed.protocol}//${parsed.host}` === new URL(base).origin && parsed.pathname === '/api/quotes';
+  } catch { return false; }
+}
+
+function attachConsole(page, bucket, options) {
+  const bucketFor = (url, text) => {
+    if (isCdnNoise(url)) return 'filtered';
+    // THE HARNESS OWNS THE NOISE IT MAKES. Assertions 39 and 41 deliberately
+    // cut /api/quotes to prove the fallback; the browser logs the aborted
+    // request as net::ERR_FAILED, which carries no status and so is rightly
+    // declined by the designed-probe classifier above. Attributing it to "our
+    // own code" in the summary would be a false report of a fault the test
+    // caused on purpose. The window is opened and closed by those checks and
+    // covers only that one route.
+    if (bucket.inducing && isQuotesRoute(url, options.base)) return 'induced';
+    if (isDesignedNoWorkerProbe(url, text, options)) return 'designed';
+    return 'real';
+  };
   page.on('console', (msg) => {
     if (msg.type() !== 'error') return;
     const url = msg.location()?.url ?? null;
-    bucket[isCdnNoise(url) ? 'filtered' : 'real'].push(`${url ?? '(no url)'} :: ${msg.text().slice(0, 160)}`);
+    const text = msg.text();
+    bucket[bucketFor(url, text)].push(`${url ?? '(no url)'} :: ${text.slice(0, 160)}`);
   });
   page.on('pageerror', (error) => { bucket.real.push(`pageerror :: ${error.message.slice(0, 160)}`); });
   page.on('requestfailed', (request) => {
@@ -136,8 +196,8 @@ async function main() {
     acceptDownloads: true,
   });
   const page = await context.newPage();
-  const errors = { real: [], filtered: [] };
-  attachConsole(page, errors);
+  const errors = { real: [], filtered: [], designed: [], induced: [], inducing: false };
+  attachConsole(page, errors, { base, hasWorker });
 
   /** Wait for the streaming fill to finish. Never a sleep. */
   const settle = async () => {
@@ -255,7 +315,9 @@ async function main() {
       }));
       for (const [part, present] of Object.entries(shell)) ok(present, `the ${part} must render`);
       empty(c.errors.real, 'a console error from our own code is a failure', (e) => e);
-      return `${c.errors.filtered.length} CDN failures filtered (Tailwind / Google Fonts), classified by response URL`;
+      return `${c.errors.filtered.length} CDN failures filtered (Tailwind / Google Fonts) and `
+        + `${c.errors.designed.length} designed no-Worker probe(s) on /api/quotes, classified by response URL; `
+        + `${c.errors.real.length} from our own code`;
     },
     sabotage: async (c) => {
       await c.page.evaluate(() => {
@@ -1205,9 +1267,14 @@ async function main() {
         + 'Resolution assertions could not run against an upstream that is refusing everything.';
     },
     sabotage: async (c) => {
+      c.errors.inducing = true;
       await c.page.route('**/api/quotes', (route) => route.abort());
     },
-    restore: async (c) => { await c.page.unroute('**/api/quotes'); await c.load(); },
+    restore: async (c) => {
+      await c.page.unroute('**/api/quotes');
+      c.errors.inducing = false;
+      await c.load();
+    },
   }, ctx);
 
   await suite.check({
@@ -1404,6 +1471,7 @@ async function main() {
     run: async (c) => {
       // Works in both modes: against the static server there is nothing to
       // block, and against wrangler this is what a Worker outage looks like.
+      c.errors.inducing = true;
       await c.page.route('**/api/quotes', (route) => route.abort());
       await c.load();
       const m = await c.page.evaluate(async () => {
@@ -1422,6 +1490,7 @@ async function main() {
         };
       });
       await c.page.unroute('**/api/quotes');
+      c.errors.inducing = false;
       equal(m.live, false, 'nothing may claim to be live when no byte arrived');
       equal(m.liveCount, 0, 'the live overlay must be empty');
       equal(m.tiers.live ?? 0, 0, 'no row may sit on the live tier');
@@ -1454,7 +1523,10 @@ async function main() {
 
   process.exit(suite.report([
     `Mode: ${hasWorker ? 'Worker present — the live block runs' : 'static floor — the live block skips, which is the point of running it here'}`,
-    `Console: ${errors.filtered.length} CDN failures filtered by response URL, ${errors.real.length} from our own code`,
+    `Console: ${errors.filtered.length} CDN failures filtered by response URL · `
+      + `${errors.designed.length} designed no-Worker probe(s) on /api/quotes · `
+      + `${errors.induced.length} induced by the harness cutting that route on purpose · `
+      + `${errors.real.length} from our own code`,
   ]));
 }
 

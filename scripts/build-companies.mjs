@@ -92,6 +92,27 @@ function main() {
   const nseFreeFloat = requireFile('nse-freefloat.json', 'node scripts/scrape-nse-freefloat.mjs');
   const bseFreeFloat = requireFile('bse-freefloat.json', 'node scripts/scrape-bse-freefloat.mjs');
   const prices = requireFile('prices.json', 'node scripts/fetch-bhavcopy.mjs');
+
+  // ---- the review calendar is anchored to the RECORD, not to the clock ----
+  // `nextReview()` defaults to `new Date()`, which is right for the interface —
+  // a reader wants days remaining from now. It is wrong here: this build writes
+  // a COMMITTED ARTEFACT, and a field that moves with the calendar makes that
+  // artefact irreproducible. CI rebuilds and compares, so the same inputs
+  // rebuilt a day later differed by exactly one leaf,
+  // `model.nextReview.daysRemaining` (12 -> 11), and the job failed.
+  //
+  // The anchor is the bhavcopy trade date: it is the moment the prices in this
+  // record are struck at, so "days until the review" is measured from the same
+  // instant as every distance the review is about. Any other committed as-of
+  // would do; the clock would not.
+  const reviewAnchor = new Date(`${prices.tradeDate}T00:00:00Z`);
+  if (Number.isNaN(reviewAnchor.getTime())) {
+    process.stderr.write(
+      `\nprices.json has no usable tradeDate (${JSON.stringify(prices.tradeDate)}), so the review\n`
+      + 'calendar cannot be anchored to the record. Run `node scripts/fetch-bhavcopy.mjs` first.\n\n',
+    );
+    process.exit(1);
+  }
   // Optional: monthly Munshot statistics. Absent is a smaller record, not a
   // failure — the site must build from the committed exchange data alone.
   const quoteStatsPath = join(REPO, 'public', 'data', 'quote-stats.json');
@@ -889,7 +910,7 @@ function main() {
         .map((k) => ({ verdict: VERDICTS[k].label, n: `${num(verdictCounts[k])} of ${num(out.length)}`, what: VERDICTS[k].detail })),
     ),
   );
-  const review = nextReview();
+  const review = nextReview(reviewAnchor);
   process.stdout.write(
     `\n\n  ${DISCLOSURE}\n` +
     `  Next review (ASSUMED): ${review?.label ?? '—'}, effective ${review?.effectiveDate ?? '—'}, ${review?.daysRemaining ?? '—'} days away.\n` +
@@ -974,7 +995,7 @@ function main() {
       segmentFloatTotals: floatTotals,
       verdictCounts,
       quarantinedCount: quarantined.size,
-      nextReview: nextReview(),
+      nextReview: nextReview(reviewAnchor),
       thresholdSources: {
         desk: "the desk's own band — MSCI does not publish its size cut-offs in advance",
         observed: 'measured from where MSCI has actually placed companies today',

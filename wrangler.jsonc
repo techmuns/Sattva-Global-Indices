@@ -18,6 +18,25 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
+    // WHY not_found_handling ALONE IS NOT ENOUGH.
+    //
+    // With static assets in front of a Worker, the asset layer answers first.
+    // "single-page-application" means any path that does not match a file on
+    // disk is served index.html — and that happens WITHOUT invoking the Worker.
+    // So /api/health returned the SPA shell as a text/html document instead of
+    // JSON, and /api/quotes would have gone the same way on any path the asset
+    // layer chose to answer.
+    //
+    // run_worker_first routes the listed patterns to the Worker BEFORE the
+    // asset layer sees them. Everything else still falls through to the assets,
+    // and unmatched app routes still get the SPA fallback, so the hash router
+    // and deep links are unaffected.
+    //
+    // Verified against the schema shipped with wrangler 4.124.0:
+    //   assets.run_worker_first: array of string | boolean
+    //   "Matches will be routed to the User Worker, and matches to negative
+    //    rules will go to the Asset Worker."
+    "run_worker_first": ["/api/*"],
     "not_found_handling": "single-page-application"
   },
   "observability": {
