@@ -122,13 +122,28 @@ only place these figures may come from):
 
 | Fund | Holdings resolved | With a free-float reading | India weight covered |
 | --- | --- | --- | --- |
-| EM ETF | 165 of 165 | 165 of 165 | 100.0% |
-| India Small-Cap | 454 of 461 | 453 of 461 | 97.6% |
-| EM Small-Cap | 408 of 414 | 407 of 414 | 97.6% |
+| EM ETF | 165 of 165 | 165 of 165 | 11.3% of 11.3% |
+| India Small-Cap | 454 of 461 | 453 of 461 | 97.3% of 99.7% |
+| EM Small-Cap | 408 of 414 | 407 of 414 | 20.8% of 21.3% |
 
-That is after adding BSE. On NSE alone it was 96.0% / 21.0% / 20.8%, and the small caps are exactly
-where inclusion forecasting matters — so the gap that closed was the whole product. A screen that
-says "453 companies" without saying "of 461" hides what is still missing.
+That is after adding BSE. **Measured on NSE alone on 20 Aug 2026: 208 of 1,249 companies, and by
+India weight 97.4% / 22.4% / 22.2%** — the large caps are fine and the small caps, exactly where
+inclusion forecasting matters, are three-quarters blind. That gap is the whole reason BSE is the
+primary source. A screen that says "453 companies" without saying "of 461" hides what is missing.
+
+And the source split, from the same `coverage` block:
+
+| Where the figure came from | Companies |
+| --- | --- |
+| BSE, the only exchange publishing for that company | 997 |
+| BSE, both publish and they agree within 2% | 183 |
+| NSE, both publish and they differ by more than 2% | 23 |
+| NSE, BSE has no reading at all | 3 |
+| No reading from either exchange | 43 |
+
+The 43 are not a failure to try. 24 are REITs and InvITs BSE files outside the equity segment, 18
+are NSE-only listings NSE itself does not publish free float for, and 1 is in the BSE universe with
+no factor. Every one carries the reason on its record.
 
 So: **every count on screen reads "X of Y"**, never a bare X. And **no figure in any registry,
 caption, heading or doc may be typed by hand** — derive it from the module that owns the data, so it
@@ -158,17 +173,56 @@ float factor is about **0.4978 from NSE** and **0.4926 from BSE** — roughly 1%
 real. It is not a price-timestamp artefact and it does not go away if you look harder: the two
 exchanges apply slightly different definitions of what counts as float.
 
-This is an ordinary two-source measurement problem and it gets the ordinary treatment:
+The median gap across the 206 companies carrying both readings is **0.071%**, and 59% of them agree
+to within 0.1%. But the tail is real: **32 differ by more than 1%, 14 by more than 5%**, and the
+worst is 35.8% (Premier Energies — NSE counts 118.5M free-float shares, BSE counts 170.2M, on a
+total share count both exchanges agree about and prices 1.1% apart).
 
-1. **NSE wins wherever it exists.** The desk's requirement is explicit — MSCI follows NSE, and the
-   Screener formula was rejected precisely because it disagreed with NSE. **BSE fills gaps only.**
-2. **Never average, blend, or silently prefer.** Every company carries `floatSource: 'nse' | 'bse'`,
+**Why the disagreement exists is not established.** The obvious explanation — lock-in shares from
+recent IPOs, released on different schedules — was tested against NSE's listing dates and does not
+hold: the median gap is flat across every listing-age cohort, and the worst offenders include
+Torrent Pharmaceuticals (listed 23.7 years) and Adani Enterprises (29.2 years). Treat the cause as
+unknown; the gap itself is measured and reproducible.
+
+#### The rule, which is the desk's
+
+**BSE is primary. NSE wins where the two materially disagree. NSE is the source where BSE has
+nothing.**
+
+1. **BSE is the primary source**, because it is the only one that can carry the screen at all. BSE
+   serves a free-float factor for **1,198 of 1,198** active scrips above ₹2,000 Cr; NSE publishes
+   free float for about **250 symbols** in total and its `ALL` key returns `marketCap: "-"` for
+   every one of 2,093 rows. Measured, both, on 20 Aug 2026.
+2. **Where NSE also publishes and the two differ by more than
+   `FLOAT_SOURCE_PREFER_NSE_GAP_PCT` (2%), NSE's factor is used**, because the desk's
+   understanding is that MSCI follows NSE. Below that, the difference is definitional noise and
+   switching source for it would churn the record without changing a decision.
+3. **Where BSE has no reading, NSE is the source.** BSE Ltd, CDSL and TSF Investments are NSE-only
+   listings and are not in BSE's equity master at all — no amount of scraping will ever change that.
+4. **The 2% switch point is nobody's published methodology.** Not NSE's, not BSE's, not MSCI's. It
+   is the desk's rule and every surface that acts on it says so.
+
+The gap is measured on the **dimensionless factor**, never on a rupee figure — two rupee free floats
+from two exchanges differ by the price difference as well as the float difference, so a 2% test on
+them would fire on price noise.
+
+#### And the parts that did not change
+
+5. **Never average, blend, or silently prefer.** Every company carries `floatSource: 'nse' | 'bse'`,
    and where both readings exist **both factors stay on the record** (`floatFactorNse`,
    `floatFactorBse`) so the disagreement is inspectable rather than resolved away.
-3. **The source travels with the number** — to the screen, to the drill-down, and to row 1 of any
+6. **The rule that chose travels with the number.** `floatChoice` records which rule fired
+   (`bse-primary`, `nse-preferred-on-material-gap`, `bse-only`, `nse-only`), the measured gap, the
+   threshold used and a sentence of why. A source chosen by a rule the reader cannot see is a
+   tier-3 judgement wearing a tier-1 face.
+7. **The source travels with the number** — to the screen, to the drill-down, and to row 1 of any
    export. A reader comparing two rows must be able to see that one is NSE-sourced and one is not.
-4. **Nothing sums or ranks across the two without saying so.** A league table mixing NSE-sourced and
+8. **Nothing sums or ranks across the two without saying so.** A league table mixing NSE-sourced and
    BSE-sourced free floats is defensible. Presenting it as "NSE free float" is not.
+
+> **This rule was inverted once already.** Until 20 Aug 2026 it read "NSE wins wherever it exists,
+> BSE fills gaps only". If you are reading old code, old docs or an old commit message that says
+> that, it is describing the previous rule, not a bug.
 
 ### 2.9 Store the float factor, not a rupee figure
 
@@ -448,6 +502,50 @@ it goes red; if you cannot make it fail, say so in the report rather than counti
 ---
 
 ---
+
+### 2.23 The universe is a union recomputed every run, never a frozen list
+
+The desk's instruction is "track every company above ₹2,000 Cr market cap", and it supplied a
+Screener export of exactly that screen — 1,253 companies, every one with an ISIN, no duplicates.
+
+**That file is a seed and an identity bridge. It is not the universe.** A frozen list goes stale in
+precisely the way that matters:
+
+- Companies cross ₹2,000 Cr in both directions constantly. La Opala (₹2,081 Cr) and TeamLease
+  (₹2,071 Cr) sit above the floor in our own BSE data and below it in Screener's — same companies,
+  different minutes. A frozen list drops them silently.
+- **A company the funds hold is in scope at any size.** Genus Prime Infra is ₹52 Cr and held. It is
+  not on the seed list and must never be dropped from the record.
+
+So the universe is recomputed on every run as a union of three inputs:
+
+```
+  active BSE scrips with full mcap ≥ ₹2,000 Cr     self-maintaining, from BSE's own master
+∪ every company held by any fund                    any size, always
+∪ the desk's seed list                              catches what BSE's equity master cannot see
+```
+
+The third term is not redundant. BSE's master is filtered `segment=Equity&status=Active`, so it
+cannot see **NSE-only listings** — BSE Ltd (₹1.34 lakh Cr), CDSL (₹28,129 Cr) and TSF Investments
+(₹9,433 Cr) are all above the floor and none is in BSE's equity master at all.
+
+**A seed code is only believed when the active master carries it AND agrees on the ISIN.** Anything
+else is recorded and not fetched: a code the active master does not carry may belong to a delisted
+company that BSE will happily answer for with three-year-old figures (§3.8). Measured on this
+export, 24 of the seed's BSE codes are rejected that way, and almost all of them are REITs and
+InvITs — Embassy Office Parks, Mindspace, Nexus Select, Brookfield India, IndiGrid, IRB InvIT,
+PowerGrid InvIT, Cube Highways, Knowledge Realty. BSE files those **outside** the equity segment,
+correctly: they are a different instrument class, not missing names.
+
+Every company that ends up with no BSE record carries `noBseReason` saying which of those it is. An
+em dash with no reason reads as a fact about the company rather than a gap in our sources (§2.3).
+
+**The seed also carries the best ISIN → NSE symbol bridge we have.** `nse-universe.json` is built
+from two niftyindices index lists, so it only knows names those indices contain; the seed names an
+NSE code for ~1,217 companies. Both are used, `nse-universe` first, each recorded in
+`nseSymbolSource` — and where both name a symbol for one ISIN **they must agree or the build
+stops**, because a disagreement means one of them has the wrong company on that ISIN and every
+float reading keyed on the symbol would belong to somebody else.
 
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
@@ -795,6 +893,7 @@ companies.
 CLAUDE.md                          this contract
 docs/DATA-CONTRACTS.md             every JSON shape, unit, source and cadence
 scripts/
+  lib/csv.mjs                      RFC 4180 reader; read by header NAME, never index
   lib/spreadsheetml.mjs            SpreadsheetML 2003 reader, zero dependencies
   lib/report.mjs                   console tables, number formatting, check lists
   lib/assert.mjs                   the verification harness: check / skip / prove
@@ -803,6 +902,7 @@ scripts/
   lib/bhavcopy.mjs                 EOD CSV parse + shape and continuity tripwires
   lib/munshot.mjs                  Munshot batch client + rawQuote parser, pure
   lib/recompute.mjs                free-float recompute, passive drift, flow primitives
+  import-universe.mjs              Screener seed → public/data/universe.json
   import-ishares.mjs               3 workbooks → public/data/msci-funds.json
   scrape-nse-freefloat.mjs         NSE pre-open → public/data/nse-freefloat.json
   fetch-bse-master.mjs             BSE scrip master → public/data/bse-scrip-master.json
@@ -817,12 +917,14 @@ scripts/
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
   fixtures/ishares-{eem,smin,eems}.xls    the committed input workbooks
+  fixtures/screener-universe.csv          the desk's >₹2,000 Cr seed list
   fixtures/bhavcopy-spa-shell.html       BSE's SPA shell, served with HTTP 200
   fixtures/bhavcopy-sample-2026081{8,9}.csv  two real days, for continuity
   fixtures/munshot-rawquote-reliance.txt     one captured detail quote
 public/
   index.html                       placeholder; the interface is a later prompt
   js/config/thresholds.mjs         EVERY threshold, and nowhere else
+  data/universe.json               generated — the desk's tracked universe seed
   data/msci-funds.json             generated — do not hand-edit
   data/nse-freefloat.json          generated — do not hand-edit
   data/bse-scrip-master.json       generated — do not hand-edit
@@ -844,8 +946,9 @@ worker/
   http.mjs                         ETag / 304 / CORS / cache-state helpers
 wrangler.jsonc                     Worker config; npx-only, no node_modules here
 .github/workflows/
-  daily-refresh.yml                weekdays 20:00 IST — bhavcopy → rebuild → commit
-  monthly-float.yml                1st of month — float + universe + stats → commit
+  daily-refresh.yml                weekdays 20:00 IST — EVERY source → verify → commit
+  weekly-nse-crosscheck.yml        Saturdays 09:30 IST — NSE with 3 patient retries
+  monthly-float.yml                1st of month — Munshot ADV/splits only
   verify.yml                       every push — both suites, both modes
 ```
 
@@ -862,14 +965,16 @@ Refresh order — later scripts read what earlier ones write:
 
 ```bash
 node scripts/import-ishares.mjs        # workbooks; no network
+node scripts/import-universe.mjs       # the desk's >Rs2,000 Cr seed list; no network
 node scripts/fetch-bse-master.mjs      # 1 request, ~1.7 MB
 node scripts/fetch-nse-universe.mjs    # 2 requests, the ISIN bridge
-node scripts/scrape-nse-freefloat.mjs  # 3 requests, 261 symbols
-node scripts/scrape-bse-freefloat.mjs  # ~3,600 requests, ~25 min — the long one
+node scripts/scrape-nse-freefloat.mjs  # 4 requests, ~250 symbols - THROTTLES, see below
+node scripts/scrape-bse-freefloat.mjs  # ~3,600 requests, ~12 min at concurrency 8
 node scripts/fetch-bhavcopy.mjs        # 1 request, the whole market's closes
 node scripts/fetch-quote-stats.mjs     # monthly ADV/splits; --concurrency 1 --gap-ms 1200
 node scripts/reconcile-shares.mjs      # share-count outliers -> quarantine list
 node scripts/build-companies.mjs       # no network; joins everything
+node scripts/verify-data.mjs           # the data assertions; run before committing
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
@@ -894,6 +999,24 @@ and no `node_modules` here**, and `git status` must keep proving it.
 The upstream token lives in `.dev.vars` locally (gitignored) and as a Worker secret in production
 (`npx wrangler secret put MUNS_TOKEN`). **It must never appear in `public/`** — grep the served site
 after any change to the Worker.
+
+### The cadence, and why NSE is allowed to fail
+
+Everything above is re-read **every trading day** by `daily-refresh.yml`. Measured end to end on
+20 Aug 2026: universe import 0.2 s, BSE master 5.5 s, NSE universe 22.8 s, BSE float ~12 min at
+concurrency 8, bhavcopy ~2 s, build ~4 s. That is comfortably inside one CI job, which is why the
+desk's fallback plan — recompute from prices daily, re-read sources only weekly — was not needed.
+
+**NSE is the exception and its steps are `continue-on-error`.** NSE's edge refuses a datacentre IP
+unpredictably: a paired trial answered **5 of 8** identical curl requests, and the first full
+pipeline run died at `FO  HTTP 403 after 6 retries`. That is survivable because the float factor is
+nearly static — **814 of 1,199 companies were byte-identical day over day, 1,194 moved less than
+0.1%, median movement 0.000000%** — and because `scrape-nse-freefloat.mjs` refuses to replace a good
+snapshot with a partial read, so a throttled day leaves the last good file in place.
+
+It is not survivable indefinitely, because the desk's rule uses NSE's factor wherever the two
+exchanges differ by more than 2%. `weekly-nse-crosscheck.yml` therefore retries three times, ten
+minutes apart, every Saturday, and **fails loudly** if none gets through.
 
 `scrape-bse-freefloat.mjs --limit N` fetches only the largest N scrips and **writes nothing** — use
 it to check the endpoint is healthy before spending twenty-five minutes on the full run.
@@ -936,6 +1059,27 @@ The 13 unresolved rows are not spelling problems and no resolver will fix them:
 Every one keeps its row, keeps its weight in every denominator, and carries a stated reason in
 `companies.json → unresolved[]`. **Dropping them would quietly redefine the universe as "the ones we
 could match"** — the same error class as rendering a missing value as zero.
+
+### The seed list widened the NSE symbol bridge, not the holdings resolution
+
+The fund-holding histogram above is unchanged by the seed: every holding that could be resolved
+already was. What the seed changed is how many companies in the **whole record** carry an NSE
+symbol at all, which is what decides whether NSE can even be asked for a free-float reading:
+
+| ISIN → NSE symbol asserted from | Companies |
+| --- | --- |
+| `nse-universe.json` (niftyindices index membership) | 500 |
+| the desk's seed list | 717 |
+| neither — no NSE symbol | 32 |
+
+**1,217 of 1,249**, against 749 before. `nse-universe.json` only knows the names its two index lists
+contain, and the seed names an NSE code for essentially every company on the desk's screen.
+
+Both sources are consulted, `nse-universe` first, and `nseSymbolSource` records which answered.
+**Where both name a symbol for one ISIN they must agree or the build stops** — a disagreement means
+one file has the wrong company on that ISIN, and every float reading keyed on that symbol would
+belong to somebody else. Nothing downstream could see it, so it is a build-stopping check rather
+than a warning.
 
 ### The pre-resolver baseline, kept on the record
 

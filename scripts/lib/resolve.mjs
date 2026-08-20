@@ -174,7 +174,7 @@ export function normaliseTicker(value) {
  * @param {{symbols: Array}} nseUniverse     from public/data/nse-universe.json
  * @param {Set<string>} nseFreeFloatSymbols  symbols that have an NSE free-float reading
  */
-export function buildIndex(bseMaster, nseUniverse, nseFreeFloatSymbols) {
+export function buildIndex(bseMaster, nseUniverse, nseFreeFloatSymbols, universeSeed) {
   const byScripId = new Map();
   const byScripCode = new Map();
   const byIsin = new Map();
@@ -204,6 +204,27 @@ export function buildIndex(bseMaster, nseUniverse, nseFreeFloatSymbols) {
     else nseByIsin.set(s.isin, [s]);
   }
 
+  // ---- the seed list, as a SECOND ISIN -> NSE symbol source ---------------
+  // nse-universe.json is built from two niftyindices index lists, so it only
+  // knows the names those indices contain. The desk's Screener export names an
+  // NSE code for ~1,217 companies including ones no Nifty index carries, and it
+  // is the only source that names the NSE-only listings at all.
+  //
+  // Two sources for one fact is the situation 2.8 legislates: neither is blended
+  // and neither silently wins. nse-universe stays authoritative because it is the
+  // exchange's own index membership; the seed only fills gaps; and where both
+  // name a symbol for one ISIN they MUST agree — seedSymbolConflicts() reports
+  // any that do not, and the build refuses to write on a conflict.
+  const seedByIsin = new Map();
+  const seedBySymbol = new Map();
+  for (const row of universeSeed?.companies ?? []) {
+    if (row.isin && !seedByIsin.has(row.isin)) seedByIsin.set(row.isin, row);
+    if (row.nseSymbol) {
+      const key = normaliseTicker(row.nseSymbol);
+      if (key !== '' && !seedBySymbol.has(key)) seedBySymbol.set(key, row);
+    }
+  }
+
   return {
     byScripId,
     byScripCode,
@@ -211,8 +232,28 @@ export function buildIndex(bseMaster, nseUniverse, nseFreeFloatSymbols) {
     byName,
     nseBySymbol,
     nseByIsin,
+    seedByIsin,
+    seedBySymbol,
     nseFreeFloatSymbols: nseFreeFloatSymbols ?? new Set(),
   };
+}
+
+/**
+ * Every ISIN for which the NSE universe and the seed list name DIFFERENT NSE
+ * symbols. Expected to be empty; a non-empty result means one of the two files
+ * has the wrong company and the build must not proceed on either.
+ */
+export function seedSymbolConflicts(index) {
+  const conflicts = [];
+  for (const [isin, row] of index.seedByIsin) {
+    const hits = index.nseByIsin.get(isin);
+    if (!hits || hits.length !== 1 || !row.nseSymbol) continue;
+    const fromUniverse = hits[0].symbol;
+    if (normaliseTicker(fromUniverse) !== normaliseTicker(row.nseSymbol)) {
+      conflicts.push({ isin, name: row.name, fromNseUniverse: fromUniverse, fromSeed: row.nseSymbol });
+    }
+  }
+  return conflicts;
 }
 
 /** A BSE scrip reached unambiguously by ISIN, or null. */
@@ -223,14 +264,26 @@ function bseByIsin(index, isin) {
 }
 
 /**
- * The NSE symbol for an ISIN, asserted from the NSE universe only.
- * Never inferred from BSE's scrip_id, however reliably the two agree.
+ * The NSE symbol for an ISIN, with the source that asserted it.
+ *
+ * Asserted ONLY from a file that states the symbol outright, keyed on ISIN:
+ * niftyindices' index membership first, then the desk's seed list. Never
+ * inferred from BSE's scrip_id, however reliably the two agree — 3.9.
+ *
+ * @returns {{ symbol: string, source: 'nse-universe'|'seed' }|null}
  */
-function nseSymbolForIsin(index, isin) {
+function nseSymbolEntryForIsin(index, isin) {
   if (!isin) return null;
   const hits = index.nseByIsin.get(isin);
-  if (!hits || hits.length !== 1) return null;
-  return hits[0].symbol;
+  if (hits && hits.length === 1) return { symbol: hits[0].symbol, source: 'nse-universe' };
+  const seeded = index.seedByIsin?.get(isin);
+  if (seeded?.nseSymbol) return { symbol: seeded.nseSymbol, source: 'seed' };
+  return null;
+}
+
+/** The symbol alone, for callers that do not need the provenance. */
+function nseSymbolForIsin(index, isin) {
+  return nseSymbolEntryForIsin(index, isin)?.symbol ?? null;
 }
 
 /**
@@ -251,6 +304,7 @@ export function resolveHolding(holding, index) {
   const unresolved = (reason) => ({
     isin: null,
     nseSymbol: null,
+    nseSymbolSource: null,
     bseScripCode: null,
     bseScripId: null,
     resolvedName: null,
@@ -261,6 +315,7 @@ export function resolveHolding(holding, index) {
   const fromScrip = (scrip, method, confidence) => ({
     isin: scrip.isin,
     nseSymbol: nseSymbolForIsin(index, scrip.isin),
+    nseSymbolSource: nseSymbolEntryForIsin(index, scrip.isin)?.source ?? null,
     bseScripCode: scrip.scripCode,
     bseScripId: scrip.scripId,
     resolvedName: scrip.name,
@@ -313,6 +368,7 @@ export function resolveHolding(holding, index) {
       return {
         isin: nseEntry.isin,
         nseSymbol: nseEntry.symbol,
+        nseSymbolSource: 'nse-universe',
         bseScripCode: scrip.scripCode,
         bseScripId: scrip.scripId,
         resolvedName: scrip.name,
@@ -326,10 +382,48 @@ export function resolveHolding(holding, index) {
     return {
       isin: nseEntry.isin,
       nseSymbol: nseEntry.symbol,
+      nseSymbolSource: 'nse-universe',
       bseScripCode: null,
       bseScripId: null,
       resolvedName: nseEntry.name,
       resolution: { method: 'isin', via: 'nse-universe', confidence: 'exact' },
+      reason: null,
+    };
+  }
+
+  // 3b. ISIN, via the desk's seed list.
+  //
+  // Same shape as step 3, one step later because niftyindices is the exchange's
+  // own index membership and the seed is a third-party export. This is the step
+  // that reaches NSE-only listings no Nifty index carries.
+  const seedEntry = index.seedBySymbol?.get(normalisedTicker);
+  if (seedEntry) {
+    const scrip = seedEntry.bseScripCode
+      ? (index.byScripCode.get(seedEntry.bseScripCode) ?? bseByIsin(index, seedEntry.isin))
+      : bseByIsin(index, seedEntry.isin);
+    // The seed names a BSE code; it is only believed when the active master
+    // agrees on the ISIN, so a stale or reused code cannot attach the wrong
+    // company — the delisted-scrip trap in 3.8.
+    if (scrip && scrip.isin === seedEntry.isin) {
+      return {
+        isin: seedEntry.isin,
+        nseSymbol: seedEntry.nseSymbol,
+        nseSymbolSource: 'seed',
+        bseScripCode: scrip.scripCode,
+        bseScripId: scrip.scripId,
+        resolvedName: scrip.name,
+        resolution: { method: 'isin', via: 'seed', confidence: 'exact' },
+        reason: null,
+      };
+    }
+    return {
+      isin: seedEntry.isin,
+      nseSymbol: seedEntry.nseSymbol,
+      nseSymbolSource: 'seed',
+      bseScripCode: null,
+      bseScripId: null,
+      resolvedName: seedEntry.name,
+      resolution: { method: 'isin', via: 'seed', confidence: 'exact' },
       reason: null,
     };
   }

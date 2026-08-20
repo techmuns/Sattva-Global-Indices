@@ -151,7 +151,27 @@ async function main() {
   // ---- continuity against the previous committed file ---------------------
   const previous = readJson(OUT_PATH);
   let continuity = { compared: 0, failures: [], skipped: 0, against: null };
-  if (previous?.prices) {
+
+  // The continuity test is "today's previous-close equals YESTERDAY's close".
+  // It is only meaningful when the stored file is a DIFFERENT trading day. Run
+  // it against a file carrying the same trade date and it compares today's
+  // previous-close (yesterday's number) against today's close, so almost every
+  // scrip "fails" — 1,194 failures out of 1,196 compared, measured on the one
+  // scheduled run this workflow has ever made.
+  //
+  // That is a guard reading its own subject: a same-day re-run, and every first
+  // scheduled run after a manual build on the same day, fails on a file that is
+  // perfectly good. The job then refuses to write, which is safe but wrong, and
+  // a daily schedule turns it from a curiosity into a job that is red most days.
+  const sameDay = previous?.tradeDate === tradeDate;
+  if (sameDay) {
+    process.stdout.write(
+      `  continuity: the stored file is already ${previous.tradeDate}, the same day as this one,\n`
+      + '              so there is no previous day to compare against. Skipped — comparing a day\n'
+      + '              with itself would fail almost every scrip and say nothing about the data.\n',
+    );
+    continuity = { compared: 0, failures: [], skipped: 0, against: null, skippedReason: 'same trade date as the stored file' };
+  } else if (previous?.prices) {
     const previousClose = new Map(
       Object.entries(previous.prices)
         .filter(([, p]) => p.close !== null && p.staleDays === 0)

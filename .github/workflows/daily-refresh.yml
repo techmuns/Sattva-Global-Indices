@@ -1,28 +1,58 @@
-# Weekday end-of-day price refresh.
+# The daily refresh: every source, re-read after the close, every trading day.
 #
-# 20:00 IST = 14:30 UTC, comfortably after the 15:30 IST close and after BSE
-# has published the day's bhavcopy.
+# ---------------------------------------------------------------------------
+# WHY DAILY DIRECT FROM SOURCE, AND NOT A PRICE-ONLY RECOMPUTE
+# ---------------------------------------------------------------------------
+# The desk asked for daily-from-source if the workload allows it, and a
+# price-driven recompute with a weekly cross-check if it does not. It allows it.
+# Measured on 20 Aug 2026, the whole pipeline end to end:
 #
-# THIS JOB FAILS RATHER THAN COMMITTING A DEGRADED FILE. Every guard below is
-# in scripts/fetch-bhavcopy.mjs and scripts/build-companies.mjs, and each exits
-# non-zero rather than writing:
+#     import-universe        0.2 s   no network
+#     fetch-bse-master       5.5 s   1 request
+#     fetch-nse-universe    22.8 s   2 requests
+#     scrape-nse-freefloat   ~2 min  4 requests, THROTTLES — see below
+#     scrape-bse-freefloat   ~7 min  ~3,600 requests at concurrency 8
+#     fetch-bhavcopy         ~2 s    1 request
+#     build-companies        ~4 s    no network
 #
-#   - the response is not a bhavcopy (BSE serves its SPA shell with HTTP 200);
-#   - its own TradDt is not the date requested;
-#   - row-level continuity against yesterday's closes fails;
-#   - fewer than 95% of the universe priced.
+# Well inside a single job. The BSE endpoint was measured at concurrency 24 with
+# FLAT per-request latency and zero failures, so 8 is comfortably below what the
+# service will carry — see the note in scrape-bse-freefloat.mjs.
 #
-# A dashboard silently serving yesterday's prices under today's date is worse
-# than one that visibly failed, so a red run here is the designed outcome.
-name: Daily EOD refresh
+# ---------------------------------------------------------------------------
+# NSE IS SOFT ON PURPOSE. IT IS THE ONE SOURCE THAT CANNOT BE RELIED ON DAILY.
+# ---------------------------------------------------------------------------
+# NSE's edge throttles a datacentre IP hard and unpredictably: a paired trial on
+# 20 Aug 2026 got HTTP 200 on 5 of 8 identical curl requests, and the first full
+# pipeline run failed at `FO  HTTP 403 after 6 retries`.
+#
+# That is survivable, because the free-float FACTOR barely moves — 814 of 1,199
+# companies were byte-identical day over day, 1,194 moved less than 0.1%, median
+# movement 0.000000%. So a missed NSE day costs almost nothing, while a BSE
+# outage would leave the screen without its primary source.
+#
+# The NSE steps therefore `continue-on-error`. The scraper REFUSES to overwrite a
+# good snapshot with a partial read, so a throttled day leaves the last good NSE
+# file in place and the build carries on with it. weekly-nse-crosscheck.yml
+# retries with far more patience once a week.
+#
+# Everything else is hard: a failure there stops the job rather than committing a
+# degraded file. A dashboard serving yesterday's numbers under today's date is
+# worse than one that visibly failed.
+name: Daily refresh
 
 on:
   schedule:
-    - cron: '30 14 * * 1-5' # 20:00 IST, Mon–Fri
+    # 14:30 UTC = 20:00 IST, comfortably after the 15:30 IST close and after BSE
+    # has published the day's bhavcopy. Mon–Fri.
+    - cron: '30 14 * * 1-5'
   workflow_dispatch:
     inputs:
       date:
         description: 'Trade date to fetch (YYYY-MM-DD). Blank = latest weekday.'
+        required: false
+      skip-float:
+        description: 'Skip the BSE float scrape (prices only). "true" to skip.'
         required: false
 
 concurrency:
@@ -32,6 +62,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: write
     steps:
@@ -42,7 +73,37 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Fetch the BSE bhavcopy
+      # ---- identity and universe ----------------------------------------
+      - name: BSE scrip master
+        run: node scripts/fetch-bse-master.mjs
+
+      - name: Import the desk's universe seed
+        run: node scripts/import-universe.mjs
+
+      # ---- NSE: attempted every day, never allowed to stop the job -------
+      - name: NSE symbol ↔ ISIN universe (soft)
+        continue-on-error: true
+        run: node scripts/fetch-nse-universe.mjs
+
+      - name: NSE pre-open free float (soft — NSE throttles datacentre IPs)
+        id: nse
+        continue-on-error: true
+        run: node scripts/scrape-nse-freefloat.mjs
+
+      - name: Say so when NSE was unreachable
+        if: steps.nse.outcome == 'failure'
+        run: |
+          echo "::warning title=NSE unreachable::NSE throttled this run. The previous good"\
+               "nse-freefloat.json is unchanged and the build continues on it. This is the"\
+               "designed behaviour, not a silent failure — see weekly-nse-crosscheck.yml."
+
+      # ---- BSE: the primary source. Hard. --------------------------------
+      - name: BSE per-scrip free float
+        if: github.event.inputs.skip-float != 'true'
+        run: node scripts/scrape-bse-freefloat.mjs
+
+      # ---- prices, then the record ---------------------------------------
+      - name: BSE end-of-day prices
         run: |
           if [ -n "${{ github.event.inputs.date }}" ]; then
             node scripts/fetch-bhavcopy.mjs --date "${{ github.event.inputs.date }}"
@@ -52,6 +113,11 @@ jobs:
 
       - name: Rebuild the company record
         run: node scripts/build-companies.mjs
+
+      # The suite runs BEFORE the commit, so a record that breaks an invariant
+      # never reaches the repository. It needs no browser and no network.
+      - name: Verify the record
+        run: node scripts/verify-data.mjs
 
       - name: Commit if anything changed
         run: |
@@ -63,5 +129,5 @@ jobs:
           git config user.email "tech@muns.io"
           TRADE_DATE=$(node -e "console.log(require('./public/data/prices.json').tradeDate)")
           git add public/data
-          git commit -m "Daily EOD prices for ${TRADE_DATE}"
+          git commit -m "Daily refresh for ${TRADE_DATE}"
           git push

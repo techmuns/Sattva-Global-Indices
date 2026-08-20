@@ -1,13 +1,21 @@
-# Monthly float and statistics refresh.
+# Monthly statistics refresh.
 #
-# The float FACTOR and the SHARE COUNT move only when shareholding moves, which
-# is the quarterly event this product forecasts — so they are fetched monthly
-# and the daily job never touches them. That separation is deliberate: a live
-# price must not restamp a month-old float file, and the freshness claim on
-# screen is governed by the OLDEST input, not the newest.
+# WHAT MOVED OUT OF THIS JOB, AND WHY
 #
-# The BSE per-scrip scrape is ~3,600 requests and takes about 25 minutes.
-name: Monthly float refresh
+# The float factor and the BSE scrip master used to be refreshed here, monthly,
+# on the reasoning that "the factor moves only when shareholding moves, which is
+# the quarterly event this product forecasts". That reasoning still holds for the
+# DATA, and it stopped being the right cadence for the JOB: the desk now wants
+# the record re-read from source every trading day, and the BSE scrape was
+# measured at about seven minutes at concurrency 8 — cheap enough to do daily.
+#
+# So float, master, universe and prices all live in daily-refresh.yml now, and
+# NSE additionally gets a patient weekly retry in weekly-nse-crosscheck.yml.
+#
+# What is left here is the one genuinely monthly input: Munshot's average daily
+# volume and split history. It is a nice-to-have, it is somebody else's rate-
+# limited service, and nothing on the screen depends on it being fresh.
+name: Monthly statistics refresh
 
 on:
   schedule:
@@ -19,7 +27,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: monthly-float
+  group: monthly-stats
   cancel-in-progress: false
 
 jobs:
@@ -34,18 +42,6 @@ jobs:
         with:
           node-version: '22'
 
-      - name: BSE scrip master
-        run: node scripts/fetch-bse-master.mjs
-
-      - name: NSE symbol ↔ ISIN universe
-        run: node scripts/fetch-nse-universe.mjs
-
-      - name: NSE pre-open free float
-        run: node scripts/scrape-nse-freefloat.mjs
-
-      - name: BSE per-scrip free float (the long one)
-        run: node scripts/scrape-bse-freefloat.mjs
-
       # Statistics are a nice-to-have: this upstream reports "not_found" for
       # tickers it served minutes earlier when pushed, so the script refuses to
       # write below its coverage floor. A failure here must not block the float
@@ -56,10 +52,11 @@ jobs:
           MUNS_TOKEN: ${{ secrets.MUNS_TOKEN }}
         run: node scripts/fetch-quote-stats.mjs --concurrency 1 --gap-ms 1200
 
-      - name: Refresh prices, then rebuild
-        run: |
-          node scripts/fetch-bhavcopy.mjs
-          node scripts/build-companies.mjs
+      - name: Rebuild the record
+        run: node scripts/build-companies.mjs
+
+      - name: Verify the record
+        run: node scripts/verify-data.mjs
 
       - name: Commit if anything changed
         run: |
@@ -70,5 +67,5 @@ jobs:
           git config user.name  "sattva-bot"
           git config user.email "tech@muns.io"
           git add public/data
-          git commit -m "Monthly float, universe and statistics refresh"
+          git commit -m "Monthly quote statistics refresh"
           git push

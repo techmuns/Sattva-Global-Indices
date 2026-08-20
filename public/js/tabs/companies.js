@@ -212,6 +212,11 @@ function buildStats(scopeRows, scope) {
   const nseInView = scopeRows.filter((c) => c.floatSource === 'nse').length;
   const bseInView = scopeRows.filter((c) => c.floatSource === 'bse').length;
   const noneInView = inView - withFloatInView;
+  // How the desk's rule actually landed on the rows in view. Derived from the
+  // records, never typed — a hand-written count goes stale on the next refresh.
+  const switchedInView = scopeRows.filter((c) => c.floatChoice?.rule === 'nse-preferred-on-material-gap').length;
+  const comparableInView = scopeRows.filter((c) => c.floatChoice?.gapPct !== null && c.floatChoice?.gapPct !== undefined).length;
+  const switchPct = data.thresholds().floatSourcePreferNseGapPct ?? 2;
 
   const fresh = data.freshness();
 
@@ -282,8 +287,8 @@ function buildStats(scopeRows, scope) {
       value: `${num(withFloatInView)} of ${num(inView)}`,
       detail: `have a reading${noneInView > 0 ? ` · ${num(noneInView)} without` : ''}`,
       extra:
+        cardRow('From BSE (primary)', num(bseInView)) +
         cardRow('From NSE', num(nseInView)) +
-        cardRow('From BSE', num(bseInView)) +
         cardRow('No reading', num(noneInView)),
       help: {
         title: 'Where free float comes from',
@@ -291,11 +296,16 @@ function buildStats(scopeRows, scope) {
           '<div class="space-y-3 text-sm leading-relaxed text-slate-600">' +
           '<p>Free-float market cap is an <strong>exchange-published figure</strong>. It is never computed from promoter holding — lock-in shares held by VCs and PE firms are not promoter holdings but are not free float either, and the global indices follow the exchanges.</p>' +
           '<div class="space-y-1.5 rounded-xl bg-slate-50 p-3">' +
-          `<div class="flex justify-between text-xs"><span class="font-semibold text-slate-700">From NSE</span><span class="tabular-nums text-slate-600">${escapeHtml(num(nseInView))} of ${escapeHtml(num(inView))} in view</span></div>` +
           `<div class="flex justify-between text-xs"><span class="font-semibold text-slate-700">From BSE</span><span class="tabular-nums text-slate-600">${escapeHtml(num(bseInView))} of ${escapeHtml(num(inView))} in view</span></div>` +
+          `<div class="flex justify-between text-xs"><span class="font-semibold text-slate-700">From NSE</span><span class="tabular-nums text-slate-600">${escapeHtml(num(nseInView))} of ${escapeHtml(num(inView))} in view</span></div>` +
           `<div class="flex justify-between text-xs"><span class="font-semibold text-slate-700">No reading</span><span class="tabular-nums text-slate-600">${escapeHtml(num(noneInView))} of ${escapeHtml(num(inView))} in view</span></div>` +
           '</div>' +
-          '<p><strong>NSE wins wherever it publishes a reading</strong>, because MSCI follows NSE. BSE fills the gaps. The two apply slightly different float definitions and genuinely disagree, so they are never averaged — where both exist, both stay on the company record and the drill panel shows the gap.</p>' +
+          `<p><strong>BSE is the primary source</strong>, because it is the only one that covers the whole listed universe — NSE publishes free float for around 250 names. Where NSE <em>also</em> publishes and the two differ by more than <strong>${escapeHtml(num(switchPct, 0))}%</strong>, NSE's figure is used instead, because MSCI is understood to follow NSE. Where BSE has no reading at all, NSE is the source.</p>` +
+          `<div class="space-y-1.5 rounded-xl bg-indigo-50/70 p-3 ring-1 ring-indigo-100">` +
+          `<div class="flex justify-between text-xs"><span class="font-semibold text-indigo-900">Both exchanges publish</span><span class="tabular-nums text-indigo-800">${escapeHtml(num(comparableInView))} of ${escapeHtml(num(inView))} in view</span></div>` +
+          `<div class="flex justify-between text-xs"><span class="font-semibold text-indigo-900">Switched to NSE on a gap over ${escapeHtml(num(switchPct, 0))}%</span><span class="tabular-nums text-indigo-800">${escapeHtml(num(switchedInView))} of ${escapeHtml(num(comparableInView))}</span></div>` +
+          '</div>' +
+          `<p>The ${escapeHtml(num(switchPct, 0))}% switch point is <strong>the desk's own rule</strong>. Neither exchange publishes it and neither does MSCI. The two apply slightly different float definitions and genuinely disagree, so they are never averaged — where both exist, both stay on the company record and the drill panel names the rule that chose between them.</p>` +
           '<p>A company with no reading is <strong>not a company with no float</strong>. It renders as an em dash, is excluded from every total, and never sorts as zero.</p>' +
           '</div>',
       },
@@ -446,10 +456,37 @@ function floatSectionHtml(company) {
         ? 'That is beyond the level the desk treats as an ordinary definitional difference, so this row is worth a look before you trust it — it is more likely a share count one exchange has updated and the other has not than a genuine disagreement about float.'
         : 'The two exchanges apply slightly different float definitions, so a gap of around this size is expected and normal.') +
       ' Neither figure is averaged into the other.</p>';
-  } else if (company.floatSource) {
+  }
+
+  // ---- WHICH source is in force, and by which rule ------------------------
+  // The choice is a judgement made by a rule the desk wrote, not a measurement,
+  // so the rule that fired, the threshold it used and whose threshold it is all
+  // appear here rather than only in the build script.
+  if (company.floatChoice) {
+    const chose = company.floatChoice.chose === 'nse' ? 'NSE' : 'BSE';
+    const switched = company.floatChoice.rule === 'nse-preferred-on-material-gap';
+    html +=
+      `<p class="mt-2 rounded-xl ${switched ? 'bg-indigo-50 text-indigo-900 ring-1 ring-indigo-200' : 'bg-slate-50 text-slate-600'} p-3 text-xs leading-relaxed">` +
+      `<span class="font-semibold">Source in force: ${escapeHtml(chose)}.</span> ` +
+      `${escapeHtml(company.floatChoice.why)}. ` +
+      '<span class="text-slate-500">The rule is the desk\'s own — BSE is primary, NSE is used where the two differ by more than ' +
+      `${escapeHtml(String(company.floatChoice.thresholdPct))}% and wherever BSE has no reading. ` +
+      'Neither exchange nor MSCI publishes this switch point.</span></p>';
+  }
+
+  if (!both && company.floatSource && !company.floatChoice) {
     html +=
       '<p class="mt-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">' +
       `Only ${company.floatSource === 'nse' ? 'NSE' : 'BSE'} publishes a reading for this company, so there is nothing to compare it against.</p>`;
+  }
+
+  // A company on the desk's screen that neither exchange can price, with the
+  // reason stated. An em dash with no explanation reads as a fact about the
+  // company rather than a gap in our sources.
+  if (company.noBseReason) {
+    html +=
+      '<p class="mt-2 rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-900 ring-1 ring-amber-200">' +
+      `<span class="font-semibold">No BSE record.</span> ${escapeHtml(company.noBseReason)}</p>`;
   }
 
   if (company.freeFloatBasis) {

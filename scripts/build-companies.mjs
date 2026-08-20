@@ -22,16 +22,28 @@
  * BSE — roughly 1% apart, and that gap is a real difference in float
  * definition, not a price-timestamp artefact.
  *
- * The rules, which are not negotiable:
+ * The rules, which are the desk's and are not negotiable:
  *
- *   1. NSE WINS WHEREVER IT EXISTS. The desk's requirement is explicit: MSCI
- *      follows NSE. BSE fills gaps; it does not compete.
- *   2. NEVER AVERAGE OR BLEND. Every company carries `floatSource`, and where
+ *   1. BSE IS PRIMARY. It is the only source that can carry the screen: BSE
+ *      serves a factor for 1,198 of 1,198 active scrips above ₹2,000 Cr, while
+ *      NSE publishes free float for about 250 symbols in total.
+ *   2. NSE WINS WHERE THE TWO MATERIALLY DISAGREE — above
+ *      FLOAT_SOURCE_PREFER_NSE_GAP_PCT (2%) — because the desk's understanding
+ *      is that MSCI follows NSE. Below that the gap is definitional noise.
+ *   3. NSE IS THE SOURCE WHERE BSE HAS NOTHING. BSE Ltd, CDSL and TSF
+ *      Investments are NSE-only listings and never appear in BSE's master.
+ *   4. NEVER AVERAGE OR BLEND. Every company carries `floatSource`, and where
  *      both readings exist BOTH factors stay on the record so the disagreement
  *      is inspectable rather than resolved away.
- *   3. THE SOURCE TRAVELS WITH THE NUMBER — to the screen, to the drill-down,
+ *   5. THE RULE THAT CHOSE TRAVELS WITH THE NUMBER. `floatChoice` names which
+ *      rule fired, the measured gap and the threshold it was tested against.
+ *   6. THE SOURCE TRAVELS WITH THE NUMBER — to the screen, to the drill-down,
  *      and to row 1 of any export.
- *   4. NOTHING SUMS OR RANKS ACROSS THE TWO WITHOUT SAYING SO.
+ *   7. NOTHING SUMS OR RANKS ACROSS THE TWO WITHOUT SAYING SO.
+ *
+ * The gap is measured on the DIMENSIONLESS FACTOR, never on a rupee figure: two
+ * rupee free floats differ by the price difference as well as the float
+ * difference, so a 2% test on them would fire on price noise.
  *
  * ---------------------------------------------------------------------------
  * HOW NSE'S FACTOR IS DERIVED WITHOUT MIXING PRICES
@@ -51,7 +63,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { buildIndex, resolveAll, CONFIRMED, NOT_LISTED } from './lib/resolve.mjs';
+import { buildIndex, resolveAll, seedSymbolConflicts, CONFIRMED, NOT_LISTED } from './lib/resolve.mjs';
 import {
   recomputeFreeFloat, choosePrice, dayChangePct, passiveDrift, flowPrimitives,
 } from './lib/recompute.mjs';
@@ -68,6 +80,8 @@ import { renderTable, num, round, CheckList } from './lib/report.mjs';
 import {
   SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
   FLOAT_FACTOR_DISAGREEMENT_REVIEW_PCT,
+  FLOAT_SOURCE_PREFER_NSE_GAP_PCT,
+  FLOAT_SOURCE_RULE,
   toCrore,
 } from '../public/js/config/thresholds.mjs';
 
@@ -92,6 +106,7 @@ function main() {
   const nseFreeFloat = requireFile('nse-freefloat.json', 'node scripts/scrape-nse-freefloat.mjs');
   const bseFreeFloat = requireFile('bse-freefloat.json', 'node scripts/scrape-bse-freefloat.mjs');
   const prices = requireFile('prices.json', 'node scripts/fetch-bhavcopy.mjs');
+  const universeSeed = requireFile('universe.json', 'node scripts/import-universe.mjs');
 
   // ---- the review calendar is anchored to the RECORD, not to the clock ----
   // `nextReview()` defaults to `new Date()`, which is right for the interface —
@@ -131,7 +146,20 @@ function main() {
     if (scrip.isin && !bseByIsin.has(scrip.isin)) bseByIsin.set(scrip.isin, scrip);
   }
 
-  const index = buildIndex(master, nseUniverse, new Set(nseFloatBySymbol.keys()));
+  const index = buildIndex(master, nseUniverse, new Set(nseFloatBySymbol.keys()), universeSeed);
+
+  // Two files now name an NSE symbol for an ISIN. Where both speak they must
+  // agree: a disagreement means one of them has the wrong company attached to
+  // that ISIN, and every float reading keyed on the symbol would then belong to
+  // somebody else. Nothing downstream could see it, so it stops the build.
+  const symbolConflicts = seedSymbolConflicts(index);
+  checks.assert(
+    symbolConflicts.length === 0,
+    'nse-universe.json and the seed list name the same NSE symbol for every shared ISIN',
+    symbolConflicts.slice(0, 6)
+      .map((c) => `${c.isin} ${c.name}: nse-universe says ${c.fromNseUniverse}, seed says ${c.fromSeed}`)
+      .join(' | '),
+  );
   const { resolved, unresolved, collisions, methodCounts } = resolveAll(funds.funds, index);
 
   // A collision means one of two rows in the same fund is the wrong company.
@@ -163,6 +191,7 @@ function main() {
         isin: record.isin,
         name: bse?.name ?? record.resolvedName ?? record.holding.name,
         nseSymbol: record.nseSymbol,
+        nseSymbolSource: record.nseSymbolSource ?? null,
         bseScripCode: record.bseScripCode,
         sector: bse?.sector ?? null,
         sectorSource: bse?.sector ? 'bse' : null,
@@ -182,15 +211,30 @@ function main() {
     company._resolutions.push(record.resolution);
   }
 
+  /**
+   * The NSE symbol for an ISIN, unique-or-nothing, from the index membership
+   * first and the desk's seed list second. Never inferred from a BSE scrip id.
+   */
+  const symbolFor = (isin) => {
+    if (!isin) return null;
+    const hits = index.nseByIsin.get(isin);
+    if (hits && hits.length === 1) return { symbol: hits[0].symbol, source: 'nse-universe' };
+    const seeded = index.seedByIsin.get(isin);
+    if (seeded?.nseSymbol) return { symbol: seeded.nseSymbol, source: 'seed' };
+    return null;
+  };
+
   // Companies large enough to matter that no fund holds — the inclusion
   // candidates, and the reason the BSE universe was scraped at all.
   for (const scrip of bseFreeFloat.scrips) {
     const key = scrip.isin ?? `bse:${scrip.scripCode}`;
     if (companies.has(key)) continue;
+    const symbol = symbolFor(scrip.isin);
     companies.set(key, {
       isin: scrip.isin,
       name: scrip.name,
-      nseSymbol: scrip.isin ? (index.nseByIsin.get(scrip.isin)?.[0]?.symbol ?? null) : null,
+      nseSymbol: symbol?.symbol ?? null,
+      nseSymbolSource: symbol?.source ?? null,
       bseScripCode: scrip.scripCode,
       sector: scrip.sector,
       sectorSource: scrip.sector ? 'bse' : null,
@@ -200,7 +244,72 @@ function main() {
     });
   }
 
-  // ---- float: NSE where it exists, BSE to fill gaps ----------------------
+  // Companies on the desk's list that the two loops above cannot reach.
+  //
+  // The BSE loop can only see what BSE's equity master carries, so an NSE-ONLY
+  // listing is invisible to it however large: BSE Ltd (₹1.34 lakh Cr), CDSL
+  // (₹28,129 Cr) and TSF Investments (₹9,433 Cr) are all real, all above the
+  // floor, and none is in BSE's master at all. Leaving them out would define the
+  // universe as "the ones one exchange happens to list", which is the same error
+  // class as rendering a missing value as zero.
+  //
+  // They are added with no BSE record, so full market cap, share count and the
+  // BSE price are all null and stay null. Their free float can only come from
+  // NSE's published rupee figure, which the float block below already handles.
+  let fromSeedOnly = 0;
+  const seedNotListed = [];
+  for (const row of universeSeed.companies) {
+    const key = row.isin ?? (row.bseScripCode ? `bse:${row.bseScripCode}` : null);
+    if (key === null || companies.has(key)) continue;
+    if (row.listing === 'neither') {
+      // On the desk's screen but on no exchange we read. Recorded with the
+      // reason rather than dropped, and never counted as a tracked company.
+      seedNotListed.push({
+        isin: row.isin,
+        name: row.name,
+        screenerFullMcapInr: row.screenerFullMcapInr,
+        reason: 'the seed list gives neither a BSE code nor an NSE code, so neither '
+          + 'exchange can be asked for a price or a free float',
+      });
+      continue;
+    }
+    fromSeedOnly += 1;
+    // WHY this company has no BSE record, in words, because "no reading" with no
+    // reason is the absence that reads as a fact about the company — 2.3/2.4.
+    //
+    // Measured on this export, the overwhelming majority of these are REITs and
+    // InvITs: Embassy Office Parks, Mindspace, Nexus Select, Brookfield India,
+    // IndiGrid, IRB InvIT, PowerGrid InvIT, Cube Highways, Knowledge Realty and
+    // the rest. BSE's `segment=Equity` filter excludes them CORRECTLY — they are
+    // a different instrument class, not a missing name — and NSE's free-float set
+    // does not carry them either.
+    const seedCode = row.bseScripCode;
+    const noBseReason = seedCode
+      ? `the seed list gives BSE code ${seedCode}, but that code is not in BSE's active `
+        + 'EQUITY master. Almost always a REIT or an InvIT, which BSE files outside the '
+        + 'equity segment; sometimes a suspended line. Not fetched, because a code the '
+        + 'active master does not carry may belong to a delisted company.'
+      : 'no BSE code in the seed list — an NSE-only listing.';
+    companies.set(key, {
+      isin: row.isin,
+      name: row.name,
+      nseSymbol: row.nseSymbol,
+      nseSymbolSource: row.nseSymbol ? 'seed' : null,
+      // Deliberately NOT row.bseScripCode: a code the active master does not
+      // carry is not a scrip we may fetch — 3.8's delisted trap. If BSE had a
+      // live row for this company the BSE loop above would already own it.
+      bseScripCode: null,
+      seedBseScripCode: seedCode,
+      noBseReason,
+      sector: row.industry ?? row.industryGroup ?? null,
+      sectorSource: row.industry || row.industryGroup ? 'seed' : null,
+      _bse: null,
+      funds: { eem: null, smin: null, eems: null },
+      _resolutions: [{ method: 'not-held', via: 'seed', confidence: 'exact' }],
+    });
+  }
+
+  // ---- float: BSE primary, NSE where the two materially disagree ---------
   const disagreements = [];
   const out = [];
   /** company key -> the float factor finally in force, for the coverage pass. */
@@ -225,7 +334,54 @@ function main() {
       floatFactorNse = factor > 0 && factor <= 1.02 ? round(factor, 6) : null;
     }
 
-    const floatFactor = floatFactorNse !== null ? floatFactorNse : floatFactorBse;
+    // ---- which exchange's factor is in force, and WHY --------------------
+    //
+    // The desk's rule, in the desk's own words: BSE is primary; where NSE also
+    // publishes and the two differ by more than FLOAT_SOURCE_PREFER_NSE_GAP_PCT,
+    // NSE wins; where BSE has nothing, NSE is the source.
+    //
+    // The gap is measured on the dimensionless FACTOR, not on a rupee figure —
+    // 2.9. A rupee free float is struck at one moment's price, so two rupee
+    // figures from two exchanges differ by the price difference as well as the
+    // float difference, and a 2% test on them would fire on price noise.
+    //
+    // The choice is a tier-3 judgement made by a rule we wrote, so the rule that
+    // fired travels with the number rather than being reconstructable only from
+    // the source code.
+    let floatGapPct = null;
+    if (floatFactorNse !== null && floatFactorBse !== null && floatFactorBse > 0) {
+      floatGapPct = round(((floatFactorNse - floatFactorBse) / floatFactorBse) * 100, 3);
+    }
+
+    let floatFactor = null;
+    let floatChoice = null;
+    if (floatFactorBse !== null && floatFactorNse !== null) {
+      const beyond = Math.abs(floatGapPct) > FLOAT_SOURCE_PREFER_NSE_GAP_PCT;
+      floatFactor = beyond ? floatFactorNse : floatFactorBse;
+      floatChoice = {
+        rule: beyond ? 'nse-preferred-on-material-gap' : 'bse-primary',
+        chose: beyond ? 'nse' : 'bse',
+        gapPct: floatGapPct,
+        thresholdPct: FLOAT_SOURCE_PREFER_NSE_GAP_PCT,
+        why: beyond
+          ? `both exchanges publish and they differ by ${Math.abs(floatGapPct).toFixed(3)}%, `
+            + `beyond the desk's ${FLOAT_SOURCE_PREFER_NSE_GAP_PCT}% switch point, so NSE is used`
+          : `both exchanges publish and they differ by ${Math.abs(floatGapPct).toFixed(3)}%, `
+            + `within the desk's ${FLOAT_SOURCE_PREFER_NSE_GAP_PCT}% switch point, so BSE stands`,
+      };
+    } else if (floatFactorBse !== null) {
+      floatFactor = floatFactorBse;
+      floatChoice = {
+        rule: 'bse-only', chose: 'bse', gapPct: null, thresholdPct: FLOAT_SOURCE_PREFER_NSE_GAP_PCT,
+        why: 'NSE publishes no free float for this company, so there is nothing to compare',
+      };
+    } else if (floatFactorNse !== null) {
+      floatFactor = floatFactorNse;
+      floatChoice = {
+        rule: 'nse-only', chose: 'nse', gapPct: null, thresholdPct: FLOAT_SOURCE_PREFER_NSE_GAP_PCT,
+        why: 'BSE has no float reading for this company',
+      };
+    }
 
     // Free float in rupees is the number the desk actually screens on, and it is
     // available in two different ways. A factor times a full market cap is the
@@ -240,11 +396,17 @@ function main() {
     if (floatFactor !== null && fullMcapInr !== null) {
       freeFloatMcapInr = Math.round(floatFactor * fullMcapInr);
       freeFloatBasis = 'floatFactor × fullMcapInr';
-      floatSource = floatFactorNse !== null ? 'nse' : 'bse';
+      floatSource = floatChoice.chose;
     } else if (nse && nse.freeFloatMcapInr !== null && nse.freeFloatMcapInr > 0) {
       freeFloatMcapInr = Math.round(nse.freeFloatMcapInr);
       freeFloatBasis = 'NSE published free-float market cap (no full market cap available, so no factor)';
       floatSource = 'nse';
+      floatChoice = floatChoice ?? {
+        rule: 'nse-only-published-rupees', chose: 'nse', gapPct: null,
+        thresholdPct: FLOAT_SOURCE_PREFER_NSE_GAP_PCT,
+        why: 'not in BSE\'s equity master, so there is no full market cap to form a factor '
+          + 'from; NSE publishes the rupee free float directly',
+      };
     }
 
     if (floatFactorNse !== null && floatFactorBse !== null && floatFactorBse > 0) {
@@ -286,7 +448,12 @@ function main() {
       isin: company.isin,
       name: company.name,
       nseSymbol: company.nseSymbol,
+      nseSymbolSource: company.nseSymbolSource ?? null,
       bseScripCode: company.bseScripCode,
+      // The code the seed named, kept visible but never fetched, plus the reason
+      // it is not the working scrip code.
+      seedBseScripCode: company.seedBseScripCode ?? null,
+      noBseReason: company.noBseReason ?? null,
       sector: company.sector,
       sectorSource: company.sectorSource,
       fullMcapInr,
@@ -296,8 +463,13 @@ function main() {
       priceAsOf: bse?.priceAsOf ?? null,
       floatFactor,
       floatSource,
+      // The rule that picked the source, on the record beside the number it
+      // picked — a reader must be able to see WHY this row is BSE and that one
+      // is NSE without opening the build script.
+      floatChoice,
       floatFactorNse,
       floatFactorBse,
+      floatGapPct,
       freeFloatMcapInr,
       freeFloatBasis, // the formula, on the record with the number
       // What the exchange published when the float file was captured. Kept
@@ -696,6 +868,18 @@ function main() {
     withFloatFactor: out.filter((c) => c.floatFactor !== null).length,
     floatFromNse: out.filter((c) => c.floatSource === 'nse').length,
     floatFromBse: out.filter((c) => c.floatSource === 'bse').length,
+    // How the desk's BSE-primary rule actually landed. Derived here so nothing
+    // downstream — screen, caption or doc — has to type a count that will go
+    // stale on the next refresh.
+    floatChoice: {
+      bsePrimary: out.filter((c) => c.floatChoice?.rule === 'bse-primary').length,
+      bseOnly: out.filter((c) => c.floatChoice?.rule === 'bse-only').length,
+      nsePreferredOnGap: out.filter((c) => c.floatChoice?.rule === 'nse-preferred-on-material-gap').length,
+      nseOnly: out.filter((c) => c.floatChoice?.rule === 'nse-only').length,
+      nseOnlyPublishedRupees: out.filter((c) => c.floatChoice?.rule === 'nse-only-published-rupees').length,
+      comparable: out.filter((c) => c.floatGapPct !== null).length,
+      switchPointPct: FLOAT_SOURCE_PREFER_NSE_GAP_PCT,
+    },
     withoutFloat: out.filter((c) => c.freeFloatMcapInr === null).length,
     withBothFactors: disagreements.length,
     // Price tiers. `live` never appears here — it exists only in the browser.
@@ -801,8 +985,8 @@ function main() {
         { what: '— held by at least one fund', n: `${num(coverage.held)} of ${num(coverage.companies)}` },
         { what: '— not held (inclusion candidates)', n: `${num(coverage.notHeld)} of ${num(coverage.companies)}` },
         { what: 'with a free-float market cap', n: `${num(coverage.withFloat)} of ${num(coverage.companies)}` },
-        { what: '— from NSE (wins where present)', n: num(coverage.floatFromNse) },
-        { what: '— from BSE (fills gaps)', n: num(coverage.floatFromBse) },
+        { what: '— from NSE (material gap, or BSE has nothing)', n: num(coverage.floatFromNse) },
+        { what: '— from BSE (the primary source)', n: num(coverage.floatFromBse) },
         { what: 'also with a price-independent factor', n: `${num(coverage.withFloatFactor)} of ${num(coverage.withFloat)}` },
         { what: 'with NO float reading at all', n: num(coverage.withoutFloat) },
         { what: 'with BOTH readings (comparable)', n: num(coverage.withBothFactors) },
@@ -965,6 +1149,8 @@ function main() {
     thresholds: {
       scrapeUniverseMinFullMcapInr: SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
       floatFactorDisagreementReviewPct: FLOAT_FACTOR_DISAGREEMENT_REVIEW_PCT,
+      floatSourcePreferNseGapPct: FLOAT_SOURCE_PREFER_NSE_GAP_PCT,
+      floatSourceRule: FLOAT_SOURCE_RULE,
       attribution:
         "the desk's own heuristics, from public/js/config/thresholds.mjs — MSCI does not publish these cut-offs",
     },

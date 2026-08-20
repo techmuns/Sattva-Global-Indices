@@ -87,3 +87,47 @@ export const SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR = REVIEW_THRESHOLDS.exclusion.low
  * published tolerance from anybody.
  */
 export const FLOAT_FACTOR_DISAGREEMENT_REVIEW_PCT = 5;
+
+/**
+ * How far NSE and BSE must disagree before NSE's float factor is used instead
+ * of BSE's.
+ *
+ * The desk's instruction, and the desk's number:
+ *
+ *     "Keep BSE as the primary source. Then look for all the companies in NSE.
+ *      In case there is over 2% difference between the BSE and NSE data point,
+ *      prefer NSE's data, otherwise let it be BSE. Whatever companies are not
+ *      listed on BSE, keep NSE as the source."
+ *
+ * The reasoning behind it, which is the desk's and not MSCI's: BSE covers
+ * essentially the whole listed universe and NSE publishes free float for only
+ * ~250 names, so BSE is the only source that can carry the screen at all. But
+ * where the two MATERIALLY disagree the desk trusts NSE, because MSCI is
+ * understood to follow NSE. Below the gap, the difference is definitional noise
+ * (RELIANCE sits about 1% apart) and switching source for it would churn the
+ * record without changing any decision.
+ *
+ * MEASURED CONSEQUENCE, on the committed data at the time this was set: of 206
+ * companies carrying both readings, 24 exceed 2% and take NSE's factor; the
+ * other 182 keep BSE's. The median gap is 0.071%.
+ *
+ * NOT a published tolerance from either exchange, from MSCI, or from anybody
+ * else. It is a desk rule and every screen that acts on it must say so.
+ *
+ * Compared as |NSE − BSE| / BSE — relative to BSE because BSE is the primary
+ * and the question is how far NSE departs from it.
+ */
+export const FLOAT_SOURCE_PREFER_NSE_GAP_PCT = 2;
+
+/**
+ * How the float source is chosen, in words, for anything that has to disclose
+ * the rule on screen or in row 1 of an export. Kept beside the number so the
+ * two cannot drift apart.
+ */
+export const FLOAT_SOURCE_RULE = {
+  primary: 'bse',
+  preferNseAboveGapPct: FLOAT_SOURCE_PREFER_NSE_GAP_PCT,
+  label: "BSE is primary; NSE is used where the two differ by more than 2%, and "
+    + 'wherever BSE has no reading at all',
+  attribution: "the desk's rule, not a published methodology from either exchange or from MSCI",
+};

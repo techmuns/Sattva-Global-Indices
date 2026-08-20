@@ -1,0 +1,83 @@
+# The weekly NSE cross-check.
+#
+# The daily job attempts NSE and moves on when it is throttled, because NSE's
+# edge refuses a datacentre IP unpredictably — measured 5 of 8 identical curl
+# requests answered on 20 Aug 2026, and the first full pipeline run died at
+# `FO  HTTP 403 after 6 retries`.
+#
+# That is fine daily, because the float FACTOR is nearly static: 814 of 1,199
+# companies were byte-identical day over day and the median movement was
+# 0.000000%. It is NOT fine indefinitely, because the desk's rule uses NSE's
+# figure wherever the two exchanges differ by more than 2% — so a stale NSE file
+# quietly freezes the source choice on ~23 companies.
+#
+# This job exists to make sure NSE is re-read at least weekly, with far more
+# patience than a daily run can afford: three attempts spaced ten minutes apart,
+# and the job FAILS if none of them got through, so a month of silent throttling
+# cannot pass for a month of agreement.
+name: Weekly NSE cross-check
+
+on:
+  schedule:
+    # 04:00 UTC Saturday = 09:30 IST Saturday. The market is shut, NSE's edge is
+    # quiet, and the pre-open figures from Friday are still what it serves.
+    - cron: '0 4 * * 6'
+  workflow_dispatch:
+
+concurrency:
+  group: weekly-nse
+  cancel-in-progress: false
+
+jobs:
+  crosscheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: NSE symbol ↔ ISIN universe
+        continue-on-error: true
+        run: node scripts/fetch-nse-universe.mjs
+
+      # Three attempts, ten minutes apart. The scraper already retries within a
+      # run; this is the outer loop for a throttle that lasts longer than one.
+      - name: NSE pre-open free float, with patience
+        run: |
+          for attempt in 1 2 3; do
+            echo "=== NSE attempt ${attempt} of 3 ==="
+            if node scripts/scrape-nse-freefloat.mjs; then
+              echo "NSE answered on attempt ${attempt}."
+              exit 0
+            fi
+            if [ "${attempt}" -lt 3 ]; then
+              echo "Throttled. Waiting 10 minutes before the next attempt."
+              sleep 600
+            fi
+          done
+          echo "::error title=NSE unreachable for a week::Three spaced attempts were all"\
+               "refused. nse-freefloat.json is now at least a week old, and the desk's"\
+               "float-source rule is choosing between exchanges on a stale NSE figure."
+          exit 1
+
+      - name: Rebuild the company record
+        run: node scripts/build-companies.mjs
+
+      - name: Verify the record
+        run: node scripts/verify-data.mjs
+
+      - name: Commit if anything changed
+        run: |
+          if git diff --quiet -- public/data; then
+            echo "No change in public/data — NSE agrees with what is already committed."
+            exit 0
+          fi
+          git config user.name  "sattva-bot"
+          git config user.email "tech@muns.io"
+          git add public/data
+          git commit -m "Weekly NSE cross-check"
+          git push

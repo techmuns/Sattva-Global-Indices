@@ -321,15 +321,20 @@ The join, and the only file the interface should read.
 | --- | --- | --- |
 | `isin` | string \| null | The identity key. |
 | `name`, `sector`, `sectorSource` | string \| null | `sectorSource` names the taxonomy. |
-| `nseSymbol` | string \| null | **Only ever from `nse-universe.json`, keyed on ISIN.** Never inferred from BSE's `scripId`. |
+| `nseSymbol` | string \| null | **Only ever from a file that states it outright, keyed on ISIN** — `nse-universe.json` first, then the desk's seed list. Never inferred from BSE's `scripId`. |
+| `nseSymbolSource` | `'nse-universe'` \| `'seed'` \| null | Which file asserted it. Where both speak they must agree or the build stops. |
 | `bseScripCode` | string \| null | `null` for NSE-only listings — CDSL and BSE Ltd are real examples. |
+| `seedBseScripCode` | string \| null | A BSE code the seed named that the **active** master does not carry. Kept visible, never fetched — a code the active master lacks may belong to a delisted company. |
+| `noBseReason` | string \| null | Why this company has no BSE record, in words. Almost always a REIT/InvIT outside BSE's equity segment, or an NSE-only listing. |
 | `fullMcapInr` | number \| null, ₹ | Tier 1, BSE. |
 | `sharesOutstanding` | number \| null | **Tier 2** — `fullMcapInr / priceInr`, both BSE. |
 | `priceInr`, `priceSource`, `priceAsOf` | | Tier 1, BSE. |
-| `floatFactor` | number \| null | **The factor in force.** NSE's where it exists, else BSE's. |
+| `floatFactor` | number \| null | **The factor in force.** BSE's, unless NSE also publishes and the two differ by more than `FLOAT_SOURCE_PREFER_NSE_GAP_PCT` (2%), or BSE has no reading. |
 | `floatSource` | `'nse'` \| `'bse'` \| null | Which one that is. **Travels with the number everywhere, including exports.** |
+| `floatChoice` | object \| null | **Tier 3 — a judgement made by a rule we wrote.** `{ rule, chose, gapPct, thresholdPct, why }`. `rule` is one of `bse-primary`, `nse-preferred-on-material-gap`, `bse-only`, `nse-only`, `nse-only-published-rupees`. A source chosen by a rule the reader cannot see is a tier-3 judgement wearing a tier-1 face. |
+| `floatGapPct` | number \| null | **Tier 2** — `(nse − bse) / bse × 100`, signed. `null` unless both publish. |
 | `floatFactorNse` | number \| null | **Tier 2** — `nseFloatShares / totalShares`; see below. `null` when NSE has no reading. |
-| `floatFactorBse` | number \| null | **Tier 2** — kept even when NSE wins, so the disagreement stays inspectable. |
+| `floatFactorBse` | number \| null | **Tier 2** — kept even when NSE is the one in force, so the disagreement stays inspectable. |
 | `freeFloatMcapInr` | number \| null, ₹ | **Tier 2** — `floatFactor × fullMcapInr`. |
 | `held` | boolean | Whether any fund holds it. |
 | `funds` | object | `{ eem, smin, eems }`. **`null` means NOT HELD by that fund. It is never `0`** — a 0% weight and an absent holding are different facts that sort differently. |
@@ -819,11 +824,23 @@ at each review and does not publish it in advance.
 
 ### 7. Most inclusion candidates are measured on the exchange MSCI does not follow
 
-**72 of the 87 inclusion verdicts rest on a BSE float factor**, because NSE's pre-open endpoint
-covers 261 names and the candidates are by definition not among the largest. NSE and BSE disagree by
-about 1% on RELIANCE; on a small cap the gap is unmeasured and could be larger. The desk's own rule
-is that MSCI follows NSE — so the rank these candidates hold is measured on the wrong exchange, and
-the model cannot currently do better for them.
+Nearly every inclusion verdict rests on a BSE float factor, because NSE publishes free float for
+about 250 symbols and the candidates are by definition not among the largest. The desk's own
+understanding is that MSCI follows NSE — so the rank these candidates hold is measured on the
+exchange the index does not use, and the model cannot do better for them.
+
+**This is now permanent, not pending.** It was probed exhaustively on 20 Aug 2026 — 18 pre-open keys
+brute-forced, 8 API paths, the archive host, the index provider, and NSE's own JavaScript bundle.
+NSE's `ALL` key returns 2,093 rows with `marketCap: "-"` on every one, and that is not a
+time-of-day artefact: 258 of 258 symbols carry a number under `NIFTY`/`FO` and a dash under `ALL`
+**in the same minute**. The one endpoint that would carry it for the whole universe,
+`quote-equity?section=trade_info`, is Akamai-denied and stays denied through a warmed cookie
+session. NSE Indices publishes an Investible Weight Factor *page*, but it is methodology only with
+no per-company values, and IWF is defined only for index constituents in any case.
+
+What the desk's 2% rule does about it: where NSE **does** publish and materially disagrees, NSE's
+factor is used. That covers the large caps and nothing else. Below them, BSE is the only measurement
+that exists, and the record says so on every row.
 
 ### 8. An entry flow is an estimate of a weight that does not exist yet
 

@@ -59,8 +59,48 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
 const OUT_PATH = join(REPO, 'public', 'data', 'bse-freefloat.json');
 
-const CONCURRENCY = 4;
-const GAP_MS = 60;
+/**
+ * Concurrency, and why it moved from 4 to 8.
+ *
+ * The old comment said: "Concurrency stays at 4 with a gap between requests. BSE
+ * tolerates far more. It is somebody else's free service and this job runs
+ * MONTHLY — there is no reason to lean on it." That reasoning was right and its
+ * premise has changed: the desk now wants this refreshed every trading day, and
+ * at 4 the full universe takes about 25 minutes.
+ *
+ * MEASURED on 20 Aug 2026, cold disjoint batches of 140 scrips so no rung could
+ * read another rung's cache — the first attempt at this measurement was
+ * confounded exactly that way and reported a 12x speedup that was BSE's cache:
+ *
+ *     concurrency  4   169 ms/scrip   p50 659 ms   p90 827 ms   0 non-200
+ *     concurrency  8    80 ms/scrip   p50 648 ms   p90 840 ms   0 non-200
+ *     concurrency 16    44 ms/scrip   p50 680 ms   p90 914 ms   0 non-200
+ *     concurrency 24    28 ms/scrip   p50 636 ms   p90 793 ms   0 non-200
+ *
+ * Per-request latency is FLAT to 24 in flight: BSE is not queueing us, so the
+ * extra parallelism costs the service nothing it was not already serving. A
+ * whole-master sweep of 4,974 scrips at 10 completed in 294 s with zero failures.
+ *
+ * 8 is chosen well below the measured ceiling rather than at it: it halves the
+ * daily wall clock while leaving the service the same headroom it showed at 24.
+ * Raise it with --concurrency only if a run genuinely needs to finish sooner,
+ * and never past 16 without measuring again — this is somebody else's free
+ * service and the numbers above are a snapshot, not a guarantee.
+ */
+const CONCURRENCY = numberFlag('--concurrency', 8, { min: 1, max: 16 });
+const GAP_MS = numberFlag('--gap-ms', 60, { min: 0, max: 5000 });
+
+/** A numeric CLI flag, clamped, so a typo cannot silently hammer the service. */
+function numberFlag(name, fallback, { min, max }) {
+  const at = process.argv.indexOf(name);
+  if (at === -1) return fallback;
+  const raw = Number(process.argv[at + 1]);
+  if (!Number.isFinite(raw)) {
+    process.stderr.write(`\n${name} needs a number; got ${JSON.stringify(process.argv[at + 1])}.\n\n`);
+    process.exit(1);
+  }
+  return Math.min(max, Math.max(min, Math.round(raw)));
+}
 
 function requireFile(path, how) {
   if (existsSync(path)) return JSON.parse(readFileSync(path, 'utf8'));
@@ -145,6 +185,7 @@ async function main() {
   const funds = requireFile(join(REPO, 'public', 'data', 'msci-funds.json'), 'node scripts/import-ishares.mjs');
   const nseUniverse = requireFile(join(REPO, 'public', 'data', 'nse-universe.json'), 'node scripts/fetch-nse-universe.mjs');
   const freefloat = requireFile(join(REPO, 'public', 'data', 'nse-freefloat.json'), 'node scripts/scrape-nse-freefloat.mjs');
+  const universeSeed = requireFile(join(REPO, 'public', 'data', 'universe.json'), 'node scripts/import-universe.mjs');
 
   const index = buildIndex(master, nseUniverse, new Set(freefloat.companies.map((c) => c.symbol)));
   const { resolved } = resolveAll(funds.funds, index);
@@ -172,7 +213,34 @@ async function main() {
     }
   }
 
-  const universe = [...new Map([...held, ...large]).values()]
+  // Then the desk's own list. BSE's `indicativeFullMcapInr` is struck at an
+  // undisclosed moment, so a company sitting within a few percent of the floor
+  // can be above it on the desk's screen and below it in the master, or the
+  // other way round. The seed catches those without a re-export.
+  //
+  // A seed code is only believed when the ACTIVE master carries it AND agrees on
+  // the ISIN. Anything else is not fetched: a code the active master does not
+  // carry may belong to a delisted company that BSE will still answer for with
+  // three-year-old figures and nothing in the response to say so — 3.8.
+  const seeded = new Map();
+  const seedRejected = [];
+  for (const row of universeSeed?.companies ?? []) {
+    if (!row.bseScripCode) continue;
+    const scrip = byCode.get(row.bseScripCode);
+    if (!scrip) {
+      seedRejected.push({ scripCode: row.bseScripCode, isin: row.isin, name: row.name,
+        reason: 'not in the active equity master (REIT/InvIT, other segment, or inactive)' });
+      continue;
+    }
+    if (scrip.isin && row.isin && scrip.isin !== row.isin) {
+      seedRejected.push({ scripCode: row.bseScripCode, isin: row.isin, name: row.name,
+        reason: `the active master has ISIN ${scrip.isin} on this code, the seed says ${row.isin}` });
+      continue;
+    }
+    seeded.set(scrip.scripCode, scrip);
+  }
+
+  const universe = [...new Map([...held, ...large, ...seeded]).values()]
     .sort((a, b) => (b.indicativeFullMcapInr ?? 0) - (a.indicativeFullMcapInr ?? 0));
   const target = limit ? universe.slice(0, limit) : universe;
 
@@ -186,6 +254,8 @@ async function main() {
       [
         { what: 'held by an iShares fund (any size)', n: num(held.size) },
         { what: `full mcap >= ₹${num(Math.round(toCrore(SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR)))} Cr (the desk's exclusion floor)`, n: num(large.size) },
+        { what: "on the desk's seed list and in the active master", n: num(seeded.size) },
+        { what: 'seed codes rejected (not active, or ISIN disagrees)', n: num(seedRejected.length) },
         { what: 'union to scrape', n: num(universe.size ?? universe.length) },
         { what: 'this run', n: num(target.length) },
       ],
@@ -294,6 +364,8 @@ async function main() {
       minFullMcapInr: SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
       minFullMcapAttribution:
         "the desk's exclusion floor (₹2,000 Cr) — the desk's heuristic, not an MSCI published rule",
+      seeded: seeded.size,
+      seedRejected,
       candidates: universe.length,
       requested: target.length,
       partial: Boolean(limit),

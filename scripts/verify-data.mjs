@@ -133,6 +133,7 @@ function loadContext() {
     companies: companiesFile.companies,
     master: readJson('public/data/bse-scrip-master.json'),
     universe: readJson('public/data/nse-universe.json'),
+    universeSeed: readJson('public/data/universe.json'),
     nseFloat: readJson('public/data/nse-freefloat.json'),
     prices: readJson('public/data/prices.json'),
     reconciliation: readJson('public/data/share-reconciliation.json'),
@@ -153,6 +154,7 @@ const clone = (ctx) => ({
   companiesFile: structuredClone(ctx.companiesFile),
   companies: null, // rebound below
   funds: structuredClone(ctx.funds),
+  universeSeed: structuredClone(ctx.universeSeed),
   master: structuredClone(ctx.master),
   prices: structuredClone(ctx.prices),
   reconciliation: structuredClone(ctx.reconciliation),
@@ -807,6 +809,119 @@ async function main() {
       // Give the "independent" threshold the same corruption as the value.
       // A guard whose threshold moves with the failure cannot see the failure.
       for (const s of c.master.scrips) if (s.indicativeFullMcapInr) s.indicativeFullMcapInr /= 1e7;
+    },
+  }, ctx);
+
+  /* ── the desk's float-source rule ───────────────────────────────────────*/
+  suite.section("The desk's float-source rule");
+
+  await suite.check({
+    id: 22,
+    what: 'BSE is primary; NSE only above the switch point or where BSE has nothing',
+    clone: deepClone,
+    run: (c) => {
+      const switchPct = c.companiesFile.thresholds.floatSourcePreferNseGapPct;
+      ok(typeof switchPct === 'number' && switchPct > 0,
+        'the switch point must be on the record, not implied',
+        `thresholds.floatSourcePreferNseGapPct = ${JSON.stringify(switchPct)}`);
+
+      // Re-derive the choice for every company from the two factors alone, and
+      // require the record to match. This does NOT read floatChoice.rule to
+      // decide what the rule should have been — that would be a guard reading
+      // its threshold from the value under test (2.22 / check 21).
+      const wrong = [];
+      for (const x of c.companies) {
+        const n = x.floatFactorNse;
+        const b = x.floatFactorBse;
+        let expected = null;
+        if (n !== null && b !== null && b > 0) {
+          expected = Math.abs(((n - b) / b) * 100) > switchPct ? 'nse' : 'bse';
+        } else if (b !== null) expected = 'bse';
+        else if (n !== null) expected = 'nse';
+        if (expected === null) continue;
+
+        // The factor actually in force must BE the chosen exchange's factor.
+        const inForce = expected === 'nse' ? n : b;
+        if (x.floatFactor !== inForce) {
+          wrong.push(`${x.nseSymbol ?? x.isin}: expected the ${expected.toUpperCase()} factor `
+            + `${inForce}, record carries ${x.floatFactor} (nse ${n}, bse ${b})`);
+        }
+      }
+      empty(wrong, 'every company carries the factor the desk\'s rule selects', (w) => w);
+
+      const counts = c.companiesFile.coverage.floatChoice;
+      ok(counts && counts.switchPointPct === switchPct,
+        'the coverage counters are stamped with the same switch point',
+        JSON.stringify(counts));
+      return `switch point ${switchPct}% · ${counts.comparable} companies carry both readings · `
+        + `${counts.nsePreferredOnGap} switched to NSE · ${counts.bsePrimary} kept BSE · `
+        + `${counts.bseOnly} BSE-only · ${counts.nseOnly + counts.nseOnlyPublishedRupees} NSE-only`;
+    },
+    sabotage: (c) => {
+      // Put NSE's factor in force on a company whose gap is INSIDE the switch
+      // point — the exact silent-preference failure the rule exists to prevent.
+      const victim = c.companies.find((x) => x.floatChoice?.rule === 'bse-primary');
+      victim.floatFactor = victim.floatFactorNse;
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 23,
+    what: 'floatSource never disagrees with the factor actually in force',
+    clone: deepClone,
+    run: (c) => {
+      const wrong = [];
+      for (const x of c.companies) {
+        if (x.floatFactor === null) continue;
+        if (x.floatSource === 'bse' && x.floatFactor !== x.floatFactorBse) {
+          wrong.push(`${x.nseSymbol ?? x.isin}: says BSE, carries ${x.floatFactor} vs BSE ${x.floatFactorBse}`);
+        }
+        if (x.floatSource === 'nse' && x.floatFactorNse !== null && x.floatFactor !== x.floatFactorNse) {
+          wrong.push(`${x.nseSymbol ?? x.isin}: says NSE, carries ${x.floatFactor} vs NSE ${x.floatFactorNse}`);
+        }
+      }
+      empty(wrong, 'the label on a number must match the number', (w) => w);
+
+      // Every company with a reading states which rule produced it. A figure
+      // whose provenance is only reconstructable from source is not disclosed.
+      const undisclosed = c.companies.filter((x) => x.floatSource !== null && !x.floatChoice);
+      empty(undisclosed, 'every chosen source names the rule that chose it',
+        (x) => `${x.nseSymbol ?? x.isin} has floatSource ${x.floatSource} and no floatChoice`);
+      return `${c.companies.filter((x) => x.floatChoice).length} companies carry the rule that chose their source`;
+    },
+    sabotage: (c) => {
+      const victim = c.companies.find((x) => x.floatSource === 'bse' && x.floatFactorNse !== null);
+      victim.floatSource = 'nse';
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 24,
+    what: "the universe covers the desk's whole seed list, or says why not",
+    clone: deepClone,
+    run: (c) => {
+      const tracked = new Set(c.companies.map((x) => x.isin).filter(Boolean));
+      const missing = c.universeSeed.companies.filter((row) => !tracked.has(row.isin));
+
+      // A seed company may be absent ONLY when it is listed on neither exchange,
+      // and the seed must say so itself. Anything else is a company above the
+      // desk's floor that quietly fell out of the universe.
+      const unexplained = missing.filter((row) => row.listing !== 'neither');
+      empty(unexplained, 'every seed company that either exchange lists is tracked',
+        (row) => `${row.name} (${row.isin}, listing=${row.listing})`);
+
+      // And every company we DID add from the seed with no BSE record states why.
+      const silent = c.companies.filter((x) => x.bseScripCode === null && x.noBseReason === null && !x.held);
+      empty(silent, 'a tracked company with no BSE record states the reason',
+        (x) => `${x.nseSymbol ?? x.isin} ${x.name}`);
+      return `${c.universeSeed.companies.length} on the seed list · ${tracked.size} tracked · `
+        + `${missing.length} absent, all listed on neither exchange`;
+    },
+    sabotage: (c) => {
+      // Drop a tracked seed company: the universe silently narrows.
+      const victim = c.universeSeed.companies.find((r) => r.listing === 'nse-only');
+      const at = c.companies.findIndex((x) => x.isin === victim.isin);
+      if (at >= 0) c.companies.splice(at, 1);
     },
   }, ctx);
 
