@@ -796,12 +796,18 @@ company is not included, which makes this the single largest missing screen in �
 
 ### 4. Verdicts are sensitive to a threshold nobody published
 
-**64 of the 145 non-stable verdicts sit within ±20% of the threshold that produced them** (36 within
+**67 of the 148 non-stable verdicts sit within ±20% of the threshold that produced them** (39 within
 ±10%). The desk's band is a rule of thumb, not MSCI's rule, and a 20% move in it — well inside the
-uncertainty of an unpublished heuristic — reclassifies roughly 44% of the actionable list. The
-Distance column exists so a reader can see this per row, but the aggregate is the number that
-matters: *most of the interesting names are near the line, because that is what "interesting" means
-here.*
+uncertainty of an unpublished heuristic — reclassifies roughly 45% of the actionable list. The
+aggregate is the number that matters: *most of the interesting names are near the line, because that
+is what "interesting" means here.*
+
+This used to be readable per row from a **Distance** column on the screener. That column was removed
+on 20 Aug 2026: it divided by a different threshold on almost every row while presenting one sortable
+number, and within any single verdict its ordering was identical to free float. The per-row figure
+survives in the drill panel — where the threshold and its value are stated beside the percentage —
+and in the CSV export, which now carries the threshold's name and value in their own columns so the
+sensitivity above can still be reproduced from a sheet.
 
 ### 5. The segment boundary is inferred from three funds, and a fund is not an index
 

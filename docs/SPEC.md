@@ -63,8 +63,22 @@ nobody scans.
 The freshness card names the oldest input rather than the newest. A live price does not make a
 month-old float factor live.
 
-**Columns**: Company · Verdict · Distance · Free float (₹ Cr) · Day % · Float % · Full mcap (₹ Cr) ·
+**Columns**: Company · Verdict · Free float (₹ Cr) · Day % · Float % · Full mcap (₹ Cr) ·
 EM wt % · India SC wt % · EM SC wt % · Funds.
+
+There is no **Distance** column, and its removal on 20 Aug 2026 is worth recording because the
+reasoning generalises. It showed a company's free float as a percentage above or below *the
+threshold that decided its verdict* — and that threshold is a different number on almost every row
+(₹4,000 Cr for inclusion candidates, ₹2,000 Cr for exclusion, ₹2,400 or ₹3,500 Cr for the two ways a
+company can be `stable`, ₹26,951 Cr for a migration). One sortable column, five denominators, a
+range from −99.8% to +46,136.9%. Sorted descending it put the biggest inclusion candidates on top,
+which reads as "most likely" and actually means "furthest above the band".
+
+And within any single verdict the denominator is constant, so the ordering was a monotone transform
+of free float — measured, identical to the free-float ordering for all seven verdicts that carry a
+distance. It was redundant where it was coherent and incoherent where it was not. The per-row
+sensitivity it existed to show now lives in the drill panel, which states the threshold and its
+value beside the percentage, and in the CSV export, which carries both.
 
 Every weight column names its fund. There is no combined weight column and there never will be — the
 three funds have different denominators and no arithmetic relates them. Assertion 3 greps the

@@ -566,9 +566,23 @@ function assessmentSectionHtml(company) {
       + 'below it would rest on a number we do not trust. No verdict is offered rather than a confident wrong one.</p>';
   }
 
+  // A distance is meaningless without the number it is a distance FROM, and the
+  // threshold that decided a verdict is different on almost every row. So the
+  // threshold and its value are stated here rather than left to the rules table
+  // below — the sentence has to stand on its own.
   if (assessment.distancePct !== null) {
-    html += `<p class="mt-2 text-xs text-slate-600">Distance to the threshold this turned on: `
-      + `<strong class="tabular-nums">${escapeHtml(signedPct(assessment.distancePct))}</strong>.</p>`;
+    const rule = assessment.rulesFired[assessment.rulesFired.length - 1];
+    const against = rule && rule.threshold !== null && rule.threshold !== undefined
+      ? `${escapeHtml(rule.label)} — ${escapeHtml(inr(rule.threshold))}`
+      : null;
+    html += '<p class="mt-2 text-xs leading-relaxed text-slate-600">'
+      + 'Free float is <strong class="tabular-nums">'
+      + `${escapeHtml(signedPct(assessment.distancePct))}</strong> `
+      + (against
+        ? `from the threshold this verdict turned on: ${against}.`
+        : 'from the threshold this verdict turned on.')
+      + ' <span class="text-slate-500">Each verdict is measured against its own threshold, so this '
+      + 'percentage is not comparable with another company\'s unless both turned on the same rule.</span></p>';
   }
   html += '</div>';
 
@@ -844,9 +858,6 @@ export function renderCompanies(host, { onStatusChange } = {}) {
     host.append(
       sectionHead({
         title: 'Company screener',
-        description:
-          'Every company the three MSCI-tracking iShares funds hold, plus the candidates above the desk’s size floor that none of them holds yet. ' +
-          'Free float is whichever exchange published it; weights belong to one named fund each.',
         meta: scopeChip,
       }),
     );
@@ -876,24 +887,38 @@ export function renderCompanies(host, { onStatusChange } = {}) {
           });
         },
       },
-      {
-        label: 'Distance',
-        align: 'right',
-        html: true,
-        sortValue: (row) => assessmentFor(row)?.distancePct ?? null,
-        get: (row) => {
-          const assessment = assessmentFor(row);
-          if (!assessment || assessment.distancePct === null) {
-            return missing('no threshold comparison — this company has no verdict to measure against');
-          }
-          const rule = assessment.rulesFired[assessment.rulesFired.length - 1];
-          const tone = assessment.distancePct >= 0 ? 'text-slate-700' : 'text-amber-700';
-          return `<span class="${tone} font-semibold" title="${escapeHtml(
-            `${signedPct(assessment.distancePct)} from the threshold this verdict turned on`
-            + `${rule ? ` (${rule.label}, ${THRESHOLD_SOURCE[rule.thresholdSource]?.label ?? rule.thresholdSource})` : ''}`,
-          )}">${escapeHtml(signedPct(assessment.distancePct, 1))}</span>`;
-        },
-      },
+      // There is deliberately no "Distance" column here. It was removed on
+      // 20 Aug 2026 because the number it showed was not comparable down its own
+      // length, and the column was sortable, which invited exactly that.
+      //
+      // `distancePct` is the company's free float measured against THE THRESHOLD
+      // THAT DECIDED ITS VERDICT — and that threshold is a different number on
+      // almost every row. Measured on the committed record:
+      //
+      //     likely/possible-inclusion   vs ₹4,000 Cr      88 companies
+      //     exclusion-risk / likely     vs ₹2,000 Cr      28 companies
+      //     migration up / down         vs ₹26,951 Cr     32 companies
+      //     stable                      vs ₹2,400 Cr     554 companies
+      //     stable                      vs ₹3,500 Cr     500 companies
+      //
+      // So one column divided by five different denominators, ranged from -99.8%
+      // to +46,136.9%, and sorted them together. Sorted descending it put the
+      // largest inclusion candidates on top — which reads as "most likely" and
+      // actually means "furthest above the band": Lenskart at +2,092.7% is a
+      // company whose free float is 21x the ₹4,000 Cr cut-off, not a company
+      // that is 21x as likely to be included.
+      //
+      // And within any one verdict the denominator IS constant, which makes the
+      // ordering a monotone transform of free float. Measured: ordering by
+      // distance is IDENTICAL to ordering by free float for all seven verdicts
+      // that carry one. The only group where it differs is `stable`, and it
+      // differs there only because that group interleaves the two denominators
+      // above. Redundant where it was coherent; incoherent where it was not.
+      //
+      // The per-row sensitivity it existed to show (DATA-CONTRACTS weakness #4)
+      // lives in the drill panel, where the rules table states each threshold
+      // and its value beside the comparison, and in the CSV export, which now
+      // carries the threshold value next to the percentage.
       {
         label: 'Free float (₹ Cr)',
         align: 'right',
@@ -1138,7 +1163,22 @@ export function renderCompanies(host, { onStatusChange } = {}) {
             })),
             { label: 'Verdict (modelled, not MSCI)', value: (r) => VERDICTS[assessmentFor(r)?.verdict ?? 'unknown']?.label ?? '' },
             { label: 'Segment', value: (r) => SEGMENTS[assessmentFor(r)?.segment ?? 'outside']?.label ?? '' },
-            { label: 'Distance to threshold %', value: (r) => assessmentFor(r)?.distancePct ?? '' },
+            // 2.7: provenance must survive an export. A bare "distance %" in a
+            // spreadsheet is a column somebody WILL sort, and every row measured
+            // it against a different threshold — so the threshold travels beside
+            // it, by name and by value.
+            { label: 'Distance to threshold % (measured against its OWN threshold — not comparable across rows)',
+              value: (r) => assessmentFor(r)?.distancePct ?? '' },
+            { label: 'Threshold it was measured against', value: (r) => {
+              const rules = assessmentFor(r)?.rulesFired ?? [];
+              const last = rules[rules.length - 1];
+              return last?.label ?? '';
+            } },
+            { label: 'Threshold value ₹ Cr', value: (r) => {
+              const rules = assessmentFor(r)?.rulesFired ?? [];
+              const last = rules[rules.length - 1];
+              return last?.threshold === null || last?.threshold === undefined ? '' : Math.round(toCrore(last.threshold));
+            } },
             { label: 'Threshold source', value: (r) => {
               const rules = assessmentFor(r)?.rulesFired ?? [];
               const last = rules[rules.length - 1];
