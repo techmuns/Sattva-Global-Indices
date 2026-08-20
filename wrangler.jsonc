@@ -12,7 +12,7 @@
   // wrangler is invoked through npx and installs into the npx cache, not into
   // this repo. There is still no package.json and no node_modules here.
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "sattva-index-flows",
+  "name": "sattva-global-indices",
   "main": "worker/index.js",
   "compatibility_date": "2026-08-01",
   "assets": {
