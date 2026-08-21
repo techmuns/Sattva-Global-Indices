@@ -87,6 +87,14 @@ export const flowPrimitives = () => requireLoaded().flowPrimitives ?? {};
 export const disagreement = () => requireLoaded().floatFactorDisagreement ?? {};
 
 /**
+ * How each fund's own basket has moved, and the band adjustment derived from it.
+ *
+ * `null` when fund-benchmarks.json was not built — the bands then stand raw and
+ * every rule says so, rather than an unadjusted band being shown as adjusted.
+ */
+export const benchmarks = () => requireLoaded().benchmarks ?? null;
+
+/**
  * The three as-of dates, each labelled, plus which one governs.
  *
  * THEY ARE NOT COLLAPSED INTO ONE "UPDATED" TIME. They are three independent

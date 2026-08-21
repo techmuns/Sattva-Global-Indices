@@ -28,6 +28,7 @@ import { assertBhavcopyShape, parseBhavcopy, assertContinuity } from './lib/bhav
 import { parseRawQuote, quoteNumber, quoteText } from './lib/munshot.mjs';
 import { buildIndex, resolveAll } from './lib/resolve.mjs';
 import { verdictFromRules } from '../public/js/model/assess.js';
+import { seriesToMap, summarise } from '../public/js/model/benchmarks.js';
 import { inrFlow, pct, pp, signedPct, factorPct, count, cr, EM_DASH } from '../public/js/core/format.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -134,6 +135,7 @@ function loadContext() {
     master: readJson('public/data/bse-scrip-master.json'),
     universe: readJson('public/data/nse-universe.json'),
     universeSeed: readJson('public/data/universe.json'),
+    benchmarks: readJson('public/data/fund-benchmarks.json'),
     nseFloat: readJson('public/data/nse-freefloat.json'),
     prices: readJson('public/data/prices.json'),
     reconciliation: readJson('public/data/share-reconciliation.json'),
@@ -155,6 +157,7 @@ const clone = (ctx) => ({
   companies: null, // rebound below
   funds: structuredClone(ctx.funds),
   universeSeed: structuredClone(ctx.universeSeed),
+  benchmarks: structuredClone(ctx.benchmarks),
   master: structuredClone(ctx.master),
   prices: structuredClone(ctx.prices),
   reconciliation: structuredClone(ctx.reconciliation),
@@ -968,6 +971,105 @@ async function main() {
     sabotage: (c) => {
       // The failure this check exists for: the master goes back to equity-only.
       c.master.scrips = c.master.scrips.filter((s) => s.instrumentKind !== 'invit-reit');
+    },
+  }, ctx);
+
+  /* ── the segment benchmark ──────────────────────────────────────────────*/
+  suite.section('Segment benchmarks and the floated bands');
+
+  await suite.check({
+    id: 26,
+    what: 'a fund return is measured in RUPEES, not the dollars it is quoted in',
+    clone: deepClone,
+    run: (c) => {
+      const b = c.benchmarks;
+      ok(b && b.funds?.length === 3, 'all three funds are on the record', `${b?.funds?.length} funds`);
+      ok(b.fx?.currency === 'INR', 'the FX series quotes INR per USD', `currency ${b.fx?.currency}`);
+      for (const f of b.funds) equal(f.currency, 'USD', `${f.symbol} is quoted in USD`);
+
+      // Re-derive one return from the raw series and require the record to match.
+      // This does NOT read the stored figure to decide what it should be.
+      const fxMap = seriesToMap(b.fx.series);
+      const wrong = [];
+      for (const fund of b.funds) {
+        const summary = summarise(fund, fxMap, b.asOf ? c.companiesFile.benchmarks.lastReview.effectiveDate : null);
+        const stored = c.companiesFile.benchmarks.funds.find((x) => x.fundId === fund.fundId);
+        if (!stored) { wrong.push(`${fund.symbol}: not in the record`); continue; }
+        if (summary.sinceLastReview.inrPct !== stored.sinceLastReview.inrPct) {
+          wrong.push(`${fund.symbol}: re-derived ${summary.sinceLastReview.inrPct}, record says ${stored.sinceLastReview.inrPct}`);
+        }
+      }
+      empty(wrong, 'every stored return re-derives from the committed series', (w) => w);
+
+      // The whole point of the conversion: it must actually differ from USD.
+      // If these were equal the conversion would be doing nothing and the
+      // measurement would be of our own code — 2.21.
+      const differing = c.companiesFile.benchmarks.funds.filter((f) => {
+        const d = f.sinceLastReview;
+        return d.inrPct !== null && d.usdPct !== null && Math.abs(d.inrPct - d.usdPct) > 0.01;
+      });
+      ok(differing.length > 0,
+        'the rupee return genuinely differs from the dollar one — otherwise the FX step is decorative',
+        `${differing.length} of ${c.companiesFile.benchmarks.funds.length} differ by more than 0.01pp`);
+
+      return c.companiesFile.benchmarks.funds
+        .map((f) => `${f.symbol} ${f.sinceLastReview.inrPct}% ₹ / ${f.sinceLastReview.usdPct}% $`)
+        .join('  ·  ');
+    },
+    sabotage: (c) => {
+      // Convert nothing: hand back the dollar series as though it were rupees.
+      c.benchmarks.fx.series = c.benchmarks.fx.series.map((p) => ({ ...p, close: 1 }));
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 27,
+    what: 'a floated band carries the desk\'s raw band beside it, and floats the right way',
+    clone: deepClone,
+    run: (c) => {
+      const adj = c.companiesFile.benchmarks.adjustment;
+      ok(adj && typeof adj.minMovePct === 'number', 'the adjustment config is on the record', JSON.stringify(adj));
+
+      const floated = [];
+      const wrong = [];
+      for (const company of c.companies) {
+        for (const r of company.assessment?.rulesFired ?? []) {
+          if (!r.band) continue;
+          if (!r.band.applied) continue;
+          floated.push(r);
+          // The raw band must be present, or the number on screen is a bare
+          // adjusted figure that reads like the desk's own — 2.1.
+          if (!r.band.rawInclusion || !r.band.rawExclusion) {
+            wrong.push(`${company.nseSymbol}: floated rule ${r.key} with no raw band recorded`);
+            continue;
+          }
+          // And it must float in the direction the segment moved.
+          const rose = r.band.segmentReturnPct > 0;
+          const rawForRule = r.key === 'entry-upper-band' ? r.band.rawInclusion.highInr
+            : r.key === 'entry-lower-band' ? r.band.rawInclusion.lowInr
+            : r.key === 'exclusion-lower-band' ? r.band.rawExclusion.lowInr
+            : r.key === 'exclusion-upper-band' ? r.band.rawExclusion.highInr : null;
+          if (rawForRule === null) continue;
+          if (rose && !(r.threshold > rawForRule)) {
+            wrong.push(`${company.nseSymbol} ${r.key}: segment rose ${r.band.segmentReturnPct}% but the bar did not`);
+          }
+          if (!rose && !(r.threshold < rawForRule)) {
+            wrong.push(`${company.nseSymbol} ${r.key}: segment fell ${r.band.segmentReturnPct}% but the bar did not`);
+          }
+        }
+      }
+      empty(wrong, 'a floated band moves with its segment and keeps the raw band beside it', (w) => w);
+      ok(floated.length > 0, 'the adjustment actually fired on this record', `${floated.length} floated rules`);
+      return `${floated.length} floated band rules across ${c.companies.length} companies`;
+    },
+    sabotage: (c) => {
+      // Strip the raw band: the screen would then show an adjusted number with
+      // nothing to compare it against.
+      for (const company of c.companies) {
+        for (const r of company.assessment?.rulesFired ?? []) {
+          if (r.band?.applied) { r.band.rawInclusion = null; r.band.rawExclusion = null; }
+        }
+      }
     },
   }, ctx);
 

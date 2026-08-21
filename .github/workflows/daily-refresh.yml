@@ -102,6 +102,22 @@ jobs:
         if: github.event.inputs.skip-float != 'true'
         run: node scripts/scrape-bse-freefloat.mjs
 
+      # ---- how the segments themselves moved ------------------------------
+      # Yahoo, not an exchange, and not on the critical path: without it the
+      # desk's rupee bands simply stand raw and every rule says so. That is a
+      # less precise verdict, not a wrong one, so it must not fail the run.
+      - name: Fund benchmark closes (soft)
+        id: benchmarks
+        continue-on-error: true
+        run: node scripts/fetch-fund-benchmarks.mjs
+
+      - name: Say so when the benchmarks were unreachable
+        if: steps.benchmarks.outcome == 'failure'
+        run: |
+          echo "::warning title=Benchmarks unreachable::Yahoo did not answer. The previous"\
+               "fund-benchmarks.json is unchanged and the bands are floated by whatever it"\
+               "last recorded. If it is missing entirely the bands stand raw and every rule says so."
+
       # ---- prices, then the record ---------------------------------------
       - name: BSE end-of-day prices
         run: |

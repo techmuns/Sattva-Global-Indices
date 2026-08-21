@@ -72,6 +72,41 @@ export function nextReview(now = new Date()) {
 }
 
 /** Every review in a window, for a timeline. */
+/**
+ * The most recent review whose effective date has passed.
+ *
+ * The window that matters for a size cut-off. MSCI set its cut-offs at the last
+ * review from the universe as it stood then; a company must clear the NEXT
+ * review's cut-off, which will be set from the universe as it stands then. How
+ * far the segment has moved between those two moments is the correction the
+ * desk's fixed rupee bands cannot see on their own.
+ *
+ * Same assumed convention as nextReview(), and just as unconfirmed.
+ */
+export function previousReview(now = new Date()) {
+  const year = now.getUTCFullYear();
+  const candidates = [];
+  for (const y of [year - 1, year]) {
+    for (const month of REVIEW_MONTHS) {
+      const effective = lastBusinessDay(y, month);
+      if (effective.getTime() <= now.getTime()) candidates.push({ year: y, month, effective });
+    }
+  }
+  if (candidates.length === 0) return null;
+  const latest = candidates.reduce((a, b) => (a.effective.getTime() >= b.effective.getTime() ? a : b));
+  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return {
+    month: latest.month,
+    year: latest.year,
+    monthName: MONTH_NAMES[latest.month - 1],
+    effectiveDate: latest.effective.toISOString().slice(0, 10),
+    daysSince: Math.round((now.getTime() - latest.effective.getTime()) / 86400000),
+    label: `${MONTH_NAMES[latest.month - 1]} ${latest.year}`,
+    assumed: true,
+    convention: CONVENTION,
+  };
+}
+
 export function upcomingReviews(now = new Date(), count = 4) {
   const out = [];
   let cursor = now;

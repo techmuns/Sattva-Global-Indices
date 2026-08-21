@@ -555,6 +555,68 @@ NSE code for ~1,217 companies. Both are used, `nse-universe` first, each recorde
 stops**, because a disagreement means one of them has the wrong company on that ISIN and every
 float reading keyed on the symbol would belong to somebody else.
 
+### 2.24 A size cut-off is not an absolute rupee figure
+
+The desk's bands are fixed: **₹3,500–4,000 Cr** for inclusion, **₹2,000–2,400 Cr** for exclusion.
+MSCI's real cut-offs are not. They are derived **at each review from the investable universe**, so
+the bar rises with a rising market and falls with a falling one.
+
+That gap is directional and it hits every company at once. In a segment that rose 12%, a fixed band
+**over-calls inclusions** — companies clear a bar that has itself moved up. In a segment that fell it
+under-calls. And a company whose free float grew 4% while its segment grew 12% has become
+**relatively smaller**: closer to exclusion, not further from it. A fixed rupee band cannot see that.
+
+So each band is floated by its own segment's price return since the last review's effective date:
+
+```
+adjustedBand = band × (1 + segmentReturnSinceLastReview)
+```
+
+`SEGMENT_BAND_ADJUSTMENT` in `public/js/config/thresholds.mjs` owns it, including which fund proxies
+which segment. `outside` uses the India small-cap fund, because a company entering the index enters
+MSCI India Small Cap — that is the bar it has to clear.
+
+**Both numbers stay on every rule.** `rulesFired[].band` carries the desk's raw band, the segment
+move, the factor and the reason, so a reader can see how far the bar moved and what the verdict would
+have been without it. A floated threshold rendered as a bare number is a tier-3 adjustment wearing a
+tier-1 face.
+
+Measured on the 20 Aug 2026 record: SMIN **+5.73%** and EEM **−3.44%** in rupees since the May
+review. **22 companies change verdict, 14 of them held** — mostly small caps at ₹2,430–2,520 Cr that
+read `stable` against a fixed ₹2,400 Cr and `exclusion-risk` against a floated ₹2,538 Cr.
+
+> ### ⚠ These funds are priced in dollars and free float is in rupees
+>
+> SMIN, EEMS and EEM all quote in USD, so their headline return folds in the INR/USD move. Measured
+> over the year to 20 Aug 2026:
+>
+> | Fund | USD return | INR return | FX contribution |
+> | --- | --- | --- | --- |
+> | SMIN | **−3.62%** | **+5.44%** | +9.05 pp — *the sign flips* |
+> | EEMS | +12.86% | +23.46% | +10.60 pp |
+> | EEM | +33.91% | +46.96% | +13.05 pp |
+>
+> Comparing an Indian company's rupee growth against SMIN's **dollar** return would have said the
+> segment shrank 3.6% when it grew 5.4%, and every relative judgement built on it would be wrong in
+> the same direction for every company.
+>
+> The conversion is exact, not a correction factor. An ETF's price is the rupee value of its basket
+> expressed in dollars, so `basket_inr = price_usd × usdinr` and the rupee return multiplies each end
+> of the window by **that date's** rate. `USDINR=X` is fetched alongside for exactly this, and
+> `verify-data` assertion 26 fails if the two returns ever come out equal — an FX step that changes
+> nothing is decoration.
+
+**It is the ETF, not the index.** An ETF carries tracking error and trades at a premium or discount
+to NAV, so this is a close proxy and never the index itself. MSCI's index levels are licensed and
+this project has no entitlement to them. It is also a **price** return, not total return: a free-float
+market cap moves with price, not with a distribution paid out in cash.
+
+**The adjustment is the desk's, twice over** — MSCI derives cut-offs from the whole investable
+universe rather than one segment, and the proxy is a fund rather than an index. Directionally right,
+approximately sized, and never to be shown as MSCI's arithmetic. Below `minMovePct` (1%) it is
+recorded and not applied, because a segment that moved a fraction of a percent cannot meaningfully
+have moved MSCI's cut-off and applying it would churn verdicts on noise.
+
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
 ### 3.1 The iShares `.xls` files are not `.xls` files
@@ -941,6 +1003,7 @@ scripts/
   lib/munshot.mjs                  Munshot batch client + rawQuote parser, pure
   lib/recompute.mjs                free-float recompute, passive drift, flow primitives
   import-universe.mjs              Screener seed → public/data/universe.json
+  fetch-fund-benchmarks.mjs        SMIN/EEMS/EEM + USDINR → public/data/fund-benchmarks.json
   import-ishares.mjs               3 workbooks → public/data/msci-funds.json
   scrape-nse-freefloat.mjs         NSE pre-open → public/data/nse-freefloat.json
   fetch-bse-master.mjs             BSE scrip master → public/data/bse-scrip-master.json
@@ -963,6 +1026,7 @@ public/
   index.html                       placeholder; the interface is a later prompt
   js/config/thresholds.mjs         EVERY threshold, and nowhere else
   data/universe.json               generated — the desk's tracked universe seed
+  data/fund-benchmarks.json        generated — daily fund closes + FX, for the band adjustment
   data/msci-funds.json             generated — do not hand-edit
   data/nse-freefloat.json          generated — do not hand-edit
   data/bse-scrip-master.json       generated — do not hand-edit
@@ -1008,6 +1072,7 @@ node scripts/fetch-bse-master.mjs      # 1 request, ~1.7 MB
 node scripts/fetch-nse-universe.mjs    # 2 requests, the ISIN bridge
 node scripts/scrape-nse-freefloat.mjs  # 4 requests, ~250 symbols - THROTTLES, see below
 node scripts/scrape-bse-freefloat.mjs  # ~3,600 requests, ~12 min at concurrency 8
+node scripts/fetch-fund-benchmarks.mjs # 4 requests, 2y of daily closes + USDINR
 node scripts/fetch-bhavcopy.mjs        # 1 request, the whole market's closes
 node scripts/fetch-quote-stats.mjs     # monthly ADV/splits; --concurrency 1 --gap-ms 1200
 node scripts/reconcile-shares.mjs      # share-count outliers -> quarantine list

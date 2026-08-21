@@ -71,6 +71,68 @@ export const REVIEW_THRESHOLDS = {
  * band it is derived from — it must never exclude a company that could clear
  * the free-float test, and full mcap >= free-float mcap always.
  */
+/**
+ * Floating the desk's rupee bands by how far the segment itself has moved.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY A FIXED RUPEE BAND IS THE WRONG SHAPE
+ * ---------------------------------------------------------------------------
+ * The desk works to ₹3,500–4,000 Cr for inclusion and ₹2,000–2,400 Cr for
+ * exclusion. Those are ABSOLUTE figures. MSCI's real cut-offs are not: they are
+ * derived at each review from the investable universe, so they rise with a
+ * rising market and fall with a falling one.
+ *
+ * The consequence is directional and it applies to every company at once. In a
+ * segment that rose 12%, a fixed band OVER-CALLS inclusions — companies clear a
+ * bar that has itself moved up. In a segment that fell, it under-calls.
+ *
+ * So the band is multiplied by the segment's own price return since the last
+ * review's effective date, measured from the fund that tracks that segment:
+ *
+ *     adjustedBand = band × (1 + segmentReturnSinceLastReview)
+ *
+ * Both the raw band and the adjusted one are recorded on every rule that uses
+ * them, so a reader can see exactly how much the adjustment moved the bar and
+ * what the verdict would have been without it.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT THIS IS AND IS NOT
+ * ---------------------------------------------------------------------------
+ * It is an APPROXIMATION and the desk's own, on two counts. MSCI derives its
+ * cut-offs from the whole investable universe rather than from one segment, and
+ * the proxy is an ETF rather than the index — an ETF carries tracking error and
+ * trades at a premium or discount to NAV. Directionally it is right and the
+ * magnitude is close; it is not MSCI's arithmetic and must never be shown as if
+ * it were.
+ *
+ * The return is measured in RUPEES. The funds quote in dollars, and over a year
+ * to 20 Aug 2026 that difference was 9 to 13 percentage points — enough to flip
+ * SMIN's sign from -3.62% to +5.44%. See public/js/model/benchmarks.js.
+ *
+ * Set `enabled: false` to fall back to the raw bands. Every rule keeps both
+ * numbers either way, so nothing downstream has to change to compare them.
+ */
+export const SEGMENT_BAND_ADJUSTMENT = {
+  enabled: true,
+  basis: "the tracking fund's price return in rupees since the last review's effective date",
+  attribution: "the desk's own adjustment. MSCI derives its size cut-offs from the investable "
+    + 'universe at each review and does not publish them; this floats a fixed rupee band by a '
+    + 'measured segment move, using an ETF as a proxy for the index it tracks.',
+  /**
+   * Which fund's basket stands in for each segment.
+   *
+   * `outside` uses the India small-cap fund because a company entering the index
+   * enters MSCI India Small Cap, so that is the bar it has to clear.
+   */
+  benchmarkForSegment: { standard: 'eem', smallcap: 'smin', outside: 'smin' },
+  /**
+   * Below this the adjustment is recorded but not applied. A segment that moved
+   * a fraction of a percent since the last review cannot meaningfully have moved
+   * MSCI's cut-off, and applying it would churn verdicts on noise.
+   */
+  minMovePct: 1,
+};
+
 export const SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR = REVIEW_THRESHOLDS.exclusion.lowInr;
 
 /**

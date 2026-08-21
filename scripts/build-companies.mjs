@@ -75,7 +75,9 @@ import { observedBoundary, rankByFreeFloat } from '../public/js/model/thresholds
 import { segmentOf, assertDisjoint, segmentFloatTotals } from '../public/js/model/segments.js';
 import { assess, verdictFromRules, VERDICTS, DISCLOSURE } from '../public/js/model/assess.js';
 import { estimateFlows } from '../public/js/model/flows.js';
-import { nextReview } from '../public/js/model/calendar.js';
+import { nextReview, previousReview } from '../public/js/model/calendar.js';
+import { seriesToMap, summarise, FUND_BENCHMARKS } from '../public/js/model/benchmarks.js';
+import { SEGMENT_BAND_ADJUSTMENT } from '../public/js/config/thresholds.mjs';
 import { renderTable, num, round, CheckList } from './lib/report.mjs';
 import {
   SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
@@ -107,6 +109,10 @@ function main() {
   const bseFreeFloat = requireFile('bse-freefloat.json', 'node scripts/scrape-bse-freefloat.mjs');
   const prices = requireFile('prices.json', 'node scripts/fetch-bhavcopy.mjs');
   const universeSeed = requireFile('universe.json', 'node scripts/import-universe.mjs');
+  // Optional. Absent means the bands stay raw and every rule says so — never a
+  // silently unadjusted band presented as an adjusted one.
+  const benchmarksPath = join(REPO, 'public', 'data', 'fund-benchmarks.json');
+  const benchmarks = existsSync(benchmarksPath) ? JSON.parse(readFileSync(benchmarksPath, 'utf8')) : null;
 
   // ---- the review calendar is anchored to the RECORD, not to the clock ----
   // `nextReview()` defaults to `new Date()`, which is right for the interface —
@@ -632,7 +638,25 @@ function main() {
   const floatTotals = segmentFloatTotals(out);
   const quarantined = new Set(reconciliation?.quarantinedIsins ?? []);
 
-  const assessContext = { boundary, ranks, quarantined, keyOf: keyOfCompany };
+  // ---- how far has each segment moved since the last review? -------------
+  // The desk's rupee bands are absolute; MSCI's cut-offs are not. Floating the
+  // bands by the segment's own price return is what makes a verdict account for
+  // the index rather than only the company. Measured in RUPEES — see
+  // model/benchmarks.js for why the dollar figure would be wrong by 9-13 points.
+  const lastReview = previousReview(reviewAnchor);
+  const fxMap = benchmarks ? seriesToMap(benchmarks.fx?.series ?? []) : null;
+  const benchmarkByFund = {};
+  if (benchmarks) {
+    for (const fund of benchmarks.funds ?? []) {
+      benchmarkByFund[fund.fundId] = summarise(fund, fxMap, lastReview?.effectiveDate ?? null);
+    }
+  }
+  const segmentReturns = {};
+  for (const [segment, fundId] of Object.entries(SEGMENT_BAND_ADJUSTMENT.benchmarkForSegment)) {
+    segmentReturns[segment] = benchmarkByFund[fundId]?.sinceLastReview?.inrPct ?? null;
+  }
+
+  const assessContext = { boundary, ranks, quarantined, keyOf: keyOfCompany, segmentReturns };
   const flowContext = { flowPrimitives: flowPrimitivesByFund, segmentFloatTotals: floatTotals };
 
   const verdictCounts = {};
@@ -1168,6 +1192,26 @@ function main() {
         "the desk's own heuristics, from public/js/config/thresholds.mjs — MSCI does not publish these cut-offs",
     },
     coverage,
+    // How each fund's own basket has moved, and the band adjustment derived from
+    // it. Tier 1 for the closes (Yahoo's), tier 2 for every return (ours).
+    benchmarks: benchmarks ? {
+      source: benchmarks.source,
+      note: benchmarks.note,
+      returnBasis: benchmarks.returnBasis,
+      currencyNote: benchmarks.currencyNote,
+      capturedAt: benchmarks.capturedAt,
+      asOf: benchmarks.asOf,
+      lastReview: lastReview ? { label: lastReview.label, effectiveDate: lastReview.effectiveDate, assumed: true } : null,
+      adjustment: {
+        enabled: SEGMENT_BAND_ADJUSTMENT.enabled,
+        basis: SEGMENT_BAND_ADJUSTMENT.basis,
+        attribution: SEGMENT_BAND_ADJUSTMENT.attribution,
+        minMovePct: SEGMENT_BAND_ADJUSTMENT.minMovePct,
+        benchmarkForSegment: SEGMENT_BAND_ADJUSTMENT.benchmarkForSegment,
+        segmentReturnsInrPct: segmentReturns,
+      },
+      funds: Object.values(benchmarkByFund),
+    } : null,
     prices: {
       tradeDate: prices.tradeDate,
       source: prices.source,

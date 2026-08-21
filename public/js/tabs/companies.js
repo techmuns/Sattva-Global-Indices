@@ -282,6 +282,58 @@ function buildStats(scopeRows, scope) {
           '</div>',
       },
     },
+    ...(() => {
+      // ---- how the tracked segments themselves have moved ----------------
+      // The desk's bands are absolute rupee figures and MSCI's cut-offs are not,
+      // so the segment's own move is what decides whether a company is really
+      // getting closer to a cut-off or just floating up with everything else.
+      // It is a card rather than a footnote because it moves verdicts.
+      const b = data.benchmarks();
+      if (!b || !b.funds?.length) return [];
+      const since = b.lastReview?.label ?? 'the last review';
+      const line = (f) => {
+        const r = f.sinceLastReview?.inrPct;
+        if (r === null || r === undefined) return '';
+        const tone = r >= 0 ? 'text-emerald-700' : 'text-rose-700';
+        return '<div class="flex items-baseline justify-between gap-3 text-xs">'
+          + `<span class="font-semibold text-slate-700">${escapeHtml(f.symbol)}</span>`
+          + `<span class="tabular-nums ${tone}">${escapeHtml(signedPct(r, 2))} <span class="text-slate-400">in ₹</span></span></div>`;
+      };
+      const smin = b.funds.find((f) => f.fundId === 'smin');
+      const headline = smin?.sinceLastReview?.inrPct ?? b.funds[0]?.sinceLastReview?.inrPct ?? null;
+      return [{
+        label: 'Segment move since ' + since,
+        value: headline === null ? '—' : signedPct(headline, 2),
+        detail: smin ? 'India Small-Cap, in rupees' : 'in rupees',
+        extra: b.funds.map(line).join(''),
+        help: {
+          title: 'Why the index move changes a verdict',
+          body:
+            '<div class="space-y-3 text-sm leading-relaxed text-slate-600">'
+            + '<p>The desk works to fixed rupee bands — <strong>₹3,500–4,000 Cr</strong> for inclusion, '
+            + '<strong>₹2,000–2,400 Cr</strong> for exclusion. MSCI\'s real cut-offs are not fixed: they are '
+            + 'derived from the investable universe <em>at each review</em>, so the bar rises with a rising '
+            + 'market and falls with a falling one.</p>'
+            + '<p>So a company whose free float grew 4% in a segment that grew 12% has become '
+            + '<strong>relatively smaller</strong> — closer to exclusion, not further from it. A fixed rupee '
+            + 'band cannot see that at all. Each band is therefore floated by its segment\'s own price return '
+            + `since ${escapeHtml(since)}.</p>`
+            + '<div class="space-y-1.5 rounded-xl bg-slate-50 p-3">'
+            + b.funds.map((f) => '<div class="flex justify-between text-xs">'
+              + `<span class="font-semibold text-slate-700">${escapeHtml(f.symbol)}</span>`
+              + `<span class="tabular-nums text-slate-600">${escapeHtml(signedPct(f.sinceLastReview?.inrPct, 2))} in ₹ · `
+              + `${escapeHtml(signedPct(f.sinceLastReview?.usdPct, 2))} in $</span></div>`).join('')
+            + '</div>'
+            + '<p><strong>The rupee figure is the one that matters.</strong> These funds trade in dollars, so '
+            + 'their quoted return folds in the INR/USD move — over the year to 20 Aug 2026 that was worth 9 to '
+            + '13 percentage points and flipped SMIN\'s sign from −3.62% to +5.44%. A free-float market cap is '
+            + 'in rupees, so the comparison has to be too.</p>'
+            + `<p class="text-xs text-slate-500">${escapeHtml(b.note)} ${escapeHtml(b.returnBasis)} `
+            + `The adjustment is ${escapeHtml(b.adjustment.attribution)}</p>`
+            + '</div>',
+        },
+      }];
+    })(),
     {
       label: 'Free-float coverage',
       value: `${num(withFloatInView)} of ${num(inView)}`,
@@ -613,8 +665,36 @@ function assessmentSectionHtml(company) {
       if (rule.note) {
         html += `<tr class="border-t border-slate-50"><td colspan="5" class="px-2 pb-1.5 text-[10px] leading-relaxed text-slate-400">${escapeHtml(rule.note)}</td></tr>`;
       }
+      // A floated threshold must never render as a bare number: the reader has
+      // to see the desk's raw band, the segment move that shifted it, and where
+      // the bar actually landed. Otherwise a tier-3 adjustment reads as a fact.
+      if (rule.band?.applied) {
+        const raw = rule.key.startsWith('entry-')
+          ? (rule.key === 'entry-upper-band' ? rule.band.rawInclusion?.highInr : rule.band.rawInclusion?.lowInr)
+          : (rule.key === 'exclusion-lower-band' ? rule.band.rawExclusion?.lowInr : rule.band.rawExclusion?.highInr);
+        html +=
+          '<tr class="border-t border-slate-50"><td colspan="5" class="px-2 pb-1.5 text-[10px] leading-relaxed text-indigo-700">'
+          + `Desk band <span class="tabular-nums">₹${escapeHtml(cr(raw))} Cr</span>, floated to `
+          + `<span class="tabular-nums font-semibold">₹${escapeHtml(cr(rule.threshold))} Cr</span> — `
+          + escapeHtml(rule.band.reason)
+          + '.</td></tr>';
+      }
     }
     html += '</tbody></table></div>';
+
+    const floated = assessment.rulesFired.find((r) => r.band);
+    if (floated?.band) {
+      const b = floated.band;
+      html +=
+        `<p class="mt-2 rounded-xl ${b.applied ? 'bg-indigo-50 text-indigo-900 ring-1 ring-indigo-200' : 'bg-slate-50 text-slate-600'} p-3 text-[11px] leading-relaxed">`
+        + `<strong>${b.applied ? 'Bands floated by the segment' : 'Bands not floated'}.</strong> `
+        + 'The desk\'s rupee bands are fixed; MSCI derives its size cut-offs from the investable '
+        + 'universe at each review, so the real bar moves with the market. '
+        + escapeHtml(b.reason.charAt(0).toUpperCase() + b.reason.slice(1))
+        + '. <span class="opacity-70">The move is the tracking fund\'s price return in rupees — the '
+        + 'dollar figure would be wrong by several points because these funds quote in USD. This is '
+        + 'the desk\'s own adjustment against an ETF proxy, not MSCI\'s arithmetic.</span></p>';
+    }
   }
 
   // ---- the flows ----

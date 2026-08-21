@@ -33,6 +33,7 @@
  */
 
 import { REVIEW_THRESHOLDS, THRESHOLD_SOURCE, toCrore } from './thresholds.js';
+import { SEGMENT_BAND_ADJUSTMENT } from '../config/thresholds.mjs';
 import { segmentOf, isSampledByEmSmallCap } from './segments.js';
 
 /** The verdicts, in the order a summary should read them. */
@@ -98,9 +99,63 @@ export const VERDICTS = {
 /** Verdicts that imply a fund must trade. Only these get a rupee figure. */
 export const TRADE_IMPLYING = new Set(['likely-inclusion', 'possible-inclusion', 'migration-up', 'migration-down', 'exclusion-risk', 'likely-exclusion']);
 
-const rule = (key, label, input, threshold, thresholdSource, result, note) => ({
+const rule = (key, label, input, threshold, thresholdSource, result, note, band) => ({
   key, label, input, threshold, thresholdSource, result, note: note ?? null,
+  // When the threshold was floated by the segment's own move, BOTH numbers are
+  // on the rule: the desk's raw band and the bar actually applied. A reader has
+  // to be able to see how far the adjustment moved the bar, and what the verdict
+  // would have been without it.
+  band: band ?? null,
 });
+
+/**
+ * The bands in force for a segment, floated by how far that segment has moved
+ * since the last review — see SEGMENT_BAND_ADJUSTMENT in config/thresholds.mjs.
+ *
+ * Returns the raw bands unchanged when the adjustment is off, when no benchmark
+ * is available for the segment, or when the move is inside the noise floor.
+ * Never guesses: a missing benchmark means the RAW band, never a fabricated one.
+ */
+export function bandsFor(segment, segmentReturnPct) {
+  const cfg = SEGMENT_BAND_ADJUSTMENT;
+  const raw = { inclusion: REVIEW_THRESHOLDS.inclusion, exclusion: REVIEW_THRESHOLDS.exclusion };
+  const applied = cfg.enabled
+    && typeof segmentReturnPct === 'number'
+    && Number.isFinite(segmentReturnPct)
+    && Math.abs(segmentReturnPct) >= cfg.minMovePct;
+
+  if (!applied) {
+    return {
+      applied: false,
+      segmentReturnPct: typeof segmentReturnPct === 'number' ? segmentReturnPct : null,
+      reason: !cfg.enabled ? 'the segment adjustment is switched off'
+        : typeof segmentReturnPct !== 'number' || !Number.isFinite(segmentReturnPct)
+          ? 'no benchmark return for this segment, so the desk\'s raw band stands'
+          : `the segment moved ${segmentReturnPct.toFixed(2)}%, inside the ${cfg.minMovePct}% floor `
+            + 'below which the adjustment is recorded but not applied',
+      factor: 1,
+      inclusion: raw.inclusion,
+      exclusion: raw.exclusion,
+    };
+  }
+
+  const factor = 1 + (segmentReturnPct / 100);
+  const scale = (band) => ({
+    lowInr: Math.round(band.lowInr * factor),
+    highInr: Math.round(band.highInr * factor),
+    label: band.label,
+  });
+  return {
+    applied: true,
+    segmentReturnPct,
+    reason: `the segment moved ${segmentReturnPct >= 0 ? '+' : ''}${segmentReturnPct.toFixed(2)}% `
+      + "in rupees since the last review's effective date, so the desk's band is floated by the same "
+      + 'proportion',
+    factor: Number(factor.toFixed(6)),
+    inclusion: scale(raw.inclusion),
+    exclusion: scale(raw.exclusion),
+  };
+}
 
 /**
  * Assess one company.
@@ -110,7 +165,7 @@ const rule = (key, label, input, threshold, thresholdSource, result, note) => ({
  * @returns {{verdict, rulesFired, distance, distanceLabel, segment, notes}}
  */
 export function assess(company, context) {
-  const { boundary, ranks, quarantined, keyOf } = context;
+  const { boundary, ranks, quarantined, keyOf, segmentReturns } = context;
   const segment = segmentOf(company);
   const rulesFired = [];
   const key = keyOf(company);
@@ -135,8 +190,19 @@ export function assess(company, context) {
     return finish('unknown', rulesFired, null, segment, company);
   }
 
-  const inclusion = REVIEW_THRESHOLDS.inclusion;
-  const exclusion = REVIEW_THRESHOLDS.exclusion;
+  // The bands, floated by how far this company's own segment has moved since the
+  // last review. A fixed rupee bar cannot see that MSCI's cut-off moved too.
+  const bands = bandsFor(segment, segmentReturns?.[segment] ?? null);
+  const inclusion = bands.inclusion;
+  const exclusion = bands.exclusion;
+  const bandInfo = {
+    applied: bands.applied,
+    segmentReturnPct: bands.segmentReturnPct,
+    factor: bands.factor,
+    reason: bands.reason,
+    rawInclusion: REVIEW_THRESHOLDS.inclusion,
+    rawExclusion: REVIEW_THRESHOLDS.exclusion,
+  };
   const rank = ranks.get(key) ?? null;
   const standardCount = boundary.standardCount;
 
@@ -149,6 +215,7 @@ export function assess(company, context) {
       'entry-upper-band', 'Free float vs the desk\'s upper inclusion band',
       freeFloat, inclusion.highInr, 'desk',
       freeFloat >= inclusion.highInr ? 'above' : 'below',
+      null, bandInfo
     ));
     if (freeFloat >= inclusion.highInr) {
       return finish('likely-inclusion', rulesFired, distanceTo(freeFloat, inclusion.highInr), segment, company);
@@ -157,6 +224,7 @@ export function assess(company, context) {
       'entry-lower-band', 'Free float vs the desk\'s lower inclusion band',
       freeFloat, inclusion.lowInr, 'desk',
       freeFloat >= inclusion.lowInr ? 'above' : 'below',
+      null, bandInfo
     ));
     if (freeFloat >= inclusion.lowInr) {
       return finish('possible-inclusion', rulesFired, distanceTo(freeFloat, inclusion.highInr), segment, company);
@@ -170,6 +238,7 @@ export function assess(company, context) {
     'exclusion-lower-band', 'Free float vs the desk\'s lower exclusion band',
     freeFloat, exclusion.lowInr, 'desk',
     freeFloat < exclusion.lowInr ? 'below' : 'above',
+      null, bandInfo
   ));
   if (freeFloat < exclusion.lowInr) {
     return finish('likely-exclusion', rulesFired, distanceTo(freeFloat, exclusion.lowInr), segment, company);
@@ -179,6 +248,7 @@ export function assess(company, context) {
     'exclusion-upper-band', 'Free float vs the desk\'s upper exclusion band',
     freeFloat, exclusion.highInr, 'desk',
     freeFloat < exclusion.highInr ? 'below' : 'above',
+      null, bandInfo
   ));
   if (freeFloat < exclusion.highInr) {
     return finish('exclusion-risk', rulesFired, distanceTo(freeFloat, exclusion.lowInr), segment, company);
