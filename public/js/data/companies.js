@@ -102,24 +102,43 @@ export function freshness() {
       label: 'iShares holdings',
       raw: asOf.isharesHoldings ?? null,
       detail: "BlackRock's published fund holdings, as of the workbook's own date",
+      // Each feed is refreshed on its own cadence, so one staleness threshold
+      // cannot serve them all. `staleAfterDays` is the point past which THIS
+      // feed being unchanged means something went wrong rather than nothing
+      // moved. Every one is the desk's own number, not anybody's standard.
+      cadence: 'replaced by hand when new workbooks are downloaded',
+      staleAfterDays: 45,
     },
     {
       id: 'nse',
       label: 'NSE pre-open session',
       raw: asOf.nseSession ?? null,
       detail: "NSE's own session timestamp, carried verbatim — when NSE struck the prices",
+      // Attempted daily and allowed to fail, because NSE's edge throttles a
+      // datacentre IP unpredictably. Guaranteed weekly by a job that retries
+      // three times and then fails loudly. Beyond about a fortnight the source
+      // choice on the names where the two exchanges disagree is frozen on a
+      // stale NSE figure, which is the thing worth flagging.
+      cadence: 'attempted every trading day, guaranteed weekly',
+      staleAfterDays: 12,
     },
     {
       id: 'bse',
       label: 'BSE free-float scrape',
       raw: asOf.bseCapturedAt ?? null,
-      detail: 'when we fetched BSE market caps and share counts — monthly, and never restamped because a price arrived',
+      detail: 'when we fetched BSE market caps and share counts — every trading day, and never restamped because a price arrived',
+      // The primary source. It runs every trading day, so more than a long
+      // weekend without one means the job is broken.
+      cadence: 'every trading day',
+      staleAfterDays: 4,
     },
     {
       id: 'bhavcopy',
       label: 'BSE closing prices',
       raw: asOf.bhavcopyTradeDate ?? null,
       detail: "the exchange's own trade date for the committed end-of-day bhavcopy",
+      cadence: 'every trading day',
+      staleAfterDays: 4,
     },
   ].map((feed) => ({ ...feed, date: parseFeedDate(feed.raw) }));
 
@@ -146,6 +165,10 @@ export function sourceRegistry() {
       tier: 'measured',
       asOf: byId.ishares?.raw ?? null,
       asOfDate: byId.ishares?.date ?? null,
+      // The cadence this feed is actually refreshed on, and the age past which
+      // being unchanged means something broke rather than nothing moved.
+      cadence: byId.ishares?.cadence ?? null,
+      staleAfterDays: byId.ishares?.staleAfterDays ?? null,
       status: byId.ishares?.raw ? 'ok' : 'missing',
       count: cov.held ?? null,
       countLabel: 'companies held by at least one fund',
@@ -158,6 +181,10 @@ export function sourceRegistry() {
       tier: 'measured',
       asOf: byId.nse?.raw ?? null,
       asOfDate: byId.nse?.date ?? null,
+      // The cadence this feed is actually refreshed on, and the age past which
+      // being unchanged means something broke rather than nothing moved.
+      cadence: byId.nse?.cadence ?? null,
+      staleAfterDays: byId.nse?.staleAfterDays ?? null,
       status: byId.nse?.raw ? 'ok' : 'missing',
       count: cov.floatFromNse ?? null,
       countLabel: 'companies whose float reading is NSE’s',
@@ -170,6 +197,10 @@ export function sourceRegistry() {
       tier: 'measured',
       asOf: byId.bse?.raw ?? null,
       asOfDate: byId.bse?.date ?? null,
+      // The cadence this feed is actually refreshed on, and the age past which
+      // being unchanged means something broke rather than nothing moved.
+      cadence: byId.bse?.cadence ?? null,
+      staleAfterDays: byId.bse?.staleAfterDays ?? null,
       status: byId.bse?.raw ? 'ok' : 'missing',
       count: cov.floatFromBse ?? null,
       countLabel: 'companies whose float reading is BSE’s',
@@ -184,6 +215,8 @@ export function sourceRegistry() {
       tier: 'measured',
       asOf: meta.bhavcopyTradeDate ?? null,
       asOfDate: parseFeedDate(meta.bhavcopyTradeDate ?? null),
+      cadence: byId.bhavcopy?.cadence ?? null,
+      staleAfterDays: byId.bhavcopy?.staleAfterDays ?? null,
       status: meta.bhavcopyTradeDate ? 'ok' : 'missing',
       count: requireLoaded().prices?.pricedCount ?? null,
       countLabel: 'scrips priced from this file',

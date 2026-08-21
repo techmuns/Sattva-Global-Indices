@@ -429,7 +429,7 @@ function floatSectionHtml(company) {
       company.freeFloatMcapAtCaptureInr === null
         ? missing('no published figure on record')
         : escapeHtml(inr(company.freeFloatMcapAtCaptureInr)),
-      { title: 'What the exchange published when the monthly float file was captured, kept for comparison' },
+      { title: 'What the exchange published when the float file was last captured, kept beside the recomputed figure for comparison' },
     ) +
     drillRow(
       'Factor in force',

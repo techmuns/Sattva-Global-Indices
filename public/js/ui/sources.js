@@ -22,11 +22,25 @@ const STATUS_STYLE = {
 };
 
 /**
- * How old is too old? A quarterly-review product refreshed monthly is fine at a
- * few days and suspicious at a few weeks. This is our threshold, and it is
- * stated as ours on screen rather than implied to be anybody's standard.
+ * How old is too old?
+ *
+ * There is no single answer, because the feeds do not share a cadence. BSE's
+ * float scrape and the bhavcopy run every trading day; NSE is attempted daily
+ * and allowed to fail because its edge throttles a datacentre IP, with a weekly
+ * job as the guarantee; the iShares workbooks are replaced by hand.
+ *
+ * A single 14-day threshold — which is what this file used while the pipeline
+ * was monthly — would let the daily sources sit broken for a fortnight without
+ * saying anything. Each feed now carries its own `staleAfterDays`, and this is
+ * the fallback for anything that does not.
+ *
+ * Every one of these is the desk's own number, stated as ours on screen rather
+ * than implied to be anybody's standard.
  */
-const STALE_AFTER_DAYS = 14;
+const DEFAULT_STALE_AFTER_DAYS = 14;
+
+/** The threshold for one feed: its own, or the fallback. */
+const staleAfterFor = (source) => source.staleAfterDays ?? DEFAULT_STALE_AFTER_DAYS;
 
 function statusFor(source, now) {
   if (source.status === 'live') {
@@ -39,7 +53,7 @@ function statusFor(source, now) {
   }
   if (source.status === 'missing' || !source.asOfDate) return 'missing';
   const days = (now.getTime() - source.asOfDate.getTime()) / 86400000;
-  return days > STALE_AFTER_DAYS ? 'stale' : 'ok';
+  return days > staleAfterFor(source) ? 'stale' : 'ok';
 }
 
 /**
@@ -89,7 +103,7 @@ export function headerStatus(now = new Date()) {
     detail: marketOpen
       ? `Market open, no live quote yet · oldest input: ${oldest?.label ?? 'unknown'}`
       : `Market closed · oldest input: ${oldest?.label ?? 'unknown'}`,
-    tone: oldest && (now.getTime() - oldest.date.getTime()) / 86400000 > STALE_AFTER_DAYS ? 'caution' : 'positive',
+    tone: oldest && (now.getTime() - oldest.date.getTime()) / 86400000 > staleAfterFor(oldest) ? 'caution' : 'positive',
   };
 }
 
@@ -159,7 +173,10 @@ export function openSourcesModal(now = new Date()) {
         'The two exchanges apply different float definitions and their factors genuinely disagree, so neither is ever averaged into the other and both stay on the record.' +
         '</p>'
       : '') +
-    `<p class="text-[11px] leading-relaxed text-slate-400">A feed is flagged stale after ${STALE_AFTER_DAYS} days. That is our threshold, not a standard published by any exchange.</p>` +
+    '<p class="text-[11px] leading-relaxed text-slate-400">Each feed is flagged stale on its own schedule, because they are not refreshed on the same one: '
+    + `${sources.filter((s) => s.staleAfterDays).map((s) => `${escapeHtml(s.name)} after ${s.staleAfterDays}d`).join(', ')}`
+    + `${sources.some((s) => !s.staleAfterDays) ? `, everything else after ${DEFAULT_STALE_AFTER_DAYS}d` : ''}. `
+    + 'Those are our thresholds, not standards published by any exchange.</p>' +
     '</div>';
 
   openModal(body, { size: 'lg', title: 'Data sources' });
