@@ -20,18 +20,87 @@
 export const REVIEW_MONTHS = [2, 5, 8, 11];
 
 /**
- * ASSUMED convention, pending confirmation from the desk:
- *   - results are effective at the close of the LAST BUSINESS DAY of the month;
- *   - the size cut-offs are struck against a price snapshot in the weeks before.
+ * The review convention — now MSCI's published rule, not our assumption.
+ *
+ * This block used to read "exact window unconfirmed". It is confirmed. MSCI GIMI
+ * Methodology, August 2026, p. 49 sets three cutoff dates per review:
+ *
+ *   Equity Universe cutoff   last business day of the month THREE months before
+ *   Liquidity cutoff         last business day of the month TWO months before
+ *   PRICE cutoff             ANY ONE of the last 10 business days of the month
+ *                            BEFORE the review month
+ *
+ * ⚠ The price cutoff is the one that matters here and it is EARLIER THAN MOST
+ * PEOPLE ASSUME. The market caps that decide the August review are struck
+ * somewhere in the last 10 business days of JULY — and MSCI does not disclose
+ * which of those ten days it picked. So for a review already announced, a
+ * verdict computed on today's price is answering a question MSCI stopped asking
+ * weeks ago.
+ *
+ * Effective date: MSCI's own worked examples describe the new composition as
+ * effective on the first business day of the following month ("the effective
+ * date of the May 2017 Index Review" is 1 June 2017, p. 17). That is the same
+ * moment as the close of the last business day of the review month, seen from
+ * the other side — and the close is when a tracking fund actually trades. We
+ * keep the trade-side date because this product is about forced trades.
+ *
+ * All four reviews have been comprehensive since the February 2023 review
+ * (p. 152). Before that, May and November were Semi-Annual Index Reviews and
+ * February and August were lighter Quarterly Index Reviews. Treating all four
+ * alike is right for the current book and wrong for anything historical.
  */
 export const CONVENTION = {
-  effective: 'last business day of the review month',
-  snapshot: 'a price snapshot in the weeks before the announcement — exact window unconfirmed',
-  confirmed: false,
+  effective: 'last business day of the review month (MSCI states the following business day; '
+    + 'the close of the last business day is when a tracking fund trades)',
+  snapshot: 'any one of the last 10 business days of the month before the review month — '
+    + 'MSCI does not disclose which day it used',
+  confirmed: true,
+  source: 'MSCI GIMI Methodology, August 2026, p. 49',
   attribution:
-    'An assumed convention, not a cited MSCI rule. MSCI publishes review results ahead of an '
-    + 'effective date; the desk should confirm both the date and the snapshot window.',
+    "MSCI's published rule, read from the methodology book on 24 Aug 2026. The price cutoff "
+    + 'window is exact; which of the ten days MSCI picked is deliberately not published, so the '
+    + 'snapshot price itself remains unknown to us.',
 };
+
+/**
+ * The three data cutoffs for a review month, as dates. (GIMI p. 49)
+ *
+ * `price.from`/`price.to` bound the ten-business-day window MSCI drew its prices
+ * from. We cannot know which day inside it was used — so anything rendering this
+ * shows the WINDOW, never a single date dressed up as the snapshot.
+ */
+export function reviewCutoffs(year, month) {
+  const monthsBefore = (n) => {
+    let m = month - n;
+    let y = year;
+    while (m <= 0) { m += 12; y -= 1; }
+    return { y, m };
+  };
+  const eu = monthsBefore(3);
+  const liq = monthsBefore(2);
+  const px = monthsBefore(1);
+  const lastPx = lastBusinessDay(px.y, px.m);
+
+  // Walk back nine further business days to open the ten-day window.
+  const from = new Date(lastPx.getTime());
+  let counted = 1;
+  while (counted < 10) {
+    from.setUTCDate(from.getUTCDate() - 1);
+    const day = from.getUTCDay();
+    if (day !== 0 && day !== 6) counted += 1;
+  }
+
+  return {
+    equityUniverse: lastBusinessDay(eu.y, eu.m).toISOString().slice(0, 10),
+    liquidity: lastBusinessDay(liq.y, liq.m).toISOString().slice(0, 10),
+    price: {
+      from: from.toISOString().slice(0, 10),
+      to: lastPx.toISOString().slice(0, 10),
+      note: 'MSCI used one of the business days in this window and does not say which',
+    },
+    source: 'MSCI GIMI Methodology, August 2026, p. 49',
+  };
+}
 
 /** Last business day (Mon–Fri) of a month, in UTC. No holiday calendar. */
 function lastBusinessDay(year, month) {

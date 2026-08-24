@@ -617,6 +617,45 @@ approximately sized, and never to be shown as MSCI's arithmetic. Below `minMoveP
 recorded and not applied, because a segment that moved a fraction of a percent cannot meaningfully
 have moved MSCI's cut-off and applying it would churn verdicts on noise.
 
+### 2.25 MSCI's published rules are not the desk's heuristics, and the code must never blur them
+
+`public/js/config/thresholds.mjs` holds **the desk's** numbers. `public/js/config/msci-methodology.mjs`
+holds **MSCI's**, read from the GIMI Methodology (August 2026, 192 pp.) on 24 Aug 2026, every value
+cited to a page. `docs/MSCI-METHODOLOGY.md` is the full study. Three facts from it change how this
+model should be read:
+
+**1. The size cut-off is on FULL market cap, not free float.** Coverage targets (85% Standard, 99%
+IMI) are measured in free float; the cut-off that falls out of the procedure is a full market cap
+(p. 28). Free float enters through a *separate* test — free-float mcap ≥ 50% of that cut-off (p. 30),
+with existing constituents allowed 2/3 of it (p. 45). **We compare one quantity where MSCI compares
+two.** That is the largest known gap between this model and the index it forecasts.
+
+**2. Migration is buffered and asymmetric** (pp. 44–45). An existing constituent leaves only below
+**2/3 (−33%)** of the cut-off; a non-constituent enters only above **1.5× (+50%)**. Our flat bands
+have no hysteresis, so we over-predict migration in both directions. And entry is **competitive**:
+a company above the Small Cap Entry Buffer is added *"only to the extent that they replace current
+constituents which have fallen below the Small Cap Lower Buffer"*. Clearing the bar makes a company
+eligible, not included — which is why an inclusion verdict here can only ever be a candidacy.
+
+**3. ⚠ The review is decided a month before it happens.** The price cut-off is **any one of the last
+10 business days of the month BEFORE the review month**, and MSCI does not say which (p. 49). For the
+August review that is 20–31 July. This was recorded here as "unconfirmed" and it is now confirmed, so
+`CONVENTION.confirmed` is `true` and carries its citation. Once that window has closed, a verdict on
+today's price describes where a company stands **now**, not the snapshot MSCI took — and the screener
+says so.
+
+Corroboration worth keeping: our computed August-2026 price window opens on 20 July 2026, which is
+exactly the date MSCI stamps its own August size-reference table (p. 26). Two unrelated parts of the
+book agree, and assertion 28 asserts it.
+
+**All four reviews have been comprehensive since February 2023** (p. 152) — before that, May and
+November were Semi-Annual and February and August were lighter. Treating all four alike is right for
+the current book and wrong for history.
+
+**Never present an MSCI rule as the desk's, or a desk band as MSCI's.** `model.thresholdSources` now
+carries three sources — `desk`, `observed`, `msci` — and assertion 29 fails if an MSCI rule block
+loses its page citation or if the buffer geometry is made symmetric.
+
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
 ### 3.1 The iShares `.xls` files are not `.xls` files
@@ -992,6 +1031,7 @@ companies.
 ```
 CLAUDE.md                          this contract
 docs/DATA-CONTRACTS.md             every JSON shape, unit, source and cadence
+docs/MSCI-METHODOLOGY.md           what MSCI actually does, and where our model differs
 scripts/
   lib/csv.mjs                      RFC 4180 reader; read by header NAME, never index
   lib/spreadsheetml.mjs            SpreadsheetML 2003 reader, zero dependencies
@@ -1024,7 +1064,8 @@ scripts/
   fixtures/munshot-rawquote-reliance.txt     one captured detail quote
 public/
   index.html                       placeholder; the interface is a later prompt
-  js/config/thresholds.mjs         EVERY threshold, and nowhere else
+  js/config/thresholds.mjs         EVERY desk threshold, and nowhere else
+  js/config/msci-methodology.mjs   MSCI's published rules, cited to a page
   data/universe.json               generated — the desk's tracked universe seed
   data/fund-benchmarks.json        generated — daily fund closes + FX, for the band adjustment
   data/msci-funds.json             generated — do not hand-edit

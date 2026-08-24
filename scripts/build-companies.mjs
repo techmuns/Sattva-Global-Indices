@@ -75,7 +75,8 @@ import { observedBoundary, rankByFreeFloat } from '../public/js/model/thresholds
 import { segmentOf, assertDisjoint, segmentFloatTotals } from '../public/js/model/segments.js';
 import { assess, verdictFromRules, VERDICTS, DISCLOSURE } from '../public/js/model/assess.js';
 import { estimateFlows } from '../public/js/model/flows.js';
-import { nextReview, previousReview } from '../public/js/model/calendar.js';
+import { nextReview, previousReview, reviewCutoffs } from '../public/js/model/calendar.js';
+import * as MSCI from '../public/js/config/msci-methodology.mjs';
 import { seriesToMap, summarise, FUND_BENCHMARKS } from '../public/js/model/benchmarks.js';
 import { SEGMENT_BAND_ADJUSTMENT } from '../public/js/config/thresholds.mjs';
 import { renderTable, num, round, CheckList } from './lib/report.mjs';
@@ -1238,10 +1239,33 @@ function main() {
       segmentFloatTotals: floatTotals,
       verdictCounts,
       quarantinedCount: quarantined.size,
-      nextReview: nextReview(reviewAnchor),
+      nextReview: (() => {
+        const r = nextReview(reviewAnchor);
+        if (!r) return null;
+        // The data cutoffs MSCI actually uses, now that they are read from the
+        // methodology rather than assumed. The PRICE window is the one that
+        // matters: the market caps deciding a review are struck a month before
+        // it, and MSCI does not disclose which day inside the window it used.
+        return { ...r, cutoffs: reviewCutoffs(r.year, r.month) };
+      })(),
+      // MSCI's own published rules, cited to the page. Kept separate from the
+      // desk's heuristics so nothing can present one as the other.
+      msci: {
+        source: MSCI.SOURCE,
+        trackedIndexes: MSCI.TRACKED_INDEXES,
+        coverageTargets: MSCI.COVERAGE_TARGETS,
+        cutoffBasis: MSCI.CUTOFF_BASIS,
+        buffers: MSCI.BUFFERS,
+        minFreeFloatMcap: MSCI.MIN_FREE_FLOAT_MCAP,
+        minFif: MSCI.MIN_FIF,
+        emLiquidity: MSCI.EM_LIQUIDITY,
+        globalMinSizeReference: MSCI.GLOBAL_MIN_SIZE_REFERENCE,
+        reviewTimetable: MSCI.REVIEW_TIMETABLE,
+      },
       thresholdSources: {
         desk: "the desk's own band — MSCI does not publish its size cut-offs in advance",
         observed: 'measured from where MSCI has actually placed companies today',
+        msci: "MSCI's published methodology, cited to a page in the August 2026 book",
       },
     },
     resolutionMethodCounts: methodCounts,

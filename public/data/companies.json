@@ -1,7 +1,7 @@
 {
   "source": "iShares holdings + NSE pre-open free float + BSE free float + niftyindices ISIN map",
   "note": "floatFactor is dimensionless and price-independent. NSE wins wherever it publishes a reading because MSCI follows NSE; BSE fills gaps only. The two are never averaged, and where both exist both are kept so the disagreement stays inspectable. Every monetary field is RUPEES. A null in funds{} means NOT HELD by that fund — it is not a zero weight.",
-  "builtAt": "2026-08-21T15:09:08.033Z",
+  "builtAt": "2026-08-24T07:31:55.278Z",
   "asOf": {
     "isharesHoldings": "2026-08-17",
     "nseSession": "19-Aug-2026 09:07:24",
@@ -324,15 +324,175 @@
       "label": "August 2026",
       "assumed": true,
       "convention": {
-        "effective": "last business day of the review month",
-        "snapshot": "a price snapshot in the weeks before the announcement — exact window unconfirmed",
-        "confirmed": false,
-        "attribution": "An assumed convention, not a cited MSCI rule. MSCI publishes review results ahead of an effective date; the desk should confirm both the date and the snapshot window."
+        "effective": "last business day of the review month (MSCI states the following business day; the close of the last business day is when a tracking fund trades)",
+        "snapshot": "any one of the last 10 business days of the month before the review month — MSCI does not disclose which day it used",
+        "confirmed": true,
+        "source": "MSCI GIMI Methodology, August 2026, p. 49",
+        "attribution": "MSCI's published rule, read from the methodology book on 24 Aug 2026. The price cutoff window is exact; which of the ten days MSCI picked is deliberately not published, so the snapshot price itself remains unknown to us."
+      },
+      "cutoffs": {
+        "equityUniverse": "2026-05-29",
+        "liquidity": "2026-06-30",
+        "price": {
+          "from": "2026-07-20",
+          "to": "2026-07-31",
+          "note": "MSCI used one of the business days in this window and does not say which"
+        },
+        "source": "MSCI GIMI Methodology, August 2026, p. 49"
+      }
+    },
+    "msci": {
+      "source": {
+        "document": "MSCI Global Investable Market Indexes Methodology",
+        "edition": "August 2026",
+        "pages": 192,
+        "url": "https://www.msci.com/index/methodology/latest/GIMI",
+        "retrieved": "2026-08-24",
+        "note": "MSCI publishes the methodology; it does NOT publish the resulting market size-segment cutoffs, the Market Investable Equity Universe, or its own free-float factors. The rules are public; the inputs that make them computable are not."
+      },
+      "trackedIndexes": {
+        "eem": {
+          "index": "MSCI Emerging Markets Index",
+          "segment": "standard",
+          "holdings": 1196
+        },
+        "smin": {
+          "index": "MSCI India Small Cap Index",
+          "segment": "smallcap",
+          "holdings": 461
+        },
+        "eems": {
+          "index": "MSCI Emerging Markets Small Cap Index",
+          "segment": "smallcap",
+          "holdings": 1692
+        }
+      },
+      "coverageTargets": {
+        "largeCap": {
+          "target": 70,
+          "tolerance": 5,
+          "basis": "free-float-adjusted market cap",
+          "page": 24
+        },
+        "standard": {
+          "target": 85,
+          "tolerance": 5,
+          "basis": "free-float-adjusted market cap",
+          "page": 24
+        },
+        "imi": {
+          "target": 99,
+          "toleranceUp": 1,
+          "toleranceDown": 0.5,
+          "basis": "free-float-adjusted market cap",
+          "page": 24
+        },
+        "smallCapIsResidual": "IMI coverage minus Standard coverage"
+      },
+      "cutoffBasis": {
+        "ranking": "full market capitalisation",
+        "coverageMeasure": "free-float-adjusted market capitalisation",
+        "cutoffExpressedIn": "full market capitalisation",
+        "page": 28
+      },
+      "buffers": {
+        "lowerMultiple": 0.6666666666666666,
+        "upperMultiple": 1.5,
+        "lowerLabel": "−33% (2/3 of the cutoff)",
+        "upperLabel": "+50% (1.5× the cutoff)",
+        "page": 44,
+        "named": [
+          "Large Cap Lower Buffer (−33%)",
+          "Mid Cap / Standard Lower Buffer (−33%)",
+          "Small Cap Lower Buffer (−33%)",
+          "Mid Cap Upper Buffer (+50%)",
+          "Small Cap Upper Buffer (+50%)",
+          "Small Cap Entry Buffer (+50%)"
+        ],
+        "smallCapEntryIsReplacementBased": true
+      },
+      "minFreeFloatMcap": {
+        "newConstituentMultipleOfCutoff": 0.5,
+        "existingConstituentRelief": 0.6666666666666666,
+        "pages": [
+          30,
+          45
+        ]
+      },
+      "minFif": {
+        "floor": 0.15,
+        "pages": [
+          21,
+          45
+        ]
+      },
+      "emLiquidity": {
+        "atvr3MonthPct": 15,
+        "atvr12MonthPct": 15,
+        "frequencyOfTrading3MonthPct": 80,
+        "overConsecutiveQuarters": 4,
+        "page": 19,
+        "note": "ATVR is the Annualised Traded Value Ratio. We hold a 3-month ADV from a third party, which is not the same measure and cannot be substituted for it."
+      },
+      "globalMinSizeReference": {
+        "asOf": "2026-07-20",
+        "edition": "August 2026",
+        "currency": "USD",
+        "unit": "millions",
+        "page": 26,
+        "rangeLowMultiple": 0.5,
+        "rangeHighMultiple": 1.15,
+        "developed": {
+          "largeCap": 53878,
+          "standard": 16276,
+          "imi": 1234
+        },
+        "emerging": {
+          "largeCap": 26939,
+          "standard": 8138,
+          "imi": 617
+        },
+        "frontier": {
+          "largeCap": 1283,
+          "standard": 473,
+          "imi": 31
+        },
+        "statedStandardRangeEm": {
+          "lowUsdBn": 4.07,
+          "highUsdBn": 9.36,
+          "page": 25
+        }
+      },
+      "reviewTimetable": {
+        "page": 49,
+        "allFourAreComprehensiveSince": "2023-02",
+        "cutoffs": {
+          "equityUniverse": {
+            "monthsBefore": 3,
+            "day": "last business day"
+          },
+          "liquidity": {
+            "monthsBefore": 2,
+            "day": "last business day"
+          },
+          "price": {
+            "monthsBefore": 1,
+            "day": "any one of the last 10 business days",
+            "mscisChoiceIsUndisclosed": true
+          }
+        },
+        "reviewMonths": [
+          2,
+          5,
+          8,
+          11
+        ]
       }
     },
     "thresholdSources": {
       "desk": "the desk's own band — MSCI does not publish its size cut-offs in advance",
-      "observed": "measured from where MSCI has actually placed companies today"
+      "observed": "measured from where MSCI has actually placed companies today",
+      "msci": "MSCI's published methodology, cited to a page in the August 2026 book"
     }
   },
   "resolutionMethodCounts": {

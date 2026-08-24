@@ -22,7 +22,7 @@ import { observedBoundary, rankByFreeFloat, THRESHOLD_SOURCE } from '../model/th
 import { segmentOf, segmentFloatTotals, SEGMENTS } from '../model/segments.js';
 import { assess, VERDICTS, DISCLOSURE, TRADE_IMPLYING } from '../model/assess.js';
 import { estimateFlows } from '../model/flows.js';
-import { nextReview } from '../model/calendar.js';
+import { nextReview, reviewCutoffs } from '../model/calendar.js';
 
 const FUND_ORDER = ['eem', 'smin', 'eems'];
 
@@ -745,8 +745,32 @@ function assessmentSectionHtml(company) {
   html +=
     '<p class="mt-3 rounded-xl bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-900 ring-1 ring-amber-200">'
     + `<strong>${escapeHtml(DISCLOSURE)}</strong>`
-    + (review ? ` Aimed at the next review, <strong>${escapeHtml(review.label)}</strong> — an assumed date, effective ${escapeHtml(review.effectiveDate)}, ${escapeHtml(num(review.daysRemaining))} days away. ${escapeHtml(review.convention.attribution)}` : '')
+    + (review ? ` Aimed at the next review, <strong>${escapeHtml(review.label)}</strong> — effective ${escapeHtml(review.effectiveDate)}, ${escapeHtml(num(review.daysRemaining))} days away.` : '')
     + '</p>';
+
+  // ---- the price window MSCI actually decides on ------------------------
+  // The single most misleading thing this screen could do is imply that today's
+  // price decides the next review. It does not: MSCI strikes the deciding market
+  // caps in the month BEFORE the review month, on one of ten business days it
+  // does not name. Every verdict above is computed on today's price, which is
+  // the right basis for "where does this company stand now" and the wrong basis
+  // for "what will MSCI conclude" once that window has closed.
+  if (review) {
+    const cut = reviewCutoffs(review.year, review.month);
+    const windowClosed = new Date().toISOString().slice(0, 10) > cut.price.to;
+    html +=
+      `<p class="mt-2 rounded-xl ${windowClosed ? 'bg-rose-50 text-rose-900 ring-1 ring-rose-200' : 'bg-slate-50 text-slate-600'} p-3 text-[11px] leading-relaxed">`
+      + `<strong>MSCI's price window for ${escapeHtml(review.label)}: `
+      + `${escapeHtml(shortDate(cut.price.from))} – ${escapeHtml(shortDate(cut.price.to))}.</strong> `
+      + 'MSCI strikes the market caps that decide a review on one of the last ten business days of '
+      + 'the preceding month, and does not publish which day it picked. '
+      + (windowClosed
+        ? '<strong>That window has closed.</strong> The verdicts above are computed on today\'s price, '
+          + 'so they describe where each company stands now — not the snapshot MSCI has already taken.'
+        : 'Verdicts above are computed on today\'s price, which will keep moving until that window opens.')
+      + ` <span class="opacity-70">Universe cutoff ${escapeHtml(shortDate(cut.equityUniverse))}, liquidity cutoff `
+      + `${escapeHtml(shortDate(cut.liquidity))}. ${escapeHtml(cut.source)}.</span></p>`;
+  }
 
   return html;
 }

@@ -29,6 +29,8 @@ import { parseRawQuote, quoteNumber, quoteText } from './lib/munshot.mjs';
 import { buildIndex, resolveAll } from './lib/resolve.mjs';
 import { verdictFromRules } from '../public/js/model/assess.js';
 import { seriesToMap, summarise } from '../public/js/model/benchmarks.js';
+import { reviewCutoffs, CONVENTION } from '../public/js/model/calendar.js';
+import * as MSCI from '../public/js/config/msci-methodology.mjs';
 import { inrFlow, pct, pp, signedPct, factorPct, count, cr, EM_DASH } from '../public/js/core/format.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -1070,6 +1072,98 @@ async function main() {
           if (r.band?.applied) { r.band.rawInclusion = null; r.band.rawExclusion = null; }
         }
       }
+    },
+  }, ctx);
+
+  /* ── MSCI's own published rules ─────────────────────────────────────────*/
+  suite.section("MSCI's published methodology");
+
+  await suite.check({
+    id: 28,
+    what: "the review price window is MSCI's published rule, and it is the month BEFORE the review",
+    clone: deepClone,
+    run: (c) => {
+      ok(CONVENTION.confirmed === true,
+        'the review convention is no longer an assumption',
+        `confirmed=${CONVENTION.confirmed}`);
+      ok(typeof CONVENTION.source === 'string' && /GIMI/.test(CONVENTION.source),
+        'and it cites the methodology it came from', CONVENTION.source);
+
+      // Re-derive the window rather than reading back what the record stored.
+      const r = c.companiesFile.model.nextReview;
+      ok(r?.cutoffs?.price?.from && r.cutoffs.price.to,
+        'the record carries the price window', JSON.stringify(r?.cutoffs ?? null));
+      const derived = reviewCutoffs(r.year, r.month);
+      equal(derived.price.from, r.cutoffs.price.from, 'price window opens where the rule says');
+      equal(derived.price.to, r.cutoffs.price.to, 'price window closes where the rule says');
+
+      // The load-bearing property: the window must fall BEFORE the review month.
+      // A model that assumed the review is decided on the day it takes effect
+      // would put this window inside the review month, and be a month late.
+      const reviewMonthStart = `${r.year}-${String(r.month).padStart(2, '0')}-01`;
+      ok(r.cutoffs.price.to < reviewMonthStart,
+        'the deciding prices are struck BEFORE the review month begins',
+        `window ends ${r.cutoffs.price.to}, review month starts ${reviewMonthStart}`);
+
+      // Independent corroboration: MSCI's own August-2026 size reference table
+      // is stamped 20 July 2026, which is exactly where our computed window for
+      // the August 2026 review opens. Two different parts of the book agreeing.
+      const aug = reviewCutoffs(2026, 8);
+      equal(aug.price.from, MSCI.GLOBAL_MIN_SIZE_REFERENCE.asOf,
+        "the computed August window opens on the date MSCI stamps its own August reference table");
+
+      return `${r.label}: prices ${r.cutoffs.price.from}..${r.cutoffs.price.to}, `
+        + `universe ${r.cutoffs.equityUniverse}, liquidity ${r.cutoffs.liquidity}`;
+    },
+    sabotage: (c) => {
+      // The error this guards against: assuming the review is decided on its own
+      // effective date rather than a month earlier.
+      const r = c.companiesFile.model.nextReview;
+      r.cutoffs.price.from = r.effectiveDate;
+      r.cutoffs.price.to = r.effectiveDate;
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 29,
+    what: "MSCI's rules are on the record with page citations, and never mixed with the desk's",
+    clone: deepClone,
+    run: (c) => {
+      const m = c.companiesFile.model.msci;
+      ok(m && m.source?.url, "the methodology source is named", JSON.stringify(m?.source ?? null));
+
+      // Every block that states a rule must cite a page. A rule without a page
+      // is indistinguishable from something we made up — 2.1.
+      const uncited = [];
+      for (const [key, value] of Object.entries(m)) {
+        if (key === 'source' || key === 'trackedIndexes') continue;
+        const hasPage = value && (typeof value.page === 'number'
+          || Array.isArray(value.pages)
+          || Object.values(value).some((v) => v && typeof v === 'object' && typeof v.page === 'number'));
+        if (!hasPage) uncited.push(key);
+      }
+      empty(uncited, 'every MSCI rule block cites the page it came from', (k) => k);
+
+      // The buffer geometry is the structural fact the model was missing, so it
+      // must be present and asymmetric — a symmetric buffer is not MSCI's rule.
+      ok(Math.abs(m.buffers.lowerMultiple - 2 / 3) < 1e-9, 'lower buffer is 2/3 of the cutoff', String(m.buffers.lowerMultiple));
+      ok(m.buffers.upperMultiple === 1.5, 'upper buffer is 1.5x the cutoff', String(m.buffers.upperMultiple));
+      ok(m.buffers.upperMultiple > m.buffers.lowerMultiple,
+        'entry is harder than exit — the asymmetry IS the rule', 'buffers are symmetric');
+
+      // And the desk's numbers must not have leaked into MSCI's block.
+      const t = c.companiesFile.thresholds;
+      ok(t.attribution && /desk/i.test(t.attribution),
+        "the desk's thresholds still say they are the desk's", t.attribution);
+      ok(/MSCI/.test(c.companiesFile.model.thresholdSources.msci ?? ''),
+        'and MSCI-sourced thresholds are labelled separately',
+        JSON.stringify(c.companiesFile.model.thresholdSources));
+      return `${Object.keys(m).length} rule blocks, all cited · buffers ${m.buffers.lowerMultiple.toFixed(3)}x / ${m.buffers.upperMultiple}x`;
+    },
+    sabotage: (c) => {
+      // Make the buffers symmetric: the model would then predict far more
+      // migration than MSCI's rules actually produce.
+      c.companiesFile.model.msci.buffers.upperMultiple = 2 / 3;
     },
   }, ctx);
 
