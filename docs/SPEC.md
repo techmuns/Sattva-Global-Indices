@@ -37,9 +37,9 @@ Semantic --positive #059669  --caution #d97706  --negative #e11d48  --neutral #6
 Page     --page-bg  #f8fafc
 ```
 
-**The brand ramp carries no meaning.** It marks the product — the wordmark, the freshness hero — and
-nothing else. A verdict, a day change, a data-quality warning: all semantic, never brand. This is
-enforced, not just documented: **assertion 36** samples a pill for each of the eight verdicts and
+**The brand ramp carries no meaning.** It marks the product — the wordmark, the gradient a stat card
+gets when it sets `hero` — and nothing else. A verdict, a day change, a data-quality warning: all
+semantic, never brand. This is enforced, not just documented: **assertion 36** samples a pill for each of the eight verdicts and
 fails if any carries an indigo utility class or computes to an indigo pixel. Measured on the shipped
 build: 4 colour families (emerald, amber, rose, slate), 0 indigo.
 
@@ -51,17 +51,25 @@ nobody scans.
 
 ## 3. The screener
 
-**Stat strip**, four cards, each with a denominator:
+**Stat strip**, four cards on one row, each with a denominator:
 
 | Card | Shows |
 | --- | --- |
-| Companies in view | 1,202 of 1,202 · held 619 / candidates 583 |
-| Free-float coverage | 1,201 of 1,202 have a reading · from NSE 208, from BSE 993, no reading 1 |
+| Companies in view | rows in view of rows in the record · held / candidates |
+| Segment move since the last review | each tracking fund's price return **in rupees**, and why a rising segment raises the bar |
+| Free-float coverage | how many rows in view carry a reading · from BSE, from NSE, none |
 | Review outlook | inclusion candidates · exclusion risks · migrations, of the rows in view |
-| Data freshness | the **oldest** feed, with every feed's date beneath it |
 
-The freshness card names the oldest input rather than the newest. A live price does not make a
-month-old float factor live.
+Every figure in those cards is derived from `companies.json` at render time; none is typed here,
+because a figure typed into a doc goes stale on the next refresh (CLAUDE.md §2.5).
+
+A **Data freshness** card used to sit here as a fifth, gradient tile naming all four feeds and their
+dates. It was removed on 25 Aug 2026 so the strip fits one row. The disclosure did not go with it:
+the **header pill names the oldest input on every branch** — `headerStatus` builds that clause in one
+place precisely so a branch cannot drop it, and one already had — and the **data-sources modal**
+behind that pill lists every feed with its as-of date, its cadence and its own staleness threshold.
+The pill still names the *oldest* input rather than the newest. A live price does not make a
+month-old float factor live. Assertion 38 reads both surfaces; it does not read the tile.
 
 **Columns**: Company · Verdict · Free float (₹ Cr) · Day % · Float % · Full mcap (₹ Cr) ·
 EM wt % · India SC wt % · EM SC wt % · Funds.
@@ -84,9 +92,35 @@ Every weight column names its fund. There is no combined weight column and there
 three funds have different denominators and no arithmetic relates them. Assertion 3 greps the
 codebase for cross-fund weight aggregation.
 
-**Filters**, five, and they **AND** rather than replace: Fund · Float source · Size band · Verdict ·
-Watchlist. Assertion 26 exercises each one alone and then asserts that two together produce exactly
-the intersection.
+**Filters**, four, and they **AND** rather than replace: Fund · Market cap · Verdict · Watchlist.
+Assertion 26 exercises each one alone and then asserts that two together produce exactly the
+intersection.
+
+Two of them changed on 25 Aug 2026 and the reasoning is worth keeping.
+
+**Float source was removed.** It offered NSE / BSE / no reading, and the same fact is on every row
+already — the source chip in the float column, and the drill panel, which names the rule that chose
+between the two exchanges and keeps both factors. A filter is worth a slot in the toolbar when it
+answers a question the columns cannot.
+
+**Size band became Market cap.** It used to slice *free float* at the desk's own review cut-offs
+(₹2,000 / ₹2,400 / ₹3,500 / ₹4,000 Cr), which put four of its five boundaries inside a ₹2,000 Cr
+window and made it useless for navigating a universe that spans four orders of magnitude. It now
+slices **full market cap** into five wide, round ranges — `< ₹10,000`, `₹10,000–30,000`,
+`₹30,000–70,000`, `₹70,000–2,00,000`, `≥ ₹2,00,000 Cr` — which between them cover every company that
+has a reading.
+The boundaries live in `MARKET_CAP_FILTER_BANDS` in `public/js/config/thresholds.mjs`, beside the
+review thresholds but explicitly *not* of them: no rule reads them and they decide nothing.
+
+A company with **no** market-cap reading matches no band in either direction, and the note under the
+filters says how many that is — derived, not typed. Putting it in the bottom bucket would report an
+absence as a fact.
+
+The **Fund** filter's `held by none` became `held by all`, and the note under it discloses what that
+currently matches. The answer is zero and it is structural, not a data gap: the EM ETF tracks the
+standard segment and the two small-cap funds track small caps, so a company is in one or the other
+and never both. An option that can only return an empty table has to say so where the reader picks
+it, or the empty table reads as a finding about the companies.
 
 **Table behaviour**: sort by any column, ascending and descending, with **missing values sorting last
 in both directions** — a null is not a zero and must not rank as one. Rows stream in so 1,202 rows do

@@ -17,7 +17,7 @@ import { segmentedToggle } from '../ui/components.js';
 import { sectionHead, statStrip, scoreTable, openDrill, closeDrill } from '../ui/screener.js';
 import { sourceChip, fundChip, missing } from '../ui/visual.js';
 import { exportCsv } from '../ui/export.js';
-import { REVIEW_THRESHOLDS, crore, toCrore } from '../config/thresholds.mjs';
+import { REVIEW_THRESHOLDS, crore, toCrore, MARKET_CAP_FILTER_BANDS, MARKET_CAP_FILTER_ATTRIBUTION } from '../config/thresholds.mjs';
 import { observedBoundary, rankByFreeFloat, THRESHOLD_SOURCE } from '../model/thresholds.js';
 import { segmentOf, segmentFloatTotals, SEGMENTS } from '../model/segments.js';
 import { assess, VERDICTS, DISCLOSURE, TRADE_IMPLYING } from '../model/assess.js';
@@ -176,27 +176,37 @@ function priceChip(view) {
 }
 
 /**
- * The desk's size bands, READ FROM THE THRESHOLD MODULE, never from literals.
+ * The market-cap buckets the size filter offers, READ FROM THE THRESHOLD
+ * MODULE, never from literals here.
  *
- * These are the desk's own inclusion/exclusion heuristics. MSCI derives its
- * size cut-offs globally at each review and does not publish these rupee
- * figures, so the filter group says so where the reader will see it.
+ * These are FULL market cap and they are a navigation aid — wide, round ranges
+ * that between them cover the whole tracked universe. They are NOT the desk's
+ * review cut-offs: those are about free float, they are narrow, and they drive
+ * verdicts. Nothing in the model reads these.
+ *
+ * A company with no market-cap reading matches NO band, in either direction.
+ * It is not a small company; it is a company we have not measured, and putting
+ * it in the bottom bucket would report an absence as a fact (CLAUDE.md §2.3).
  */
 function sizeBands() {
-  const inc = REVIEW_THRESHOLDS.inclusion;
-  const exc = REVIEW_THRESHOLDS.exclusion;
   const band = (min, max) => (row) => {
-    const value = row.freeFloatMcapInr;
+    const value = row.fullMcapInr;
     if (value === null || value === undefined) return false; // no reading is not a band
     return (min === null || value >= min) && (max === null || value < max);
   };
-  return [
-    { value: 'above-inclusion', label: `≥ ₹${num(toCrore(inc.highInr))} Cr`, match: band(inc.highInr, null) },
-    { value: 'inclusion-band', label: `₹${num(toCrore(inc.lowInr))}–${num(toCrore(inc.highInr))} Cr`, match: band(inc.lowInr, inc.highInr) },
-    { value: 'middle', label: `₹${num(toCrore(exc.highInr))}–${num(toCrore(inc.lowInr))} Cr`, match: band(exc.highInr, inc.lowInr) },
-    { value: 'exclusion-band', label: `₹${num(toCrore(exc.lowInr))}–${num(toCrore(exc.highInr))} Cr`, match: band(exc.lowInr, exc.highInr) },
-    { value: 'below-exclusion', label: `< ₹${num(toCrore(exc.lowInr))} Cr`, match: band(null, exc.lowInr) },
-  ];
+  // Local, because `cr` from ../core/format.js is the table cell formatter and
+  // shadowing it here would make two different formatters share one name.
+  const crLabel = (rupees) => num(toCrore(rupees));
+  return MARKET_CAP_FILTER_BANDS.map((b) => ({
+    value: b.id,
+    label:
+      b.minInr === null
+        ? `< ₹${crLabel(b.maxInr)} Cr`
+        : b.maxInr === null
+          ? `≥ ₹${crLabel(b.minInr)} Cr`
+          : `₹${crLabel(b.minInr)}–${crLabel(b.maxInr)} Cr`,
+    match: band(b.minInr, b.maxInr),
+  }));
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -217,8 +227,6 @@ function buildStats(scopeRows, scope) {
   const switchedInView = scopeRows.filter((c) => c.floatChoice?.rule === 'nse-preferred-on-material-gap').length;
   const comparableInView = scopeRows.filter((c) => c.floatChoice?.gapPct !== null && c.floatChoice?.gapPct !== undefined).length;
   const switchPct = data.thresholds().floatSourcePreferNseGapPct ?? 2;
-
-  const fresh = data.freshness();
 
   // Verdict counts, derived from the assessments in force — never typed.
   const verdictCounts = {};
@@ -250,15 +258,6 @@ function buildStats(scopeRows, scope) {
     '<div class="flex items-baseline justify-between gap-3 text-[11px]">' +
     `<span class="${tone === 'white' ? 'text-white/80' : 'text-slate-500'}">${escapeHtml(label)}</span>` +
     `<span class="font-semibold tabular-nums ${tone === 'white' ? 'text-white' : 'text-slate-700'}">${escapeHtml(value)}</span></div>`;
-
-  const freshnessRows = fresh.feeds
-    .map(
-      (feed) =>
-        '<div class="flex items-baseline justify-between gap-3 text-[11px]">' +
-        `<span class="text-white/80">${escapeHtml(feed.label)}</span>` +
-        `<span class="font-semibold tabular-nums text-white">${escapeHtml(feed.raw ? shortDate(feed.date ?? feed.raw) : 'no reading')}</span></div>`,
-    )
-    .join('');
 
   return statStrip([
     {
@@ -392,36 +391,6 @@ function buildStats(scopeRows, scope) {
           `<p class="text-xs text-slate-400">Two thresholds produce these, and they are not the same thing. The desk's bands ` +
           `(${escapeHtml(REVIEW_THRESHOLDS.inclusion.label)}, ${escapeHtml(REVIEW_THRESHOLDS.exclusion.label)}) decide index ENTRY and EXIT; ` +
           `the observed constituent boundary decides which SEGMENT a company belongs in. MSCI does not publish its size cut-offs in advance.</p>` +
-          '</div>',
-      },
-    },
-    {
-      hero: true,
-      label: 'Data freshness',
-      value: fresh.oldest ? shortDate(fresh.oldest.date) : EM_DASH,
-      detail: fresh.oldest
-        ? `oldest of three feeds — ${fresh.oldest.label}`
-        : 'no as-of date could be read',
-      extra: freshnessRows,
-      help: {
-        title: 'Three dates, not one',
-        body:
-          '<div class="space-y-3 text-sm leading-relaxed text-slate-600">' +
-          '<p>This screen joins three independent measurements taken at three different moments. They are shown separately because collapsing them into a single "updated" time would claim the page is as fresh as its newest input, when what actually governs it is the oldest.</p>' +
-          '<div class="space-y-2">' +
-          fresh.feeds
-            .map(
-              (feed) =>
-                '<div class="rounded-xl bg-slate-50 p-3">' +
-                `<div class="flex justify-between gap-3 text-xs"><span class="font-semibold text-slate-800">${escapeHtml(feed.label)}</span>` +
-                `<span class="tabular-nums text-slate-600">${escapeHtml(feed.raw ? shortDate(feed.date ?? feed.raw) : 'no reading')}</span></div>` +
-                `<p class="mt-1 text-[11px] leading-relaxed text-slate-500">${escapeHtml(feed.detail)}</p></div>`,
-            )
-            .join('') +
-          '</div>' +
-          (fresh.oldest
-            ? `<p><strong>${escapeHtml(fresh.oldest.label)}</strong> is the oldest, so that is the date this page is honestly current to.</p>`
-            : '') +
           '</div>',
       },
     },
@@ -1121,9 +1090,21 @@ export function renderCompanies(host, { onStatusChange } = {}) {
       },
     ];
 
+    // Both notes are DERIVED from the rows on screen, never typed. A filter
+    // option that can only ever return nothing has to say so where the reader
+    // chooses it, or an empty table reads as a finding instead of a structure.
+    const bandedRows = rows.filter((row) => row.fullMcapInr !== null && row.fullMcapInr !== undefined);
     const bandNote =
-      `Size bands are the desk’s own inclusion and exclusion cut-offs (${REVIEW_THRESHOLDS.inclusion.label} and ${REVIEW_THRESHOLDS.exclusion.label}), ` +
-      'applied to free-float market cap. MSCI does not publish these figures — it derives its size cut-offs globally at each review.';
+      `${MARKET_CAP_FILTER_ATTRIBUTION} ` +
+      `${num(bandedRows.length)} of ${num(rows.length)} companies carry a market-cap reading and fall in a band; ` +
+      `the other ${num(rows.length - bandedRows.length)} have no reading and match no band in either direction.`;
+
+    const heldByAll = rows.filter((row) => FUND_ORDER.every((id) => Boolean(row.funds?.[id]))).length;
+    const fundNote =
+      'The EM ETF tracks the standard segment and the two small-cap funds track small caps, so the segments are ' +
+      'mutually exclusive: a company can be in the EM ETF or in the small-cap funds, never both. ' +
+      `On the record as it stands, “held by all three” matches ${num(heldByAll)} of ${num(rows.length)} companies — ` +
+      'that is the structure of the funds, not a gap in the data.';
 
     table = scoreTable({
       rows,
@@ -1157,6 +1138,7 @@ export function renderCompanies(host, { onStatusChange } = {}) {
           id: 'fund',
           label: 'Fund',
           allLabel: 'Any fund status',
+          note: fundNote,
           options: [
             ...FUND_ORDER.map((id) => ({
               value: id,
@@ -1164,23 +1146,20 @@ export function renderCompanies(host, { onStatusChange } = {}) {
               match: (row) => Boolean(row.funds?.[id]),
             })),
             { value: 'any', label: 'held by any', match: (row) => row.held === true },
-            { value: 'none', label: 'held by none', match: (row) => row.held !== true },
-          ],
-        },
-        {
-          id: 'source',
-          label: 'Float source',
-          allLabel: 'Any float source',
-          options: [
-            { value: 'nse', label: 'NSE', match: (row) => row.floatSource === 'nse' },
-            { value: 'bse', label: 'BSE', match: (row) => row.floatSource === 'bse' },
-            { value: 'none', label: 'no reading', match: (row) => row.freeFloatMcapInr === null },
+            {
+              value: 'all',
+              label: 'held by all',
+              // Every fund, not "more than one". The note above states what that
+              // currently matches so the reader is never left reading an empty
+              // table as evidence about the companies.
+              match: (row) => FUND_ORDER.every((id) => Boolean(row.funds?.[id])),
+            },
           ],
         },
         {
           id: 'band',
-          label: 'Size band',
-          allLabel: 'Any size',
+          label: 'Market cap',
+          allLabel: 'Any market cap',
           note: bandNote,
           options: sizeBands(),
         },

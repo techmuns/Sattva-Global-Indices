@@ -133,6 +133,44 @@ export const SEGMENT_BAND_ADJUSTMENT = {
   minMovePct: 1,
 };
 
+/**
+ * The market-cap buckets the screener's size filter offers.
+ *
+ * ---------------------------------------------------------------------------
+ * THESE ARE NOT THE REVIEW CUT-OFFS ABOVE, AND MUST NEVER BE SHOWN AS THEM.
+ * ---------------------------------------------------------------------------
+ * `REVIEW_THRESHOLDS` are the desk's inclusion/exclusion bands, they are about
+ * FREE-FLOAT market cap, and they drive verdicts. These are plain FULL market
+ * cap ranges chosen to slice the whole tracked universe into readable groups —
+ * they decide nothing, they are a navigation aid, and no rule reads them.
+ *
+ * Boundaries are the desk's, picked to be round numbers a manager already
+ * thinks in. Nobody published them and nothing about them is a judgement.
+ *
+ * `maxCr: null` means the top band is open-ended, so the set covers every
+ * company that has a full market cap at all. A company with NO reading is not
+ * placed in a band — see CLAUDE.md 2.3; missing is never zero, and a company
+ * with no market cap is not a small one.
+ */
+export const MARKET_CAP_FILTER_BANDS = [
+  { id: 'mcap-0-10k', minCr: null, maxCr: 10000 },
+  { id: 'mcap-10k-30k', minCr: 10000, maxCr: 30000 },
+  { id: 'mcap-30k-70k', minCr: 30000, maxCr: 70000 },
+  { id: 'mcap-70k-200k', minCr: 70000, maxCr: 200000 },
+  { id: 'mcap-200k-up', minCr: 200000, maxCr: null },
+].map((band) => ({
+  ...band,
+  // Rupees, because every monetary field in this project is rupees. Derived
+  // from the crore figure above so the two cannot drift apart.
+  minInr: band.minCr === null ? null : crore(band.minCr),
+  maxInr: band.maxCr === null ? null : crore(band.maxCr),
+}));
+
+/** What the market-cap filter must disclose about itself, in words. */
+export const MARKET_CAP_FILTER_ATTRIBUTION =
+  'Full market cap, as published by BSE for the company as a whole — not free float, and not '
+  + "the desk's review bands. These ranges only group the universe for reading; no verdict uses them.";
+
 export const SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR = REVIEW_THRESHOLDS.exclusion.lowInr;
 
 /**

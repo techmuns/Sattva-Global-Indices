@@ -78,13 +78,25 @@ export function headerStatus(now = new Date()) {
   const eligible = cov.liveEligible ?? null;
   const tradeDate = freshness().feeds.find((f) => f.id === 'bhavcopy');
 
+  /**
+   * EVERY branch names the oldest input, and this is why it is a function
+   * rather than a clause repeated four times.
+   *
+   * The screener used to carry a Data-freshness card that named all four feeds
+   * and their dates. It was removed on 25 Aug 2026 so the stat strip fits one
+   * row, which makes this pill the ONLY always-visible carrier of how old the
+   * page really is — the sources modal has the detail, but a reader has to
+   * click for it. One branch (live quotes unavailable) had already dropped the
+   * clause, and nothing noticed while the card was there to cover for it.
+   * Building it here means a new branch cannot forget.
+   */
+  const withOldest = (text) => `${text} · oldest input: ${oldest?.label ?? 'unknown'}`;
+
   if (live) {
     const age = quotes.liveAsOf() ? tickAge(quotes.liveAsOf(), now) : 'just now';
     return {
       label: `Live · NSE · updated ${age}`,
-      detail: eligible === null
-        ? `${liveN} rows live`
-        : `${liveN} of ${eligible} rows live · oldest input: ${oldest?.label ?? 'unknown'}`,
+      detail: withOldest(eligible === null ? `${liveN} rows live` : `${liveN} of ${eligible} rows live`),
       tone: 'positive',
     };
   }
@@ -92,7 +104,11 @@ export function headerStatus(now = new Date()) {
   if (marketOpen && failure) {
     return {
       label: 'Last close · BSE',
-      detail: `Live quotes unavailable (${failure.reason}) — every row is on its closing price`,
+      // "every row is on its closing price" used to sit here and has gone: the
+      // label already says Last close · BSE, and the pill is one line of 10px
+      // text that has to survive a 390px viewport. The oldest input is the
+      // fact that has nowhere else to live.
+      detail: withOldest(`Live quotes unavailable (${failure.reason})`),
       tone: 'caution',
     };
   }
@@ -100,9 +116,7 @@ export function headerStatus(now = new Date()) {
   const closeLabel = tradeDate?.date ? shortDate(tradeDate.date) : '—';
   return {
     label: `Last close · BSE · ${closeLabel}`,
-    detail: marketOpen
-      ? `Market open, no live quote yet · oldest input: ${oldest?.label ?? 'unknown'}`
-      : `Market closed · oldest input: ${oldest?.label ?? 'unknown'}`,
+    detail: withOldest(marketOpen ? 'Market open, no live quote yet' : 'Market closed'),
     tone: oldest && (now.getTime() - oldest.date.getTime()) / 86400000 > staleAfterFor(oldest) ? 'caution' : 'positive',
   };
 }

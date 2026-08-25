@@ -249,11 +249,27 @@ function helpButton(index) {
 }
 
 /**
- * Exactly four cards. The fourth is the hero (gradient) card.
- * Any card may carry `help: { title, body }`.
+ * One row of stat cards. Any card may carry `help: { title, body }`, and any
+ * card may set `hero: true` for the gradient treatment.
+ *
+ * The wide-screen column count is DERIVED from how many cards were passed, so
+ * the strip stays a single row when a card is added or removed rather than
+ * silently wrapping a card onto a second line. Tailwind arrives from the CDN
+ * and scans for whole class names, so the classes are written out in full —
+ * a computed `xl:grid-cols-${n}` would produce no CSS at all.
  */
+const STRIP_COLUMNS = {
+  1: 'xl:grid-cols-1',
+  2: 'xl:grid-cols-2',
+  3: 'xl:grid-cols-3',
+  4: 'xl:grid-cols-4',
+  5: 'xl:grid-cols-5',
+  6: 'xl:grid-cols-6',
+};
+
 export function statStrip(cards) {
-  const root = el('div', { class: 'grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4' });
+  const columns = STRIP_COLUMNS[cards.length] ?? 'xl:grid-cols-4';
+  const root = el('div', { 'data-stat-strip': String(cards.length), class: `grid grid-cols-1 gap-4 sm:grid-cols-2 ${columns}` });
 
   cards.forEach((card, index) => {
     const hero = card.hero === true;

@@ -902,6 +902,65 @@ async function main() {
   }, ctx);
 
   await suite.check({
+    id: 42,
+    what: 'the stat strip is ONE row on a wide screen, however many cards it carries',
+    run: async (c) => {
+      // Tailwind arrives from a CDN and its classes are scanned as whole
+      // strings, so a column count built by interpolation compiles to nothing
+      // and the strip silently wraps. This measures the RENDERED GEOMETRY —
+      // the number of distinct top offsets among the cards — rather than
+      // reading back the class name, which would only prove we wrote it.
+      const styled = await c.page.evaluate(() => {
+        const probe = document.createElement('div');
+        probe.className = 'xl:grid-cols-4';
+        document.body.append(probe);
+        const value = getComputedStyle(probe).gridTemplateColumns;
+        probe.remove();
+        return value && value !== 'none';
+      });
+      if (!styled) skip('the Tailwind CDN did not load here, so no layout assertion can be attributed to the layout');
+
+      // The suite's own viewport, restated rather than assumed: check 33 walks
+      // down to 390px and a failure to put it back would make this a reading
+      // about that check's last step.
+      await c.page.setViewportSize({ width: 1440, height: 900 });
+      await c.page.waitForFunction(() => Boolean(document.querySelector('[data-stat-strip]')));
+      const m = await c.page.evaluate(() => {
+        const strip = document.querySelector('[data-stat-strip]');
+        const cards = [...strip.children];
+        return {
+          declared: Number(strip.dataset.statStrip),
+          cards: cards.length,
+          tops: [...new Set(cards.map((card) => Math.round(card.getBoundingClientRect().top)))],
+          columns: getComputedStyle(strip).gridTemplateColumns.split(/\s+/).filter(Boolean).length,
+        };
+      });
+
+      ok(m.cards >= 3, 'the strip must carry cards to measure', `${m.cards} cards`);
+      equal(m.cards, m.declared, 'the strip must declare the card count it actually rendered');
+      equal(m.columns, m.cards, `the grid must give every one of ${m.cards} cards its own column`);
+      equal(m.tops.length, 1, `all ${m.cards} cards must share one row (found ${m.tops.length} rows at 1440px)`);
+      return `${m.cards} cards, ${m.columns} columns, 1 row at 1440px`;
+    },
+    // BREAK IT THE WAY IT ACTUALLY BREAKS. The real failure is a column class
+    // Tailwind never saw, which compiles to no CSS at all — so the grid falls
+    // back to the `sm:grid-cols-2` rule and wraps. Swapping in another REAL
+    // Tailwind class would instead be a bet on the CDN's JIT having generated
+    // it in time, and a sabotage that races is a sabotage that can be survived.
+    sabotage: persistent(`(() => {
+      const fix = () => {
+        for (const strip of document.querySelectorAll('[data-stat-strip]')) {
+          const broken = strip.className.replace(/xl:grid-cols-[^\\s]+/, 'xl:grid-cols-sabotaged');
+          if (strip.className !== broken) strip.className = broken;
+        }
+      };
+      fix();
+      new MutationObserver(fix).observe(document.body, { childList: true, subtree: true });
+    })()`),
+    restore: restoreByReload,
+  }, ctx);
+
+  await suite.check({
     id: 34,
     what: 'a scope switch does not block the main thread past 400 ms',
     run: async (c) => {
@@ -1158,32 +1217,69 @@ async function main() {
 
   await suite.check({
     id: 38,
-    what: 'the freshness hero names every as-of date and identifies the oldest',
+    what: 'with no freshness tile, the header pill still names the oldest input and the sources modal carries every feed\'s as-of date',
     run: async (c) => {
-      const m = await c.page.evaluate(() => {
+      // THE GUARANTEE IS THE DISCLOSURE, NOT THE TILE. The freshness hero card
+      // was removed from the stat strip, so this reads the two surfaces that
+      // actually carry the dates now: the header pill, which is always on
+      // screen, and the sources modal a reader opens by clicking it. Reading
+      // `document.body.innerText` would pass on either one alone and would not
+      // notice if the modal stopped listing a feed.
+      const m = await c.page.evaluate(async () => {
+        const { shortDate } = await import('/js/core/format.js');
         const feeds = window.__sattva.data.freshness();
-        const text = document.body.innerText;
-        return {
+        const pill = document.querySelector('[data-status-slot]')?.innerText ?? '';
+
+        // Open it the way a reader does — by clicking the pill, not by calling
+        // the module. A modal that no longer opens from the pill is a broken
+        // disclosure however well the module still renders.
+        document.querySelector('[data-status-slot] button')?.click();
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const body = document.querySelector('[data-modal-body]');
+        const out = {
           labels: feeds.feeds.map((f) => f.label),
+          dates: feeds.feeds.filter((f) => f.date).map((f) => ({ label: f.label, shown: shortDate(f.date) })),
           oldest: feeds.oldest?.label ?? null,
-          text,
+          pill,
+          opened: Boolean(body),
+          modal: body?.innerText ?? '',
         };
+
+        // Put the page back the way it was found. `restore` only runs under
+        // --prove, so a modal left open here would sit over every later check.
+        const { closeModal } = await import('/js/ui/screener.js');
+        closeModal();
+        return out;
       });
+
       ok(m.labels.length >= 4, 'the record must carry several feeds', `${m.labels.length} feeds`);
-      const missing = m.labels.filter((label) => !m.text.includes(label));
-      empty(missing, 'every feed must name itself on screen', (l) => l);
       ok(m.oldest, 'an oldest feed must be identified');
-      ok(m.text.includes(m.oldest), 'the oldest feed must be named on screen', m.oldest);
-      ok(/oldest/i.test(m.text), 'the screen must say which one is the oldest, not merely list dates');
-      return `${m.labels.length} feeds named, oldest identified as "${m.oldest}"`;
+      ok(/oldest/i.test(m.pill), 'the header pill must name the oldest input, not merely a status', m.pill.replace(/\n/g, ' · '));
+      ok(m.pill.includes(m.oldest), 'the header pill must say WHICH feed is the oldest', `${m.oldest} not in "${m.pill.replace(/\n/g, ' · ')}"`);
+
+      ok(m.opened, 'clicking the header pill must open the data-sources modal');
+      const undated = m.dates.filter((d) => !m.modal.includes(d.shown));
+      empty(undated, 'every dated feed must show its as-of date in the sources modal', (d) => `${d.label} (${d.shown})`);
+      ok(m.modal.includes(m.oldest), 'the sources modal must name the oldest feed', m.oldest);
+      ok(/oldest/i.test(m.modal), 'the modal must say which feed is the oldest, not merely list dates');
+
+      return `pill names oldest "${m.oldest}" · modal shows ${m.dates.length} as-of dates and identifies the oldest`;
     },
-    sabotage: async (c) => {
-      await c.page.evaluate(() => {
-        for (const node of document.querySelectorAll('*')) {
-          if (node.children.length === 0 && /oldest/i.test(node.textContent)) node.textContent = '';
-        }
-      });
-    },
+    // A ONE-SHOT DOM WIPE CANNOT WORK HERE: the modal does not exist until
+    // `run` clicks the pill, so anything blanked before that is re-rendered
+    // into a clean modal and the check passes its own sabotage. The observer
+    // keeps stripping the word as nodes arrive.
+    sabotage: persistent(`(() => {
+      const strip = (root) => {
+        const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walk.nextNode())) if (/oldest/i.test(node.nodeValue)) node.nodeValue = '';
+      };
+      strip(document.body);
+      new MutationObserver((records) => {
+        for (const r of records) for (const n of r.addedNodes) if (n.nodeType === 1) strip(n);
+      }).observe(document.body, { childList: true, subtree: true });
+    })()`),
     restore: restoreByReload,
   }, ctx);
 

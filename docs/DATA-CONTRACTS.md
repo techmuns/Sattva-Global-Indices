@@ -656,11 +656,12 @@ that undoing the fix turns something red:
 | 35 | all three provenance tiers present and populated | a "modelled" tier that still says nothing |
 | 36 | verdict pills semantic; never the brand indigo | brand colour standing in for meaning |
 | 37 | CSV round-trips with every banner line | a workbook that leaves without its disclosure |
-| 38 | the freshness hero names every date and the oldest | a live price implying a live float factor |
+| 38 | the header pill names the oldest input; the sources modal carries every feed's date | a live price implying a live float factor |
 | 39 | `/api/quotes` live→hit; a bad ticker in `failed[]` | one bad symbol taking the batch down |
 | 39b | a tick repaints only changed rows | a rebuild throwing away the reader's search and sort |
 | 40 | the token appears in zero **served** files | checking the repo instead of what is served |
 | 41 | Worker unreachable ⇒ EOD, "Last close" | claiming live when no byte arrived |
+| 42 | the stat strip is one row at 1440px, however many cards | a card wrapping out of sight below the fold |
 
 ### SKIP is a result, and it is always explained
 
