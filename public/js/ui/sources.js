@@ -162,7 +162,12 @@ export function openSourcesModal(now = new Date()) {
         liveLine +
         (source.asOfDate
           ? `<div class="mt-1.5 text-[11px] text-slate-500">As of <span class="font-semibold text-slate-700">${escapeHtml(shortDate(source.asOfDate))}</span> · ${escapeHtml(relativeTime(source.asOfDate, now))}</div>`
-          : source.id === 'munshot' ? '' : `<div class="mt-1.5 text-[11px] text-slate-500">As of <span class="font-semibold text-slate-700">${escapeHtml(shortDate(source.asOf))}</span></div>`) +
+          // A LIVE feed has no snapshot date, and inventing one would be worse
+          // than showing none: "As of —" reads as a failed date rather than as
+          // a feed that is fetched on demand. Keyed on the status rather than on
+          // an id list, so a new live feed cannot be forgotten here.
+          : source.status === 'live' ? ''
+          : `<div class="mt-1.5 text-[11px] text-slate-500">As of <span class="font-semibold text-slate-700">${escapeHtml(shortDate(source.asOf))}</span></div>`) +
         '</li>'
       );
     })

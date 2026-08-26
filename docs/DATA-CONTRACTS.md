@@ -447,6 +447,69 @@ file is the exchange's own bytes under the exchange's own date.
 
 ---
 
+## The float-factor check — `POST /api/freefloat`
+
+Served by `worker/index.js`. **Not part of any committed file, and nothing it returns is ever
+written back to one.**
+
+Request `{ "tickers": ["532540", …] }`; response
+`{ ok, fetchedAt, requested, resolved, unit, currency, source, values: { TICKER: { symbol, scripCode, freeFloatCr, fullCr, unit, currency, factor, asOf, source } }, failed: [{ticker, reason}] }`.
+
+### It is a BSE reading, whatever its name suggests
+
+The upstream is Munshot's `POST /filings/free_float_market_cap`, and its own documentation is
+explicit: *"We source the value from BSE, not NSE"* — NSE's `quote-equity`, the only NSE endpoint
+carrying `ffmc`, is Akamai-blocked from their servers exactly as it is from ours (§3.7 of
+`CLAUDE.md`). Behind the proxy it is `api.bseindia.com/BseIndiaAPI/api/StockTrading/w`: **the same
+endpoint `scripts/scrape-bse-freefloat.mjs` already scrapes every month.**
+
+So this route adds no source and no exchange. It adds a path to that source a *browser* can take.
+
+### Which makes its job narrow, and worth stating
+
+`companies[]` already carries a live-priced free float — `floatFactor × sharesOutstanding × price`,
+with `price` live during market hours. Re-fetching a rupee free float would not make that fresher.
+What the monthly cadence **cannot** see is the factor itself moving — a lock-in expiry, a promoter
+sale, a fresh issue — and that is one of the events in §2.11 that actually *forces* an index fund to
+trade. This route exists to catch that, and nothing else.
+
+Measured before it was built: **60 companies sampled across the size range on 26 Aug 2026, against a
+record scraped 21 Aug 2026 — 60 unchanged, 0 moved, 0 unreadable.** The check is expected to be
+quiet. A quiet check that goes loud on the one company that matters is the point.
+
+| Rule | Why |
+| --- | --- |
+| Host in `env.MUNS_API_BASE`, credential in `env.MUNS_JWT` (falling back to `MUNS_TOKEN`) | Neither reaches the browser. A missing host and a missing token are **different** failures with different remedies — one message would send an operator to the wrong command half the time. |
+| Values cross the wire in **crore**, under names that say so (`freeFloatCr`, `fullCr`) | The upstream answers in ₹ crore; everything downstream is rupees. Exactly one place converts — `mergeFreeFloat` in `public/js/data/freefloat.js`. A crore value in a rupee field is a ten-million-fold error that sorts and sums perfectly happily (§3.8). |
+| `unit` and `currency` are **verified**, not assumed | Anything other than `INR` / `Cr` is refused outright. Guessing a unit is how the error above happens. |
+| `factor = freeFloatCr / fullCr`, from **one** response | Both halves at one instant, so the ratio is a float factor and not a price artefact (§2.9). A factor outside `(0, 1]` is a failure, never a number — free float cannot exceed the whole company. |
+| Batch capped at **25** tickers | One ticker per upstream POST, so a batch is N round trips. This is an on-demand check, not a bulk refresh; the monthly scrape covers the universe. |
+| Asked on the **numeric BSE scrip code** where we hold one | Ours came from BSE's *active* scrip master — the one filter between this project and a three-year-stale figure for a delisted company (§3.8). Letting a remote resolver pick the code hands that guarantee away. |
+| Edge-cached ~120 s | The factor moves on corporate actions, not on ticks. |
+| `asOf` is BSE's, `fetchedAt` is ours | Never merged. When BSE measured it is a different fact from when we asked. |
+| Compared against `floatFactorBse`, never `floatFactor` | Where the desk's rule took NSE's factor instead, `floatFactor` is NSE's — and measuring an NSE figure against a BSE one would report the known definitional gap between the exchanges as a fresh revision on every single read (§2.8). |
+
+### Five states, and four of them are not "agrees"
+
+`checkFor(company)` in `public/js/data/freefloat.js` returns exactly one of:
+
+| State | Meaning |
+| --- | --- |
+| `unavailable` | Nothing to ask on, or no stored BSE factor to compare against. |
+| `unchecked` | We have not asked. **Not** "agrees". |
+| `failed` | We asked and could not read it. **Not** "agrees" either — a failed read is not a confirmation (§2.4). |
+| `agrees` | BSE's live factor matches the stored one within `FLOAT_FACTOR_REVISION_PCT`. |
+| `revised` | BSE has restated it. That may force a trade. |
+
+The threshold is `FLOAT_FACTOR_REVISION_PCT` (0.05%) in `public/js/config/thresholds.mjs` — **the
+desk's number**. Neither BSE nor MSCI publishes a revision tolerance, and the drill panel says so.
+
+On the static floor there is no `/api/freefloat`, the check resolves `failed` with
+`no-worker: this deployment serves static files only`, and every other figure in the panel is
+unaffected.
+
+---
+
 ## Price, drift and flow fields on `companies[]`
 
 | Field | Meaning |
@@ -661,6 +724,32 @@ that undoing the fix turns something red:
 | 39b | a tick repaints only changed rows | a rebuild throwing away the reader's search and sort |
 | 40 | the token appears in zero **served** files | checking the repo instead of what is served |
 | 41 | Worker unreachable ⇒ EOD, "Last close" | claiming live when no byte arrived |
+
+`scripts/verify-worker.mjs` is a third suite, and it exists because neither of the others can reach
+inside a Worker route: `verify-data` never opens a socket and `verify-ui` drives a browser against a
+served site. It imports `worker/index.js` and calls it with a stubbed `env`, a stubbed edge cache and
+a stubbed upstream implementing the documented contract — **no network, no wrangler, no credentials**,
+which is what makes it runnable on a box that has neither the host nor the JWT.
+
+| # | Asserts | The bug it would have caught |
+| --- | --- | --- |
+| 1 | crore crosses the wire in the field name, never silently converted | a ten-million-fold unit error downstream |
+| 2 | an unrecognised unit is refused, not guessed | the same error, arriving as a "helpful" fallback |
+| 3 | the factor comes from one response; an impossible one fails | a factor above 1 rendering as a number |
+| 4 | BSE's as-of is verbatim and separate from our fetch time | a stale reading wearing a fresh timestamp |
+| 5 | an upstream 404 is a named failure, not a fact about the company | a failure rendered as an absence |
+| 6 | missing host and missing token are distinct, with distinct remedies | an operator running the wrong command |
+| 7 | the bearer token reaches the upstream and nothing the browser reads | a debug field publishing a credential |
+| 8 | `MUNS_TOKEN` works as a fallback credential | a deployment breaking the day the route ships |
+| 9 | the batch cap is enforced and names itself | 1,254 authenticated round trips per page view |
+| 10 | every non-API path still falls through to the assets | the static floor disappearing behind the Worker |
+
+Seven of those ten **survived their first sabotage**, because each `run` began by setting the
+upstream stub's mode — and so undid the very state the sabotage had set. That is the self-defeating
+guard of §3.8 in a new costume: the thing under test resetting the thing testing it. The fix was to
+move every sabotage to a layer `run` cannot reach, wrapping the Worker's response rather than the
+stub's input. Check 4 had a second form of it — comparing against `SAMPLE.asOf`, which a restamping
+sabotage moved along with the value — and is now anchored on a frozen constant.
 | 42 | the stat strip is one row at 1440px, however many cards | a card wrapping out of sight below the fold |
 
 ### SKIP is a result, and it is always explained

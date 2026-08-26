@@ -12,6 +12,7 @@ import { cr, inr, inrFlow, pct, factorPct, num, count, shortDate, dayChange, sig
 import * as data from '../data/companies.js';
 import * as state from '../core/state.js';
 import * as quotes from '../data/quotes.js';
+import * as freefloat from '../data/freefloat.js';
 import { setParams, getParam, onRoute } from '../core/router.js';
 import { segmentedToggle } from '../ui/components.js';
 import { sectionHead, statStrip, scoreTable, openDrill, closeDrill } from '../ui/screener.js';
@@ -412,6 +413,126 @@ const drillRow = (label, value, { title } = {}) =>
   `<dt class="shrink-0 text-xs text-slate-500"${title ? ` title="${escapeHtml(title)}"` : ''}>${escapeHtml(label)}</dt>` +
   `<dd class="min-w-0 text-right text-[13px] font-semibold tabular-nums text-slate-900">${value}</dd></div>`;
 
+/**
+ * BSE's live float factor against the one in the committed record.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS BLOCK EARNS ITS SPACE
+ * ---------------------------------------------------------------------------
+ * Everything else in this section is already live-priced: free float is
+ * recomputed as `floatFactor × sharesOutstanding × price`, and the price ticks.
+ * What NOTHING on this screen can otherwise see is the FACTOR moving, because
+ * that is scraped monthly — and a factor revision is one of the events in
+ * CLAUDE.md §2.11 that actually forces an index fund to trade.
+ *
+ * So this is a freshness check on the one input whose staleness would be
+ * invisible, not a second opinion on the free-float figure.
+ *
+ * Five states, and the four that are not "agrees" all look different. In
+ * particular `unchecked` and `failed` are never dressed as agreement: not
+ * having asked, and having asked and failed, are both a long way from "BSE
+ * confirms this number" (CLAUDE.md §2.4).
+ */
+function factorCheckHtml(company) {
+  const check = freefloat.checkFor(company);
+  const pct6 = (value) => (value === null || value === undefined ? EM_DASH : value.toFixed(6));
+
+  const shell = (tone, title, body) =>
+    `<div class="mt-3 rounded-xl ${tone} p-3 text-xs leading-relaxed">` +
+    `<div class="font-semibold">${title}</div>${body}</div>`;
+
+  const provenance =
+    '<p class="mt-2 text-[11px] text-slate-500">Read live from BSE through the Munshot filings API — the same '
+    + '<code>StockTrading</code> endpoint the monthly scrape uses. <strong>Not an NSE figure</strong>: NSE publishes '
+    + 'free float for around 250 names and blocks the endpoint that carries it. Nothing here is written back to the '
+    + 'committed record.</p>';
+
+  if (check.state === 'unavailable') {
+    return shell(
+      'bg-slate-50 text-slate-600',
+      'Factor freshness · cannot be checked',
+      `<p class="mt-1">${escapeHtml(check.reason ?? 'no basis for a comparison')}.</p>`
+        + '<p class="mt-1 text-slate-500">A company with no stored BSE factor has nothing to compare against. That is '
+        + 'not the same as a factor that agrees.</p>',
+    );
+  }
+
+  if (check.state === 'unchecked') {
+    return shell(
+      'bg-slate-50 text-slate-600',
+      'Factor freshness · not yet checked',
+      '<p class="mt-1" data-factor-pending>Asking BSE whether it has restated this factor…</p>' + provenance,
+    );
+  }
+
+  if (check.state === 'failed') {
+    return shell(
+      'bg-rose-50 text-rose-900 ring-1 ring-rose-200',
+      'Factor freshness · could not be read',
+      `<p class="mt-1">${escapeHtml(check.reason ?? 'the read failed')}.</p>`
+        + '<p class="mt-1">The stored factor below still stands — it is simply unconfirmed today. '
+        + '<strong>A failed read is not a confirmation</strong>, and it is not a missing factor either.</p>'
+        + provenance,
+    );
+  }
+
+  const rows =
+    '<dl class="mt-2 space-y-1">'
+    + `<div class="flex justify-between gap-3"><dt>In the record (${escapeHtml(shortDate(data.freshness().feeds.find((f) => f.id === 'bse')?.date))})</dt>`
+    + `<dd class="font-semibold tabular-nums">${escapeHtml(pct6(check.storedFactor))}</dd></div>`
+    + `<div class="flex justify-between gap-3"><dt>BSE now${check.asOf ? ` (${escapeHtml(shortDate(check.asOf))})` : ''}</dt>`
+    + `<dd class="font-semibold tabular-nums">${escapeHtml(pct6(check.liveFactor))}</dd></div>`
+    + `<div class="flex justify-between gap-3"><dt>Difference</dt>`
+    + `<dd class="font-semibold tabular-nums">${escapeHtml(signedPct(check.gapPct, 4))}</dd></div>`
+    + '</dl>';
+
+  if (check.state === 'revised') {
+    return shell(
+      'bg-amber-50 text-amber-900 ring-1 ring-amber-200',
+      'Factor freshness · BSE HAS RESTATED THIS FACTOR',
+      rows
+        + `<p class="mt-2">The difference is beyond the desk's ${escapeHtml(num(check.thresholdPct, 2))}% revision line, so this is `
+        + 'a shareholding change rather than rounding — a lock-in expiry, a promoter sale, an issue. '
+        + '<strong>That is a trade-forcing event</strong> under the review rules: funds adjust by the delta. '
+        + 'The free float shown above still uses the stored factor and will not move until the next scrape.</p>'
+        + `<p class="mt-1 text-[11px] text-amber-800">The ${escapeHtml(num(check.thresholdPct, 2))}% line is the desk's own. `
+        + 'Neither BSE nor MSCI publishes a revision tolerance.</p>'
+        + provenance,
+    );
+  }
+
+  return shell(
+    'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200',
+    'Factor freshness · BSE agrees with the record',
+    rows
+      + `<p class="mt-2">Within the desk's ${escapeHtml(num(check.thresholdPct, 2))}% revision line, so BSE has not restated `
+      + 'the shareholding behind this factor since the record was built.</p>'
+      + `<p class="mt-1 text-[11px] text-emerald-800">The ${escapeHtml(num(check.thresholdPct, 2))}% line is the desk's own. `
+      + 'Neither BSE nor MSCI publishes a revision tolerance.</p>'
+      + provenance,
+  );
+}
+
+/**
+ * Re-render just the factor-check block once the live read lands.
+ *
+ * The drill is built as one HTML string, so the block ships in its `unchecked`
+ * state and is swapped in place rather than rebuilding the panel — a rebuild
+ * would throw away the reader's scroll position and, if they had tabbed into
+ * the panel, their focus.
+ */
+async function runFactorCheck(company) {
+  const mount = $('[data-factor-check]');
+  if (!mount) return;
+  await freefloat.checkCompany(company);
+  // The reader may have closed this drill, or opened another, while the request
+  // was in flight. Writing into whatever is on screen now would put one
+  // company's factor under another company's name.
+  const still = $('[data-factor-check]');
+  if (!still || still.dataset.factorCheck !== data.keyOf(company)) return;
+  still.innerHTML = factorCheckHtml(company);
+}
+
 function floatSectionHtml(company) {
   const both = company.floatFactorNse !== null && company.floatFactorBse !== null;
   const gapPp = both ? (company.floatFactorNse - company.floatFactorBse) * 100 : null;
@@ -459,7 +580,10 @@ function floatSectionHtml(company) {
         : `${escapeHtml(factorPct(company.floatFactor))} ${sourceChip(company.floatSource)}`,
     ) +
     drillRow('Full market cap', company.fullMcapInr === null ? missing('no full market cap from BSE') : escapeHtml(inr(company.fullMcapInr))) +
-    '</dl>';
+    '</dl>' +
+    // Swapped in place by runFactorCheck() when the live read lands. Keyed on
+    // the company so a late response cannot land under a different name.
+    `<div data-factor-check="${escapeHtml(data.keyOf(company))}">${factorCheckHtml(company)}</div>`;
 
   if (both) {
     html +=
@@ -880,6 +1004,12 @@ function openCompanyDrill(key, { onClose } = {}) {
       onClose?.();
     },
   });
+
+  // Fire AFTER the panel exists, and never await it: the drill must open at
+  // once whether or not the Worker is reachable. On the static floor there is
+  // no /api/freefloat, the check resolves `failed` with that reason in words,
+  // and everything else in the panel is unaffected.
+  runFactorCheck(company);
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
