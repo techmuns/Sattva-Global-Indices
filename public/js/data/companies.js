@@ -245,24 +245,6 @@ export function sourceRegistry() {
       countLabel: 'companies a live quote can reach',
     },
     {
-      id: 'freefloat-live',
-      name: 'BSE free float, read live',
-      publisher: 'api.bseindia.com StockTrading, via the Munshot filings API',
-      what:
-        'BSE\u2019s own published free-float and full market cap for ONE company at a time, fetched when a drill '
-        + 'panel opens. NOT an NSE figure and NOT a new source \u2014 it is the same endpoint the monthly scrape '
-        + 'uses. Its only job is catching a FLOAT-FACTOR REVISION between scrapes, which is a trade-forcing '
-        + 'event the monthly cadence would otherwise miss. Nothing it returns is written back to the record.',
-      tier: 'measured',
-      // No as-of: this feed has no snapshot date because it is not a snapshot.
-      // Each reading carries BSE's own asOf, shown on the company it belongs to.
-      asOf: null,
-      asOfDate: null,
-      status: 'live',
-      count: null,
-      countLabel: null,
-    },
-    {
       id: 'nse-universe',
       name: 'NSE symbol ↔ ISIN map',
       publisher: 'niftyindices.com',

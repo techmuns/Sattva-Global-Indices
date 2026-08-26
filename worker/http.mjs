@@ -70,9 +70,6 @@ export function failure(reason, detail, { maxAge = 15, request, extra = {} } = {
       // What a human should DO about it, named per state.
       remedy: REMEDY[reason] ?? null,
       asOf: new Date().toISOString(),
-      // Quotes-shaped empties by default; `extra` overrides them for any other
-      // route, so a caller always gets the collection its own success shape has
-      // rather than having to special-case a failure.
       quotes: {},
       failed: [],
       ...extra,
@@ -83,11 +80,7 @@ export function failure(reason, detail, { maxAge = 15, request, extra = {} } = {
 
 export const REMEDY = {
   'no-token': 'Set the upstream token: npx wrangler secret put MUNS_TOKEN (or add MUNS_TOKEN to .dev.vars for local dev).',
-  // The free-float route needs a HOST as well as a credential, and they fail
-  // independently. One combined message would send an operator to the wrong
-  // command half the time.
-  'no-endpoint': 'Set the filings API host: npx wrangler secret put MUNS_API_BASE (or add MUNS_API_BASE to .dev.vars for local dev). Example: https://api.example.com',
-  unauthorised: 'The token was rejected. Re-issue it and run: npx wrangler secret put MUNS_TOKEN (or MUNS_JWT for the filings API).',
+  unauthorised: 'The token was rejected. Re-issue it and run: npx wrangler secret put MUNS_TOKEN',
   upstream: null,
   unreachable: null,
   'bad-request': null,

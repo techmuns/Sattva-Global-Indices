@@ -1055,7 +1055,6 @@ scripts/
   verify-data.mjs                  21 data assertions; no browser, no network
   verify-ui.mjs                    21 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
-  verify-worker.mjs                the Worker's routes, stubbed; no network, no credentials
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
   fixtures/ishares-{eem,smin,eems}.xls    the committed input workbooks
@@ -1085,9 +1084,8 @@ public/
   js/model/calendar.js             review dates (assumed, configurable)
   js/core/live.js                  visibility-aware poller
   js/data/quotes.js                live overlay; memory only, never written back
-  js/data/freefloat.js             BSE float factor, read live; memory only, never written back
 worker/
-  index.js                         static assets + POST /api/quotes + POST /api/freefloat
+  index.js                         static assets + POST /api/quotes
   http.mjs                         ETag / 304 / CORS / cache-state helpers
 wrangler.jsonc                     Worker config; npx-only, no node_modules here
 .github/workflows/
@@ -1130,8 +1128,6 @@ node scripts/verify-ui.mjs             # 21 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 
-node scripts/verify-worker.mjs --prove  # the Worker's routes against a stub; no network
-
 python3 -m http.server 8080 -d public  # the site, EOD only — no live prices
 npx wrangler dev                       # the site WITH /api/quotes and live prices
 ```
@@ -1147,12 +1143,6 @@ and no `node_modules` here**, and `git status` must keep proving it.
 The upstream token lives in `.dev.vars` locally (gitignored) and as a Worker secret in production
 (`npx wrangler secret put MUNS_TOKEN`). **It must never appear in `public/`** — grep the served site
 after any change to the Worker.
-
-`POST /api/freefloat` needs two more, and they fail independently so they are named separately:
-`MUNS_API_BASE` (the NestJS filings host) and `MUNS_JWT` (its bearer token, falling back to
-`MUNS_TOKEN` if one credential serves both services). Without them the route answers `no-endpoint`
-or `no-token` with the exact command to run, the drill panel says the factor could not be checked,
-and **every other figure on the screen is unaffected** — the static floor is the floor.
 
 ### The cadence, and why NSE is allowed to fail
 

@@ -220,33 +220,6 @@ export const FLOAT_FACTOR_DISAGREEMENT_REVIEW_PCT = 5;
 export const FLOAT_SOURCE_PREFER_NSE_GAP_PCT = 2;
 
 /**
- * How far BSE's LIVE float factor may sit from the one in the committed record
- * before we call it a REVISION rather than noise.
- *
- * ---------------------------------------------------------------------------
- * WHY THIS EXISTS AT ALL
- * ---------------------------------------------------------------------------
- * `floatFactor` is scraped monthly. It only moves when SHAREHOLDING moves — a
- * lock-in expiry, a promoter sale, a fresh issue — and that is one of the
- * events in CLAUDE.md 2.11 that actually FORCES an index fund to trade. Between
- * scrapes we would not see it. The live BSE read (`/api/freefloat`) exists to
- * catch exactly that, and this is the line between "the same number" and "BSE
- * has restated it".
- *
- * MEASURED before choosing it: 60 companies sampled across the size range on
- * 26 Aug 2026 against a record scraped 21 Aug 2026 — 60 unchanged, 0 moved,
- * 0 unreadable. The factor really is flat between scrapes, so this threshold
- * can sit low without crying wolf. It is set an order of magnitude above the
- * largest rounding artefact the ratio can produce: BSE publishes both market
- * caps to two decimals in crore, so on a small cap the last digit is worth
- * roughly 0.001% of the ratio.
- *
- * The desk's number. Neither BSE nor MSCI publishes a revision tolerance, and
- * every screen that acts on this must say so.
- */
-export const FLOAT_FACTOR_REVISION_PCT = 0.05;
-
-/**
  * How the float source is chosen, in words, for anything that has to disclose
  * the rule on screen or in row 1 of an export. Kept beside the number so the
  * two cannot drift apart.

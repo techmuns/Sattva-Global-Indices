@@ -101,35 +101,26 @@ function isCdnNoise(url) {
  */
 const NO_WORKER_STATUSES = /\b(404|405|501)\b/;
 
-/**
- * EVERY route the Worker owns, enumerated — not one hard-coded path.
- *
- * `/api/freefloat` joined `/api/quotes` on 26 Aug 2026 and reproduced this
- * exact flake immediately: the drill panel asks BSE whether a float factor has
- * been restated, the static floor answers 501, and the browser logs it. With a
- * single hard-coded path the second route's designed 501 landed in "our own
- * code" and failed assertion 22 — a real fault reported for a floor that was
- * working exactly as specified.
- *
- * Kept as a SET rather than a prefix match on `/api/`, so a genuinely unknown
- * /api path still counts as real. The narrowness the original comment argues
- * for is the point; only the enumeration changed.
- */
-const WORKER_ROUTES = new Set(['/api/quotes', '/api/freefloat']);
-
-function isWorkerRoute(url, base) {
-  if (!url) return false;
+function isDesignedNoWorkerProbe(url, text, { base, hasWorker }) {
+  if (hasWorker || !url) return false;
   try {
     const parsed = new URL(url);
     if (`${parsed.protocol}//${parsed.host}` !== new URL(base).origin) return false;
-    return WORKER_ROUTES.has(parsed.pathname);
+    if (parsed.pathname !== '/api/quotes') return false;
   } catch { return false; }
+  return NO_WORKER_STATUSES.test(text ?? '');
 }
 
-function isDesignedNoWorkerProbe(url, text, { base, hasWorker }) {
-  if (hasWorker || !url) return false;
-  if (!isWorkerRoute(url, base)) return false;
-  return NO_WORKER_STATUSES.test(text ?? '');
+/**
+ * Is this /api/quotes on the origin under test, whatever the failure text?
+ * Used only inside a declared induced-noise window.
+ */
+function isQuotesRoute(url, base) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return `${parsed.protocol}//${parsed.host}` === new URL(base).origin && parsed.pathname === '/api/quotes';
+  } catch { return false; }
 }
 
 function attachConsole(page, bucket, options) {
@@ -142,7 +133,7 @@ function attachConsole(page, bucket, options) {
     // own code" in the summary would be a false report of a fault the test
     // caused on purpose. The window is opened and closed by those checks and
     // covers only that one route.
-    if (bucket.inducing && isWorkerRoute(url, options.base)) return 'induced';
+    if (bucket.inducing && isQuotesRoute(url, options.base)) return 'induced';
     if (isDesignedNoWorkerProbe(url, text, options)) return 'designed';
     return 'real';
   };
@@ -325,7 +316,7 @@ async function main() {
       for (const [part, present] of Object.entries(shell)) ok(present, `the ${part} must render`);
       empty(c.errors.real, 'a console error from our own code is a failure', (e) => e);
       return `${c.errors.filtered.length} CDN failures filtered (Tailwind / Google Fonts) and `
-        + `${c.errors.designed.length} designed no-Worker probe(s) on ${[...WORKER_ROUTES].join(' / ')}, classified by response URL; `
+        + `${c.errors.designed.length} designed no-Worker probe(s) on /api/quotes, classified by response URL; `
         + `${c.errors.real.length} from our own code`;
     },
     sabotage: async (c) => {
@@ -1629,7 +1620,7 @@ async function main() {
   process.exit(suite.report([
     `Mode: ${hasWorker ? 'Worker present — the live block runs' : 'static floor — the live block skips, which is the point of running it here'}`,
     `Console: ${errors.filtered.length} CDN failures filtered by response URL · `
-      + `${errors.designed.length} designed no-Worker probe(s) on ${[...WORKER_ROUTES].join(' / ')} · `
+      + `${errors.designed.length} designed no-Worker probe(s) on /api/quotes · `
       + `${errors.induced.length} induced by the harness cutting that route on purpose · `
       + `${errors.real.length} from our own code`,
   ]));
