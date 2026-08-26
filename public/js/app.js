@@ -12,6 +12,7 @@ import * as data from './data/companies.js';
 import * as state from './core/state.js';
 import { start as startRouter, getParam, setParams } from './core/router.js';
 import { segmentedToggle } from './ui/components.js';
+import { METHODOLOGIES, METHODOLOGY_IDS } from './model/gimi.js';
 import { mountShell } from './ui/shell.js';
 import { renderCompanies } from './tabs/companies.js';
 import * as quotes from './data/quotes.js';
@@ -54,38 +55,41 @@ async function main() {
   }
 
   // The URL wins over stored state on first load, so a shared link opens the
-  // scope it was shared in.
-  const urlScope = getParam('scope');
-  if (urlScope && state.SCOPES.includes(urlScope)) state.setScope(urlScope);
+  // methodology it was shared in.
+  const urlMethodology = getParam('model');
+  if (urlMethodology && state.METHODOLOGIES.includes(urlMethodology)) state.setMethodology(urlMethodology);
 
-  const cov = data.coverage();
-  const buildScopeControl = () =>
+  /**
+   * The methodology toggle — the one control in the header.
+   *
+   * It replaced the Held/All scope toggle on 26 Aug 2026. The screener now
+   * always shows the whole universe, and the choice worth putting in front of
+   * a reader is WHICH MODEL produced the verdicts, not which subset of rows.
+   *
+   * Labels are the short forms the desk uses out loud, so the toggle reads the
+   * way the request was phrased; the full names and their attributions live on
+   * the hint and in the model banner.
+   */
+  const buildMethodologyControl = () =>
     segmentedToggle({
-      ariaLabel: 'Company scope',
-      value: state.getScope(),
-      onChange: (value) => state.setScope(value),
-      options: [
-        {
-          value: 'held',
-          label: 'Held',
-          hint: `The ${cov.held} companies at least one fund owns — what must be traded if weights move`,
-        },
-        {
-          value: 'all',
-          label: 'All',
-          hint: `All ${cov.companies} companies, including the ${cov.notHeld} candidates no fund owns yet`,
-        },
-      ],
+      ariaLabel: 'Model',
+      value: state.getMethodology(),
+      onChange: (value) => state.setMethodology(value),
+      options: METHODOLOGY_IDS.map((id) => ({
+        value: id,
+        label: METHODOLOGIES[id].short,
+        hint: `${METHODOLOGIES[id].label} — ${METHODOLOGIES[id].what}`,
+      })),
     });
 
   app.replaceChildren();
-  const shell = mountShell(app, { scopeControl: buildScopeControl() });
+  const shell = mountShell(app, { modelControl: buildMethodologyControl() });
 
   // Repaint the toggle itself so the active segment follows the state, whether
   // the change came from the toggle, the URL or another tab.
-  state.on('scope', () => {
-    shell.scopeSlot.replaceChildren(buildScopeControl());
-    setParams({ scope: state.getScope() });
+  state.on('methodology', () => {
+    shell.modelSlot.replaceChildren(buildMethodologyControl());
+    setParams({ model: state.getMethodology() });
   });
 
   // The header pill re-renders on every tick, because what it claims — live or
@@ -102,7 +106,7 @@ async function main() {
   refreshStatus();
 
   startRouter();
-  setParams({ scope: state.getScope() });
+  setParams({ model: state.getMethodology() });
 
   // Expose a small surface for the verification harness. Read-only; it drives
   // nothing the interface does not already do for a human.
@@ -112,6 +116,22 @@ async function main() {
     view,
     quotes,
     rows: () => view.table()?.rows() ?? [],
+    /**
+     * The verdict histogram under the model currently in force.
+     *
+     * Exposed for the verification suite, which has to be able to prove the
+     * model toggle changes something. Read-only and derived from the same
+     * assessments the table renders — not a second calculation that could agree
+     * with the screen while the screen is wrong.
+     */
+    verdictTally: () => {
+      const tally = {};
+      for (const company of data.all()) {
+        const verdict = view.assessmentFor(company)?.verdict ?? 'unknown';
+        tally[verdict] = (tally[verdict] ?? 0) + 1;
+      }
+      return tally;
+    },
     flush: () => view.table()?.flush(),
     refreshStatus,
   };

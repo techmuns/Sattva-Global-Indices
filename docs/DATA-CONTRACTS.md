@@ -661,6 +661,14 @@ that undoing the fix turns something red:
 | 39b | a tick repaints only changed rows | a rebuild throwing away the reader's search and sort |
 | 40 | the token appears in zero **served** files | checking the repo instead of what is served |
 | 41 | Worker unreachable ⇒ EOD, "Last close" | claiming live when no byte arrived |
+
+Three checks in `verify-data` cover the second methodology (`public/js/model/gimi.js`):
+
+| # | Asserts | The bug it would have caught |
+| --- | --- | --- |
+| 30 | the cutoff is COUNTED in free float and ANSWERED in full market cap | ranking by the wrong size, which moves 432 companies more than 100 places |
+| 31 | the buffers are asymmetric and genuinely shelter companies | a symmetric pair, predicting migration MSCI's hysteresis suppresses |
+| 32 | the two models disagree on real companies | a second model that is a relabelling of the first |
 | 42 | the stat strip is one row at 1440px, however many cards | a card wrapping out of sight below the fold |
 
 ### SKIP is a result, and it is always explained

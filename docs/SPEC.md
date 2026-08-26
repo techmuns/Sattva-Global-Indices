@@ -51,6 +51,26 @@ nobody scans.
 
 ## 3. The screener
 
+**The model toggle** sits in the header, where the Held/All scope toggle used to be. Two
+methodologies, and the screener always shows every company under both:
+
+| Toggle | Model | Verdicts turn on |
+| --- | --- | --- |
+| `freefloatmarketcap` | `model/assess.js` | free-float market cap vs the desk's rupee bands |
+| `freefloat+fullmarketcap` | `model/gimi.js` | MSCI's procedure — rank by full mcap, count free float to the coverage target, test free float separately, with MSCI's buffers and review timetable |
+
+The banner under the heading names the model in force, lists what it does differently in three lines,
+and prints **how many rows disagree with the other model** — derived from both models on every build,
+never typed. Under `freefloat+fullmarketcap` it also shows the derived Standard cutoff, small-cap
+floor and minimum free float, each carrying `CUTOFF_DISCLOSURE`.
+
+Every drill panel shows the other model's verdict for the same company, and says plainly whether the
+two agree.
+
+**Scope**: gone. The screener shows all companies. A candidate no fund holds yet is what an inclusion
+forecast is about, so hiding it behind a default made the product's own subject opt-in.
+
+
 **Stat strip**, four cards on one row, each with a denominator:
 
 | Card | Shows |

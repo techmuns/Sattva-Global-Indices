@@ -85,7 +85,11 @@ export const VERDICTS = {
     label: 'Stable',
     tone: 'neutral',
     implication: 'none',
-    detail: 'No rule fired. Nothing here implies a trade.',
+    // NOT "no rule fired". Under the MSCI model a company can be stable
+    // BECAUSE a rule fired against it — LIC clears every size bar and is held
+    // out by the 0.15 FIF floor. Saying no rule fired would contradict the
+    // rules table printed directly beneath it.
+    detail: 'No rule fired that implies a trade at the coming review.',
   },
   unknown: {
     key: 'unknown',
@@ -99,8 +103,11 @@ export const VERDICTS = {
 /** Verdicts that imply a fund must trade. Only these get a rupee figure. */
 export const TRADE_IMPLYING = new Set(['likely-inclusion', 'possible-inclusion', 'migration-up', 'migration-down', 'exclusion-risk', 'likely-exclusion']);
 
-const rule = (key, label, input, threshold, thresholdSource, result, note, band) => ({
+const rule = (key, label, input, threshold, thresholdSource, result, note, band, unit) => ({
   key, label, input, threshold, thresholdSource, result, note: note ?? null,
+  // The unit of this rule's own numbers, so the renderer never infers it from
+  // the key. Rupees unless the rule says otherwise; a rank rule compares ranks.
+  unit: unit ?? (key.startsWith('rank-crossing') ? 'rank' : 'inr'),
   // When the threshold was floated by the segment's own move, BOTH numbers are
   // on the rule: the desk's raw band and the bar actually applied. A reader has
   // to be able to see how far the adjustment moved the bar, and what the verdict
@@ -291,7 +298,7 @@ function distanceTo(value, threshold) {
   return ((value - threshold) / threshold) * 100;
 }
 
-function finish(verdict, rulesFired, distancePct, segment, company) {
+function finish(verdict, rulesFired, distancePct, segment, company, distanceRuleKey) {
   const notes = [];
   if (TRADE_IMPLYING.has(verdict) && segment !== 'standard' && !isSampledByEmSmallCap(company)) {
     notes.push('EM Small-Cap does not currently sample this company, so it has no basis for an EM SC flow estimate.');
@@ -301,7 +308,15 @@ function finish(verdict, rulesFired, distancePct, segment, company) {
     segment,
     rulesFired,
     distancePct: distancePct === null ? null : Number(distancePct.toFixed(3)),
+    // Which rule the distance was measured against. Reading "the last rule
+    // fired" instead breaks the moment a verdict turns on one rule while
+    // another was pushed after it.
+    distanceRuleKey: distanceRuleKey ?? (rulesFired.length ? rulesFired[rulesFired.length - 1].key : null),
     notes,
+    // Named explicitly rather than left undefined: the interface now carries
+    // two models, and a consumer asking "which produced this?" must never have
+    // to infer it from a field's absence.
+    methodology: 'freefloat',
   };
 }
 

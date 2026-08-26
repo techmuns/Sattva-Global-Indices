@@ -23,6 +23,7 @@ import { segmentOf, segmentFloatTotals, SEGMENTS } from '../model/segments.js';
 import { assess, VERDICTS, DISCLOSURE, TRADE_IMPLYING } from '../model/assess.js';
 import { estimateFlows } from '../model/flows.js';
 import { nextReview, reviewCutoffs } from '../model/calendar.js';
+import { gimiCutoffs, assessGimi, reviewWindow, METHODOLOGIES, GIMI_DISCLOSURE, CUTOFF_DISCLOSURE } from '../model/gimi.js';
 
 const FUND_ORDER = ['eem', 'smin', 'eems'];
 
@@ -113,28 +114,94 @@ export function rebuildModel() {
     source.filter((c) => c.shareCountQuarantine).map((c) => data.keyOf(c)),
   );
 
+  // BOTH METHODOLOGIES ARE BUILT ON EVERY REBUILD, not just the active one.
+  //
+  // The whole point of shipping two is the difference between them, so the
+  // comparison has to be free at render time. Computing the inactive one lazily
+  // would mean the "N verdicts differ" figure either lagged the toggle or cost
+  // a full model pass to display — and a comparison nobody can see the price of
+  // is a comparison that quietly stops being shown.
   const assessments = new Map();
+  const gimiAssessments = new Map();
   const flows = new Map();
   const context = { boundary, ranks, quarantined, keyOf: data.keyOf };
   const flowContext = { flowPrimitives: data.flowPrimitives(), segmentFloatTotals: floatTotals };
+
+  const cutoffs = gimiCutoffs(live);
+  const window = reviewWindow(data.freshness().feeds.find((f) => f.id === 'bhavcopy')?.raw ?? null);
+  const gimiContext = { cutoffs, quarantined, keyOf: data.keyOf, window };
 
   for (const company of live) {
     const key = data.keyOf(company);
     const assessment = assess(company, context);
     assessments.set(key, assessment);
+    gimiAssessments.set(key, assessGimi(company, gimiContext));
+    // Flows follow the ACTIVE methodology's verdict, which is why they are
+    // rebuilt when the toggle moves rather than cached against one model.
     flows.set(key, estimateFlows(company, assessment, flowContext));
   }
 
-  modelState = { boundary, ranks, floatTotals, assessments, flows, builtAt: new Date() };
+  modelState = {
+    boundary, ranks, floatTotals, assessments, gimiAssessments, flows,
+    cutoffs, window, builtAt: new Date(),
+  };
   return modelState;
+}
+
+/** The GIMI cutoffs in force, derived by MSCI's procedure from this universe. */
+export const modelCutoffs = () => modelState?.cutoffs ?? null;
+
+/** Which review the figures on screen can honestly speak to. */
+export const modelWindow = () => modelState?.window ?? null;
+
+/**
+ * How the two methodologies differ on the rows given.
+ *
+ * Derived, never typed. A reader comparing models needs the size of the
+ * disagreement, not an assurance that one exists.
+ */
+export function methodologyDelta(rows) {
+  if (!modelState) return null;
+  const moves = new Map();
+  let changed = 0;
+  for (const company of rows) {
+    const key = data.keyOf(company);
+    const a = modelState.assessments.get(key)?.verdict ?? 'unknown';
+    const b = modelState.gimiAssessments.get(key)?.verdict ?? 'unknown';
+    if (a === b) continue;
+    changed += 1;
+    const move = `${a}\u0000${b}`;
+    moves.set(move, (moves.get(move) ?? 0) + 1);
+  }
+  return {
+    changed,
+    total: rows.length,
+    pct: rows.length ? (changed / rows.length) * 100 : null,
+    moves: [...moves.entries()]
+      .map(([move, count]) => { const [from, to] = move.split('\u0000'); return { from, to, count }; })
+      .sort((x, y) => y.count - x.count),
+  };
 }
 
 export const modelBoundary = () => modelState?.boundary ?? null;
 
-/** The assessment in force. Falls back to the stored EOD one before first build. */
-export function assessmentFor(company) {
-  return modelState?.assessments.get(data.keyOf(company)) ?? company.assessment ?? null;
+/**
+ * The assessment in force, under the methodology the reader has selected.
+ *
+ * Falls back to the stored EOD one before the first build — but ONLY for the
+ * free-float model, because that is the one the build script wrote. There is no
+ * stored GIMI assessment and inventing one from the other model's verdict would
+ * make the toggle look like it had done nothing.
+ */
+export function assessmentFor(company, methodology = state.getMethodology()) {
+  const key = data.keyOf(company);
+  if (methodology === 'gimi') return modelState?.gimiAssessments.get(key) ?? null;
+  return modelState?.assessments.get(key) ?? company.assessment ?? null;
 }
+
+/** The same company under the OTHER methodology, for side-by-side comparison. */
+export const otherAssessmentFor = (company) =>
+  assessmentFor(company, state.getMethodology() === 'gimi' ? 'freefloat' : 'gimi');
 
 export function flowsFor(company) {
   return modelState?.flows.get(data.keyOf(company)) ?? company.flowEstimate ?? { flows: [], notSampled: [], shape: null };
@@ -210,10 +277,177 @@ function sizeBands() {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * The model banner — which methodology is in force, and what it changes
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The band under the heading that names the active model and prices the choice.
+ *
+ * It exists because a toggle that silently changes 239 verdicts is a trap. A
+ * reader has to be able to see, without clicking anything: which model produced
+ * what is on screen, what that model does differently, and HOW MANY ROWS
+ * DISAGREE with the other one. The disagreement count is derived from both
+ * models on every build — never typed, and never an assurance in prose that a
+ * difference exists.
+ */
+function modelBanner(rows) {
+  const id = state.getMethodology();
+  const meta = METHODOLOGIES[id];
+  const delta = methodologyDelta(rows);
+  const cutoffs = modelCutoffs();
+  const win = modelWindow();
+  const isGimi = id === 'gimi';
+
+  const otherId = isGimi ? 'freefloat' : 'gimi';
+  const other = METHODOLOGIES[otherId];
+
+  const chip = (label, value, title) =>
+    `<div class="rounded-xl bg-white/70 px-3 py-2 ring-1 ring-inset ${isGimi ? 'ring-indigo-200' : 'ring-slate-200'}"${title ? ` title="${escapeHtml(title)}"` : ''}>`
+    + `<div class="text-[10px] font-bold uppercase tracking-wide ${isGimi ? 'text-indigo-700' : 'text-slate-500'}">${escapeHtml(label)}</div>`
+    + `<div class="font-display mt-0.5 text-sm font-extrabold tabular-nums text-slate-900">${value}</div></div>`;
+
+  // ---- what this model does differently, in three lines -------------------
+  const findings = isGimi
+    ? [
+      ['Two sizes, both used',
+        `Ranked by <strong>full</strong> market cap, counting <strong>free float</strong> to ${escapeHtml(num(cutoffs?.standard.targetPct ?? 85, 0))}% and `
+        + `${escapeHtml(num(cutoffs?.imi.targetPct ?? 99, 0))}% coverage; the cutoff is the last counted company's full market cap. `
+        + 'Free float is then tested <em>separately</em> against a minimum.'],
+      ['Buffers, not a bright line',
+        `An existing constituent keeps its segment down to <strong>${escapeHtml(cutoffs?.buffers.lowerLabel ?? '2/3')}</strong>; a non-constituent enters only above `
+        + `<strong>${escapeHtml(cutoffs?.buffers.upperLabel ?? '1.5×')}</strong>. Entry is replacement-based, so clearing the bar makes a company eligible, never included.`],
+      ['The review is priced a month early',
+        win
+          ? escapeHtml(win.note)
+          : 'The price window could not be derived.'],
+    ]
+    : [
+      ['One size number for two jobs',
+        'Free-float market cap decides both whether a company is big enough and which segment it belongs to. '
+        + 'MSCI uses full market cap for the second — see the other model.'],
+      ['A single line per band',
+        'No buffer zone and no hysteresis: a company is above a band or below it.'],
+      ['No review timetable',
+        'Verdicts are not tied to a price window, so they do not say which review they speak to.'],
+    ];
+
+  const body =
+    '<div class="flex flex-wrap items-start justify-between gap-4">'
+    + '<div class="min-w-0 max-w-3xl">'
+    + `<div class="flex items-center gap-2">`
+    + `<span class="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${isGimi ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-white'}">${escapeHtml(meta.short)}</span>`
+    + `<span class="text-sm font-bold text-slate-900">${escapeHtml(meta.label)}</span></div>`
+    + `<p class="mt-1.5 text-xs leading-relaxed text-slate-600">${escapeHtml(meta.what)}</p>`
+    + '<dl class="mt-2.5 space-y-1.5">'
+    + findings.map(([title, text]) =>
+      '<div class="text-[11px] leading-relaxed">'
+      + `<dt class="inline font-semibold ${isGimi ? 'text-indigo-900' : 'text-slate-700'}">${escapeHtml(title)}. </dt>`
+      + `<dd class="inline text-slate-600">${text}</dd></div>`).join('')
+    + '</dl>'
+    + `<p class="mt-2 text-[11px] leading-relaxed text-slate-500"><strong>Attribution.</strong> ${escapeHtml(meta.attribution)}.`
+    + (isGimi ? ` ${escapeHtml(CUTOFF_DISCLOSURE)}` : '')
+    + '</p>'
+    + '</div>'
+    + '<div class="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3">'
+    + (isGimi && cutoffs
+      ? chip('Standard cutoff', cutoffs.standard.cutoffInr === null ? EM_DASH : `${escapeHtml(cr(cutoffs.standard.cutoffInr))}`,
+        `Full market cap of ${cutoffs.standard.company?.name ?? 'the last counted company'}, the ${cutoffs.standard.count}th by full market cap, where cumulative free float reaches ${cutoffs.standard.coveragePct?.toFixed(2)}%`)
+        + chip('Small-cap floor', cutoffs.imi.cutoffInr === null ? EM_DASH : `${escapeHtml(cr(cutoffs.imi.cutoffInr))}`,
+          `Full market cap of ${cutoffs.imi.company?.name ?? 'the last counted company'}, at ${cutoffs.imi.coveragePct?.toFixed(2)}% cumulative free-float coverage`)
+        + chip('Min free float', cutoffs.bars.minFreeFloatNew === null ? EM_DASH : `${escapeHtml(cr(cutoffs.bars.minFreeFloatNew))}`,
+          'A new constituent must clear half the small-cap cutoff in free float; an incumbent two-thirds of that')
+      : '')
+    + (delta
+      ? chip(`Differ from ${other.short}`, `${escapeHtml(num(delta.changed))} of ${escapeHtml(num(delta.total))}`,
+        `${delta.changed} companies carry a different verdict under the other model — derived from both models on this build, not typed`)
+      : '')
+    + '</div></div>';
+
+  const wrap = el('div', {
+    class: 'mb-5 rounded-2xl p-4 ring-1 ' + (isGimi
+      ? 'bg-gradient-to-br from-indigo-50 to-white ring-indigo-200'
+      : 'bg-slate-50 ring-slate-200'),
+  });
+  wrap.setAttribute('data-model-banner', id);
+  wrap.innerHTML = body;
+  return wrap;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
  * Stat strip
  * ──────────────────────────────────────────────────────────────────────────── */
 
-function buildStats(scopeRows, scope) {
+/**
+ * Finding 3 as a card: which review the numbers on screen can speak to.
+ *
+ * This is the finding with the clearest commercial edge, and it is invisible
+ * without it. MSCI prices a review on one of the last ten business days of the
+ * PRECEDING month (p. 49), so once that window shuts the outcome is fixed and a
+ * price move afterwards is evidence about the review after it. A screen that
+ * shows verdicts without saying which review they belong to invites a reader to
+ * act on a decision that was already taken.
+ */
+function reviewWindowCard() {
+  const win = modelWindow();
+  if (!win) {
+    return {
+      label: 'Review window',
+      value: EM_DASH,
+      detail: 'the price window could not be derived',
+    };
+  }
+  const target = win.verdictsAreAbout;
+  const line = (label, value, tone = 'slate') =>
+    '<div class="flex items-baseline justify-between gap-3 text-[11px]">'
+    + `<span class="text-slate-500">${escapeHtml(label)}</span>`
+    + `<span class="font-semibold tabular-nums text-${tone}-700">${escapeHtml(value)}</span></div>`;
+
+  return {
+    label: 'These verdicts are about',
+    value: target.label,
+    detail: win.windowClosed
+      ? `${win.review.label} is already priced and sealed`
+      : `priced on one of ${shortDate(win.windowOpensOn)}–${shortDate(win.windowClosesOn)}`,
+    extra:
+      line(`${win.review.label} priced`, `${shortDate(win.windowOpensOn)} – ${shortDate(win.windowClosesOn)}`)
+      + line('That window', win.windowClosed ? 'shut' : 'still open', win.windowClosed ? 'rose' : 'emerald')
+      + (win.followingCutoffs
+        ? line(`${target.label} prices`, `${shortDate(win.followingCutoffs.price.from)} – ${shortDate(win.followingCutoffs.price.to)}`)
+        : ''),
+    help: {
+      title: 'The exam was in July; the results come out in August',
+      body:
+        '<div class="space-y-3 text-sm leading-relaxed text-slate-600">'
+        + '<p>We knew when index changes take <em>effect</em>. What MSCI also publishes, plainly, is when they are '
+        + '<strong>decided</strong>: the prices behind a review are taken on <strong>one of the last ten business days '
+        + 'of the month before the review month</strong> — and MSCI does not say which of the ten.</p>'
+        + '<div class="overflow-hidden rounded-xl ring-1 ring-slate-200">'
+        + '<table class="w-full text-xs"><thead class="bg-slate-50 text-slate-500">'
+        + '<tr><th scope="col" class="px-3 py-1.5 text-left font-bold">Review</th>'
+        + '<th scope="col" class="px-3 py-1.5 text-left font-bold">Prices taken</th>'
+        + '<th scope="col" class="px-3 py-1.5 text-left font-bold">Takes effect</th></tr></thead><tbody>'
+        + [['February', 'last 10 business days of January', 'end of Feb'],
+          ['May', 'last 10 business days of April', 'end of May'],
+          ['August', 'last 10 business days of July', 'end of Aug'],
+          ['November', 'last 10 business days of October', 'end of Nov']]
+          .map(([r, p, e]) => `<tr class="border-t border-slate-100"><td class="px-3 py-1.5 font-semibold text-slate-700">${escapeHtml(r)}</td>`
+            + `<td class="px-3 py-1.5 text-slate-600">${escapeHtml(p)}</td><td class="px-3 py-1.5 text-slate-600">${escapeHtml(e)}</td></tr>`).join('')
+        + '</tbody></table></div>'
+        + `<p>${escapeHtml(win.note)}</p>`
+        + '<p><strong>An independent check that we read it right.</strong> Elsewhere in the same document MSCI '
+        + 'publishes its own August reference table stamped <strong>20 July 2026</strong> — exactly where this '
+        + 'calculated window opens. Two unrelated parts of the rulebook agreeing. The verification suite asserts it.</p>'
+        + '<p><strong>Why this is commercially useful.</strong> It says when the forecasting is worth the most: the '
+        + 'last ten business days of January, April, July and October. Before that you are aiming at a moving '
+        + 'target; after it you are reading a sealed envelope.</p>'
+        + `<p class="text-xs text-slate-400">${escapeHtml(win.source)}. The prices behind these figures are as of `
+        + `${escapeHtml(shortDate(win.priceAsOf))}.</p>`
+        + '</div>',
+    },
+  };
+}
+
+function buildStats(scopeRows) {
   const cov = data.coverage();
   const total = cov.companies ?? null;
   const inView = scopeRows.length;
@@ -263,10 +497,7 @@ function buildStats(scopeRows, scope) {
     {
       label: 'Companies in view',
       value: total === null ? num(inView) : `${num(inView)} of ${num(total)}`,
-      detail:
-        scope === 'held'
-          ? 'Held by at least one of the three funds'
-          : 'Every company in the record, held or not',
+      detail: 'Every company in the record, held or not',
       extra:
         cardRow('Held by a fund', num(cov.held)) +
         cardRow('Candidates, not held', num(cov.notHeld)),
@@ -274,9 +505,9 @@ function buildStats(scopeRows, scope) {
         title: 'What "in view" counts',
         body:
           '<div class="space-y-3 text-sm leading-relaxed text-slate-600">' +
-          `<p>The record holds <strong>${escapeHtml(num(total))}</strong> companies. The scope toggle chooses which of them this table shows.</p>` +
-          `<p><strong>Held</strong> is the ${escapeHtml(num(cov.held))} companies at least one fund owns — what must be traded if index weights move.</p>` +
-          `<p><strong>All</strong> adds the ${escapeHtml(num(cov.notHeld))} companies above the desk's size floor that no fund owns yet — what could enter at a future review.</p>` +
+          `<p>The record holds <strong>${escapeHtml(num(total))}</strong> companies, and the table shows all of them.</p>` +
+          `<p><strong>${escapeHtml(num(cov.held))}</strong> are held by at least one fund — what must be traded if index weights move.</p>` +
+          `<p>The other <strong>${escapeHtml(num(cov.notHeld))}</strong> sit above the desk's size floor and no fund owns them yet — what could enter at a future review. They are shown by default because they are what an inclusion forecast is about.</p>` +
           '<p class="text-xs text-slate-400">Both counts come from the build that produced the data, not from anything typed here.</p>' +
           '</div>',
       },
@@ -287,6 +518,13 @@ function buildStats(scopeRows, scope) {
       // so the segment's own move is what decides whether a company is really
       // getting closer to a cut-off or just floating up with everything else.
       // It is a card rather than a footnote because it moves verdicts.
+      //
+      // ONLY UNDER THE FREE-FLOAT MODEL. The GIMI cutoffs are re-derived from
+      // the universe on every build, so they already move with the market —
+      // floating them again by a segment return would apply the correction
+      // twice. Under that model this slot carries the review window instead,
+      // which is the thing GIMI knows and the other model does not.
+      if (state.getMethodology() === 'gimi') return [reviewWindowCard()];
       const b = data.benchmarks();
       if (!b || !b.funds?.length) return [];
       const since = b.lastReview?.label ?? 'the last review';
@@ -572,11 +810,43 @@ function assessmentSectionHtml(company) {
 
   const meta = VERDICTS[assessment.verdict] ?? VERDICTS.unknown;
   const review = nextReview();
+  const activeId = state.getMethodology();
+  const active = METHODOLOGIES[activeId];
+  const otherId = activeId === 'gimi' ? 'freefloat' : 'gimi';
 
   let html =
     '<div class="rounded-xl bg-slate-50/70 p-3">'
+    + '<div class="mb-2 flex items-center gap-1.5">'
+    + `<span class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${activeId === 'gimi' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-white'}">${escapeHtml(active.short)}</span>`
+    + `<span class="text-[10px] text-slate-500">${escapeHtml(active.attribution)}</span></div>`
     + `<div class="flex items-center gap-2">${verdictPill(assessment.verdict)}`
     + `<span class="text-xs text-slate-600">${escapeHtml(meta.detail)}</span></div>`;
+
+  // ---- WHAT THE OTHER MODEL SAYS ABOUT THIS SAME COMPANY -----------------
+  // On a screen with two methodologies, the single most useful thing a drill
+  // panel can show is where they disagree — and on which of the two size
+  // numbers the disagreement turns. Agreement is stated too: "both models
+  // agree" is information, and leaving it out would make the block look like it
+  // only ever appears when something is wrong.
+  const other = otherAssessmentFor(company);
+  if (other) {
+    const differs = other.verdict !== assessment.verdict;
+    const otherMeta = METHODOLOGIES[otherId];
+    html +=
+      `<div class="mt-2.5 rounded-lg p-2.5 ${differs ? 'bg-amber-50 ring-1 ring-amber-200' : 'bg-white ring-1 ring-slate-200'}">`
+      + `<div class="text-[10px] font-bold uppercase tracking-wide ${differs ? 'text-amber-800' : 'text-slate-500'}">`
+      + `${differs ? 'The other model disagrees' : 'Both models agree'}</div>`
+      + '<div class="mt-1 flex items-center gap-2">'
+      + verdictPill(other.verdict)
+      + `<span class="text-[11px] text-slate-600">under ${escapeHtml(otherMeta.short)}</span></div>`
+      + (differs
+        ? '<p class="mt-1.5 text-[11px] leading-relaxed text-amber-900">'
+          + `${escapeHtml(otherMeta.label)} reaches a different conclusion on this company. Switch the model `
+          + 'toggle at the top to see which rules fire there — the two use different size numbers and '
+          + 'different bars, so a disagreement is a real difference of method, not a bug.</p>'
+        : '')
+      + '</div>';
+  }
 
   if (company.shareCountQuarantine) {
     html +=
@@ -592,12 +862,28 @@ function assessmentSectionHtml(company) {
   // threshold and its value are stated here rather than left to the rules table
   // below — the sentence has to stand on its own.
   if (assessment.distancePct !== null) {
-    const rule = assessment.rulesFired[assessment.rulesFired.length - 1];
+    // THE RULE THE DISTANCE WAS ACTUALLY MEASURED AGAINST, named by the model
+    // rather than assumed to be the last one pushed. LIC is the case that
+    // proved it matters: its verdict turns on the FIF floor while the last rule
+    // recorded is about free float, so "the last rule" paired a real percentage
+    // with an unrelated threshold.
+    const rule = assessment.rulesFired.find((r) => r.key === assessment.distanceRuleKey)
+      ?? assessment.rulesFired[assessment.rulesFired.length - 1];
+    const fmtThreshold = (v) => (rule.unit === 'factor' ? factorPct(v) : rule.unit === 'rank' ? num(v) : inr(v));
     const against = rule && rule.threshold !== null && rule.threshold !== undefined
-      ? `${escapeHtml(rule.label)} — ${escapeHtml(inr(rule.threshold))}`
+      ? `${escapeHtml(rule.label)} — ${escapeHtml(fmtThreshold(rule.threshold))}`
       : null;
+
+    // The measured quantity differs by rule, not just by model: GIMI compares
+    // full market cap for size, free float for the minimum, and a ratio for the
+    // FIF floor. Naming the wrong one misattributes the number a reader acts on.
+    const measured = rule.unit === 'factor'
+      ? 'The float factor'
+      : assessment.methodology === 'gimi'
+        ? (/free-float|min-free-float/.test(rule.key) ? 'Free float' : 'Full market cap')
+        : 'Free float';
     html += '<p class="mt-2 text-xs leading-relaxed text-slate-600">'
-      + 'Free float is <strong class="tabular-nums">'
+      + `${escapeHtml(measured)} is <strong class="tabular-nums">`
       + `${escapeHtml(signedPct(assessment.distancePct))}</strong> `
       + (against
         ? `from the threshold this verdict turned on: ${against}.`
@@ -619,9 +905,16 @@ function assessmentSectionHtml(company) {
       + '<th scope="col" class="px-2 py-1.5 font-bold uppercase tracking-wide text-slate-500">Result</th>'
       + '</tr></thead><tbody>';
     for (const rule of assessment.rulesFired) {
-      // A rank rule's numbers are ranks; everything else is rupees.
-      const isRank = rule.key.startsWith('rank-crossing');
-      const fmt = (v) => (v === null || v === undefined ? '—' : isRank ? num(v) : `₹${cr(v)} Cr`);
+      // FORMAT BY THE RULE'S OWN UNIT, never by guessing from its key. This
+      // model compares rupees, ranks and a dimensionless ratio; rendering
+      // MSCI's FIF floor of 0.15 as "₹0 Cr" is not a rounding artefact, it is a
+      // different number.
+      const fmt = (v) => {
+        if (v === null || v === undefined) return '—';
+        if (rule.unit === 'rank') return num(v);
+        if (rule.unit === 'factor') return factorPct(v);
+        return `₹${cr(v)} Cr`;
+      };
       const source = THRESHOLD_SOURCE[rule.thresholdSource];
       html +=
         '<tr class="border-t border-slate-50">'
@@ -904,26 +1197,26 @@ export function renderCompanies(host, { onStatusChange } = {}) {
   const refreshHeaderStatus = () => onStatusChange?.();
   /** The strip counts verdicts, so a verdict flip makes it stale. */
   const repaintStats = () => {
-    if (statsHost) statsHost.replaceChildren(buildStats(data.forScope(state.getScope()), state.getScope()));
+    if (statsHost) statsHost.replaceChildren(buildStats(data.forScope(state.SCOPE)));
   };
 
   function build() {
-    const scope = state.getScope();
     // The model must exist before anything renders a verdict.
     rebuildModel();
-    const rows = data.forScope(scope);
+    // ALWAYS THE WHOLE UNIVERSE. The Held/All toggle went on 26 Aug 2026: a
+    // candidate no fund holds yet is precisely what an inclusion forecast is
+    // about, so hiding it behind a default made the product's own subject
+    // opt-in.
+    const rows = data.forScope(state.SCOPE);
     const cov = data.coverage();
 
     host.replaceChildren();
 
-    const scopeChip = el(
+    const countChip = el(
       'span',
       {
         class: 'inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200',
-        title:
-          scope === 'held'
-            ? 'Companies at least one of the three funds owns'
-            : 'Every company in the record, including candidates no fund owns',
+        title: `Every company in the record — ${num(cov.held)} held by a fund, ${num(cov.notHeld)} candidates no fund owns yet`,
       },
       `${num(rows.length)} of ${num(cov.companies)} companies`,
     );
@@ -931,11 +1224,13 @@ export function renderCompanies(host, { onStatusChange } = {}) {
     host.append(
       sectionHead({
         title: 'Company screener',
-        meta: scopeChip,
+        meta: countChip,
       }),
     );
 
-    statsHost = el('div', { class: 'mb-6' }, [buildStats(rows, scope)]);
+    host.append(modelBanner(rows));
+
+    statsHost = el('div', { class: 'mb-6' }, [buildStats(rows)]);
     host.append(statsHost);
 
     const columns = [
@@ -1202,12 +1497,16 @@ export function renderCompanies(host, { onStatusChange } = {}) {
       onExport: (visibleRows, view) => {
         const fresh = data.freshness();
         exportCsv({
-          filename: `sattva-companies-${scope}-${new Date().toISOString().slice(0, 10)}.csv`,
+          filename: `sattva-companies-${state.getMethodology()}-${new Date().toISOString().slice(0, 10)}.csv`,
           freshness: fresh,
+          // Row 1 of the workbook has to say WHICH MODEL produced the verdicts
+          // in it. Two exports of the same universe can now disagree on every
+          // verdict column, and a sheet that does not name its methodology is a
+          // sheet nobody can reconcile against another (CLAUDE.md §2.7).
           scopeLabel:
-            scope === 'held'
-              ? `${visibleRows.length} of ${cov.held} companies held by at least one fund`
-              : `${visibleRows.length} of ${cov.companies} companies in the record`,
+            `${visibleRows.length} of ${cov.companies} companies in the record · model: `
+            + `${METHODOLOGIES[state.getMethodology()].label} (${METHODOLOGIES[state.getMethodology()].short}) — `
+            + `${METHODOLOGIES[state.getMethodology()].attribution}`,
           filterLabel: [
             view.q ? `search "${view.q}"` : '',
             ...Object.entries(view.filters)
@@ -1365,10 +1664,14 @@ export function renderCompanies(host, { onStatusChange } = {}) {
     else closeDrill();
   });
 
-  state.on('scope', () => {
+  // A methodology switch rebuilds the whole view: every verdict, every rule
+  // and every flow can change. The reader's search, sort and filters are
+  // carried across deliberately — the comparison is only useful if the two
+  // models are seen through the same lens.
+  state.on('methodology', () => {
     closeDrill();
     lastView = table?.view ? { q: table.view.q, sort: table.view.sort, filters: { ...table.view.filters } } : null;
-    setParams({ scope: state.getScope() });
+    setParams({ model: state.getMethodology() });
     build();
   });
 
@@ -1376,6 +1679,11 @@ export function renderCompanies(host, { onStatusChange } = {}) {
     rebuild: build,
     table: () => table,
     openCompany: (key) => openCompanyDrill(key),
+    // The assessment in force, so the harness reads the SAME function the table
+    // renders from rather than recomputing and possibly agreeing by accident.
+    assessmentFor,
+    otherAssessmentFor,
+    methodologyDelta,
   };
 }
 

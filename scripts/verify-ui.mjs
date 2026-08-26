@@ -273,7 +273,7 @@ async function main() {
     if (ctx.sabotageHook) await page.evaluate(ctx.sabotageHook).catch(() => {});
   };
 
-  const load = async (hash = '#/companies?scope=all') => {
+  const load = async (hash = '#/companies') => {
     // about:blank first. `goto` to a URL differing only in its hash is a
     // SAME-DOCUMENT navigation — the module graph is never re-evaluated, so
     // the live overlay, the poller and every other module-level variable
@@ -309,7 +309,7 @@ async function main() {
     run: async (c) => {
       const shell = await c.page.evaluate(() => ({
         header: Boolean(document.querySelector('[data-status-slot]')),
-        scope: Boolean(document.querySelector('[data-scope-slot]')),
+        model: Boolean(document.querySelector('[data-model-slot]')),
         table: Boolean(document.querySelector('[data-score-table]')),
         toolbar: Boolean(document.querySelector('[data-toolbar]')),
       }));
@@ -399,62 +399,74 @@ async function main() {
 
   await suite.check({
     id: 25,
-    what: 'the scope toggle changes the count and the chip prints its denominator',
+    what: 'the model toggle changes verdicts on the same rows, and the whole universe is shown by default',
     run: async (c) => {
+      // THE SCOPE TOGGLE IS GONE (26 Aug 2026) and this check went with it. The
+      // screener now always shows every company, so there is no subset to
+      // switch to; what a reader switches instead is the MODEL, and the thing
+      // worth asserting is that doing so changes verdicts while leaving the row
+      // set alone. A toggle that changed the rows too would make the two models
+      // incomparable, which is the only reason both ship.
       const before = await c.page.evaluate(() => ({
         n: window.__sattva.rows().length,
-        chip: document.querySelector('[data-scope-slot]')?.innerText.replace(/\s+/g, ' ').trim() ?? '',
-      }));
-      await c.page.evaluate(() => {
-        const held = [...document.querySelectorAll('[data-scope-slot] button')].find((b) => /held/i.test(b.textContent));
-        held.click();
-      });
-      await c.settle();
-      const after = await c.page.evaluate(() => ({
-        n: window.__sattva.rows().length,
         all: window.__sattva.data.all().length,
-        chipText: [...document.querySelectorAll('[data-score-table] ~ *, [data-row-count]')].map((n) => n.textContent).join(' '),
+        model: document.querySelector('[data-model-banner]')?.dataset.modelBanner ?? null,
+        verdicts: window.__sattva.verdictTally(),
         heading: document.body.innerText,
       }));
-      ok(after.n !== before.n, 'switching scope must change the row count', `${before.n} → ${after.n}`);
-      ok(after.n < after.all, 'the held scope must be a subset of the record', `${after.n} of ${after.all}`);
-      const denominator = new RegExp(`of\\s+${after.all.toLocaleString('en-IN')}`);
-      ok(denominator.test(after.heading), 'the denominator must appear on screen', `no "of ${after.all}" found`);
-      // back to where we were
+
+      equal(before.n, before.all, 'every company in the record must be shown by default — there is no held/all scope any more');
+      equal(before.model, 'freefloat', 'the free-float model is the default, so the shipped view is unchanged');
+      const denominator = new RegExp(`of\\s+${before.all.toLocaleString('en-IN')}`);
+      ok(denominator.test(before.heading), 'the count must print its denominator', `no "of ${before.all}" found`);
+
       await c.page.evaluate(() => {
-        const all = [...document.querySelectorAll('[data-scope-slot] button')].find((b) => /^all$/i.test(b.textContent.trim()));
-        all.click();
+        const button = [...document.querySelectorAll('[data-model-slot] button')]
+          .find((b) => /full/i.test(b.textContent));
+        button.click();
       });
       await c.settle();
-      return `all ${before.n} → held ${after.n}, denominator ${after.all} printed`;
+
+      const after = await c.page.evaluate(() => ({
+        n: window.__sattva.rows().length,
+        model: document.querySelector('[data-model-banner]')?.dataset.modelBanner ?? null,
+        verdicts: window.__sattva.verdictTally(),
+      }));
+
+      equal(after.model, 'gimi', 'the toggle must actually switch the model in force');
+      equal(after.n, before.n, 'switching the model must NOT change which rows are shown — the comparison depends on it');
+      ok(JSON.stringify(after.verdicts) !== JSON.stringify(before.verdicts),
+        'switching the model must change the verdicts, or the second model is decoration',
+        `${JSON.stringify(before.verdicts)} vs ${JSON.stringify(after.verdicts)}`);
+
+      // back to where we were
+      await c.page.evaluate(() => {
+        const button = [...document.querySelectorAll('[data-model-slot] button')]
+          .find((b) => /^freefloatmarketcap$/i.test(b.textContent.trim()));
+        button.click();
+      });
+      await c.settle();
+      return `${before.n} of ${before.all} rows under both models · verdicts move `
+        + `${JSON.stringify(before.verdicts)} → ${JSON.stringify(after.verdicts)}`;
     },
     sabotage: persistent(`(() => {
-      // A count that stops printing its denominator — and keeps not printing it
-      // through the rebuild the scope switch triggers.
-      //
-      // WRITE ONLY WHAT CHANGES. Assigning textContent fires a characterData
-      // mutation even when the value is identical, so an unconditional write
-      // inside a characterData observer re-triggers itself for ever. The first
-      // version of this sabotage pinned a core and hung the run.
-      const strip = () => {
-        for (const node of document.querySelectorAll('*')) {
-          if (node.children.length !== 0) continue;
-          const next = node.textContent.replace(/ of .*/, '');
-          if (next !== node.textContent) node.textContent = next;
-        }
+      // The toggle stops changing anything: the second model returns the first
+      // model's verdicts. The row set still matches, the banner still flips,
+      // and only the tally gives it away — which is why the tally is asserted.
+      const patch = () => {
+        const s = window.__sattva;
+        if (!s || s.__sabotaged) return;
+        s.__sabotaged = true;
+        const real = s.verdictTally;
+        let first = null;
+        s.verdictTally = () => { first = first ?? real(); return first; };
       };
-      const observer = new MutationObserver(() => {
-        observer.disconnect();
-        strip();
-        observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-      });
-      strip();
-      observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+      patch();
+      new MutationObserver(patch).observe(document.body, { childList: true, subtree: true });
     })()`),
     restore: restoreByReload,
   }, ctx);
 
-  /* ── search, filters, sort ──────────────────────────────────────────────*/
   suite.section('Search, filters and sort');
 
   await suite.check({
@@ -962,8 +974,12 @@ async function main() {
 
   await suite.check({
     id: 34,
-    what: 'a scope switch does not block the main thread past 400 ms',
+    what: 'a model switch does not block the main thread past 400 ms',
     run: async (c) => {
+      // Was a SCOPE switch until 26 Aug 2026. The model switch replaced it and
+      // is strictly the heavier operation — it rebuilds every verdict, every
+      // rule and every flow for all rows rather than re-filtering them — so the
+      // budget is the one worth defending.
       const worst = await c.page.evaluate(async () => {
         // Measure the longest gap between animation frames while the switch
         // runs. Wall-clock duration would count time the browser spent idle;
@@ -978,24 +994,24 @@ async function main() {
           if (running) requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
-        // Not a table wait: this IS the measurement window. The check is
-        // about how long a frame is blocked, so it deliberately observes for a
-        // fixed span rather than stopping the moment the table settles.
-        const buttons = [...document.querySelectorAll('[data-scope-slot] button')];
-        buttons.find((b) => /held/i.test(b.textContent)).click();
+        // Not a table wait: this IS the measurement window. The check is about
+        // how long a frame is blocked, so it deliberately observes for a fixed
+        // span rather than stopping the moment the table settles.
+        const buttons = [...document.querySelectorAll('[data-model-slot] button')];
+        buttons.find((b) => /full/i.test(b.textContent)).click();
         await new Promise((r) => setTimeout(r, 900));
-        buttons.find((b) => /^all$/i.test(b.textContent.trim())).click();
+        buttons.find((b) => /^freefloatmarketcap$/i.test(b.textContent.trim())).click();
         await new Promise((r) => setTimeout(r, 900));
         running = false;
         return longest;
       });
       await c.settle();
-      ok(worst < 400, 'a scope switch must not freeze the interface', `longest frame gap ${worst.toFixed(0)} ms`);
-      return `longest frame gap across two scope switches: ${worst.toFixed(0)} ms`;
+      ok(worst < 400, 'a model switch must not freeze the interface', `longest frame gap ${worst.toFixed(0)} ms`);
+      return `longest frame gap across two model switches: ${worst.toFixed(0)} ms`;
     },
     sabotage: async (c) => {
       await c.page.evaluate(() => {
-        const button = [...document.querySelectorAll('[data-scope-slot] button')].find((b) => /held/i.test(b.textContent));
+        const button = [...document.querySelectorAll('[data-model-slot] button')].find((b) => /full/i.test(b.textContent));
         button.addEventListener('click', () => { const t = Date.now(); while (Date.now() - t < 600) { /* block */ } }, { once: true });
       });
     },

@@ -31,6 +31,8 @@ import { verdictFromRules } from '../public/js/model/assess.js';
 import { seriesToMap, summarise } from '../public/js/model/benchmarks.js';
 import { reviewCutoffs, CONVENTION } from '../public/js/model/calendar.js';
 import * as MSCI from '../public/js/config/msci-methodology.mjs';
+import { gimiCutoffs, assessGimi, reviewWindow, METHODOLOGIES, METHODOLOGY_IDS } from '../public/js/model/gimi.js';
+import { METHODOLOGIES as STATE_METHODOLOGIES } from '../public/js/core/state.js';
 import { inrFlow, pct, pp, signedPct, factorPct, count, cr, EM_DASH } from '../public/js/core/format.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -1164,6 +1166,159 @@ async function main() {
       // Make the buffers symmetric: the model would then predict far more
       // migration than MSCI's rules actually produce.
       c.companiesFile.model.msci.buffers.upperMultiple = 2 / 3;
+    },
+  }, ctx);
+
+  suite.section('The second methodology — MSCI\'s structure, our universe');
+
+  await suite.check({
+    id: 30,
+    what: 'the cutoff is COUNTED in free float and ANSWERED in full market cap — MSCI\'s procedure, not ours',
+    clone: deepClone,
+    run: (c) => {
+      const cut = gimiCutoffs(c.companies);
+      ok(cut.imi.cutoffInr > 0 && cut.standard.cutoffInr > 0,
+        'both cutoffs must derive', JSON.stringify({ imi: cut.imi.cutoffInr, std: cut.standard.cutoffInr }));
+
+      // THE LOAD-BEARING PROPERTY, and the whole of Finding 1: the company that
+      // sets the cutoff is found by walking DESCENDING FULL market cap while
+      // accumulating FREE FLOAT. Re-derive it here independently — reading the
+      // module's own output back would prove only that it is self-consistent.
+      const usable = c.companies.filter((x) => x.fullMcapInr > 0 && x.freeFloatMcapInr > 0);
+      const byFull = [...usable].sort((a, b) => b.fullMcapInr - a.fullMcapInr);
+      const totalFF = byFull.reduce((sum, x) => sum + x.freeFloatMcapInr, 0);
+      const walk = (targetPct) => {
+        let cum = 0;
+        for (const company of byFull) {
+          cum += company.freeFloatMcapInr;
+          if (cum >= totalFF * (targetPct / 100)) return company;
+        }
+        return byFull[byFull.length - 1];
+      };
+      const imiCompany = walk(MSCI.COVERAGE_TARGETS.imi.target);
+      equal(cut.imi.cutoffInr, imiCompany.fullMcapInr,
+        'the IMI cutoff must be the FULL market cap of the company where free-float coverage crosses the target');
+      ok(cut.imi.cutoffInr !== imiCompany.freeFloatMcapInr,
+        'and it must NOT be that company\'s free float — that is the confusion this model exists to fix',
+        `${cut.imi.cutoffInr} vs ${imiCompany.freeFloatMcapInr}`);
+
+      // Ranking by the wrong number moves the answer a long way, which is why
+      // the distinction is worth a model rather than a footnote.
+      const byFloat = [...usable].sort((a, b) => b.freeFloatMcapInr - a.freeFloatMcapInr);
+      const movedALot = usable.filter((company) => {
+        const rf = byFull.indexOf(company);
+        const rr = byFloat.indexOf(company);
+        return Math.abs(rf - rr) > 100;
+      }).length;
+      ok(movedALot > 0,
+        'the two rankings must genuinely disagree, or the correction would be cosmetic',
+        `${movedALot} companies move more than 100 places`);
+
+      // A company with only one of the two sizes is EXCLUDED, never zeroed. A
+      // zero would sort to the bottom, inflate the denominator and drag both
+      // cutoffs down.
+      equal(cut.universeCount + cut.skipped, cut.consideredCount,
+        'every company is either in the walk or counted as skipped — none is silently zeroed');
+
+      return `IMI ₹${cr(cut.imi.cutoffInr)} Cr at ${imiCompany.name} `
+        + `(${cut.imi.count} of ${cut.universeCount}, ${cut.imi.coveragePct.toFixed(2)}% coverage) · `
+        + `Standard ₹${cr(cut.standard.cutoffInr)} Cr · ${movedALot} companies move >100 ranks`;
+    },
+    sabotage: (c) => {
+      // Rank by free float — the exact mistake. Every company's full market cap
+      // is replaced by its free float, so the "two numbers" collapse into one
+      // and the walk answers in the wrong currency.
+      for (const company of c.companies) company.fullMcapInr = company.freeFloatMcapInr;
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 31,
+    what: 'the buffers are asymmetric, and they genuinely suppress migration a bright line would call',
+    clone: deepClone,
+    run: (c) => {
+      const cut = gimiCutoffs(c.companies);
+      const b = cut.buffers;
+      ok(b.lowerMultiple < 1 && b.upperMultiple > 1,
+        'the buffers must straddle the cutoff', `${b.lowerMultiple} / ${b.upperMultiple}`);
+      ok(Math.abs((1 - b.lowerMultiple) - (b.upperMultiple - 1)) > 0.1,
+        'and they must be ASYMMETRIC — a symmetric pair is not MSCI\'s rule',
+        `down ${(1 - b.lowerMultiple).toFixed(3)} vs up ${(b.upperMultiple - 1).toFixed(3)}`);
+      equal(cut.bars.imiLower, Math.round(cut.imi.cutoffInr * b.lowerMultiple), 'the lower bar is 2/3 of the cutoff');
+      equal(cut.bars.imiUpper, Math.round(cut.imi.cutoffInr * b.upperMultiple), 'the upper bar is 1.5x the cutoff');
+
+      // THE MEASURED CONSEQUENCE. Companies sitting between the lower buffer and
+      // the cutoff are exactly the ones a single bright line would drop and
+      // MSCI's rules keep. If that set is empty the buffer changes nothing on
+      // this data and the claim would be untested.
+      const sheltered = c.companies.filter((x) =>
+        x.fullMcapInr > 0 && x.fullMcapInr >= cut.bars.imiLower && x.fullMcapInr < cut.imi.cutoffInr).length;
+      ok(sheltered > 0,
+        'the lower buffer must shelter companies a bright line would have dropped',
+        `${sheltered} companies sit between ₹${cr(cut.bars.imiLower)} Cr and the cutoff`);
+
+      const held = c.companies.filter((x) =>
+        x.fullMcapInr > 0 && x.fullMcapInr >= cut.imi.cutoffInr && x.fullMcapInr < cut.bars.imiUpper).length;
+      ok(held > 0,
+        'and the entry buffer must hold back companies above the cutoff but under 1.5x it',
+        `${held} companies`);
+
+      return `bars ₹${cr(cut.bars.imiLower)} / ₹${cr(cut.imi.cutoffInr)} / `
+        + `₹${cr(cut.bars.imiUpper)} Cr · ${sheltered} sheltered, ${held} held back`;
+    },
+    sabotage: () => {
+      // Make the buffers symmetric — the model would then call migrations MSCI's
+      // hysteresis suppresses.
+      MSCI.BUFFERS.lowerMultiple = 0.9;
+      MSCI.BUFFERS.upperMultiple = 1.1;
+    },
+    restore: () => { MSCI.BUFFERS.lowerMultiple = 2 / 3; MSCI.BUFFERS.upperMultiple = 1.5; },
+  }, ctx);
+
+  await suite.check({
+    id: 32,
+    what: 'the two models disagree on real companies, and neither is a relabelling of the other',
+    clone: deepClone,
+    run: (c) => {
+      const cut = gimiCutoffs(c.companies);
+      const win = reviewWindow(c.companiesFile.asOf.bhavcopyTradeDate);
+      const keyOf = (x) => x.isin ?? x.name;
+      const quarantined = new Set(c.companies.filter((x) => x.shareCountQuarantine).map(keyOf));
+      const gctx = { cutoffs: cut, quarantined, keyOf, window: win };
+
+      let changed = 0;
+      const tally = {};
+      for (const company of c.companies) {
+        const before = company.assessment?.verdict ?? 'unknown';
+        const after = assessGimi(company, gctx).verdict;
+        tally[after] = (tally[after] ?? 0) + 1;
+        if (before !== after) changed += 1;
+      }
+      ok(changed > 50,
+        'the second model must reach materially different conclusions, or it is not worth shipping two',
+        `${changed} of ${c.companies.length} verdicts differ`);
+      ok(Object.keys(tally).length >= 4,
+        'and it must produce a spread of verdicts, not collapse everything into one',
+        JSON.stringify(tally));
+
+      // The two id lists are duplicated on purpose (state.js must not import the
+      // model graph). Asserting them equal is what keeps the duplication honest.
+      equal(JSON.stringify(STATE_METHODOLOGIES), JSON.stringify(METHODOLOGY_IDS),
+        'the storage layer and the model must agree on which methodologies exist');
+      for (const id of METHODOLOGY_IDS) {
+        ok(METHODOLOGIES[id].attribution, `${id} must state whose rules it applies`);
+      }
+
+      return `${changed} of ${c.companies.length} verdicts differ · ${Object.keys(tally).length} distinct verdicts under GIMI`;
+    },
+    sabotage: (c) => {
+      // Make every company identical in the eyes of the second model, so it
+      // agrees with the first everywhere and the toggle becomes decoration.
+      for (const company of c.companies) company.assessment = { verdict: 'stable' };
+      for (const company of c.companies) {
+        company.fullMcapInr = 1e15;
+        company.freeFloatMcapInr = 1e14;
+      }
     },
   }, ctx);
 

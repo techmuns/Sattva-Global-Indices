@@ -656,6 +656,54 @@ the current book and wrong for history.
 carries three sources — `desk`, `observed`, `msci` — and assertion 29 fails if an MSCI rule block
 loses its page citation or if the buffer geometry is made symmetric.
 
+### 2.26 Two methodologies ship side by side, and neither is presented as the truth
+
+§2.25 names three gaps between this model and MSCI's rules. They are **implemented**, in
+`public/js/model/gimi.js`, behind a toggle at the top of the screener:
+
+| Toggle | Model | What decides a verdict |
+| --- | --- | --- |
+| `freefloatmarketcap` | the shipped one, `assess.js` | free-float market cap vs the desk's rupee bands |
+| `freefloat+fullmarketcap` | `gimi.js` | MSCI's procedure: rank by full mcap, count free float to the coverage target, test free float separately, with MSCI's buffers |
+
+Both ship because the desk's model is already useful and the client accepts it. The honest way to
+argue for a better one is to **show the difference**, not assert it. Measured on the committed
+record: **249 of 1,254 verdicts differ**, **432 companies move more than 100 ranks** depending on
+which size measure ranks them, **168** sit sheltered by the lower buffer and **166** are held back by
+the entry buffer.
+
+The case that proves the point is **LIC**: ₹18,759 Cr of free float, far above the desk's ₹4,000 Cr
+band, so the shipped model calls it a likely inclusion. Its Foreign Inclusion Factor is 0.035 against
+MSCI's floor of **0.15**, so MSCI would not include it at all. One model cannot see that; the other
+says so on the row.
+
+Rules that bind both:
+
+- **Neither model may be presented as MSCI's own output.** The GIMI cutoffs are derived by MSCI's
+  procedure from **our** universe — the ~1,254 Indian companies we hold, floated by the exchanges —
+  while MSCI derives its own across all of emerging markets using its own float factors. The
+  structure is MSCI's; the number is ours. `CUTOFF_DISCLOSURE` states this on every surface showing a
+  cutoff, and the derived IMI cutoff (₹3,338 Cr) landing inside MSCI's own published reference range
+  (₹2,952–6,789 Cr) is corroboration, not proof.
+- **The toggle changes verdicts, never rows.** Both models see the same universe or the comparison is
+  meaningless. Assertion 25 asserts it and is proved by making the second model return the first's
+  verdicts.
+- **Every rule carries the UNIT of its own numbers** — `inr`, `rank` or `factor`. Rendering MSCI's
+  FIF floor of 0.15 as "₹0 Cr" is not a rounding artefact, it is a different number.
+- **A distance is paired with the rule it was measured against**, named by the model, never "the last
+  rule fired". LIC is what proved it: the verdict turns on the FIF floor while the last rule recorded
+  is about free float, so the sentence reported a real percentage against an unrelated threshold.
+- **A company missing either size is excluded from the walk and counted**, never zeroed — a zero
+  sorts to the bottom, inflates the denominator and drags both cutoffs down. The coverage cost of the
+  correction is 3 extra `unknown` verdicts, and it is reported rather than absorbed.
+
+### 2.27 The scope toggle is gone; the screener shows every company
+
+Held-versus-all was removed on 26 Aug 2026. A candidate no fund holds yet is precisely what an
+inclusion forecast is *about*, so defaulting to "held" made the product's own subject something a
+reader had to opt into. `state.SCOPE` is now the constant `'all'`, and the header carries the model
+toggle in the space the scope toggle used to occupy.
+
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
 ### 3.1 The iShares `.xls` files are not `.xls` files
@@ -1066,6 +1114,7 @@ public/
   index.html                       placeholder; the interface is a later prompt
   js/config/thresholds.mjs         EVERY desk threshold, and nowhere else
   js/config/msci-methodology.mjs   MSCI's published rules, cited to a page
+  js/model/gimi.js                 the second methodology: MSCI's procedure, our universe
   data/universe.json               generated — the desk's tracked universe seed
   data/fund-benchmarks.json        generated — daily fund closes + FX, for the band adjustment
   data/msci-funds.json             generated — do not hand-edit

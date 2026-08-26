@@ -10,11 +10,11 @@ const LOGO =
 /**
  * Mount the shell and return its slots.
  *
- * The header carries the scope toggle and exactly one status pill. There is no
+ * The header carries the methodology toggle and exactly one status pill. There is no
  * global search box: search belongs to the table it filters, where the reader
  * can see what it is doing to the row count.
  */
-export function mountShell(container, { scopeControl }) {
+export function mountShell(container, { modelControl }) {
   const status = headerStatus();
 
   const brand = el('div', { class: 'flex items-center gap-3' }, [
@@ -29,7 +29,7 @@ export function mountShell(container, { scopeControl }) {
     ]),
   ]);
 
-  const scopeSlot = el('div', { 'data-scope-slot': '', class: 'flex items-center gap-3' }, [scopeControl]);
+  const modelSlot = el('div', { 'data-model-slot': '', class: 'flex items-center gap-3' }, [modelControl]);
 
   const statusSlot = el('div', { 'data-status-slot': '' }, [
     statusControl({ ...status, onClick: () => openSourcesModal() }),
@@ -42,7 +42,7 @@ export function mountShell(container, { scopeControl }) {
       el('div', { class: 'mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-6 gap-y-3 px-6 py-3' }, [
         brand,
         el('div', { class: 'ml-auto flex flex-wrap items-center gap-3' }, [
-          scopeSlot,
+          modelSlot,
           statusSlot,
         ]),
       ]),
@@ -66,7 +66,7 @@ export function mountShell(container, { scopeControl }) {
   return {
     header,
     host: $('[data-view-host]', main),
-    scopeSlot,
+    modelSlot,
     /** Re-render the pill in place. Called on every tick, because the claim it
      *  makes — live or last close — depends on whether a byte arrived. */
     setStatus(next) {
