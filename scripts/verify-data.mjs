@@ -35,6 +35,7 @@ import { SEGMENT_BAND_ADJUSTMENT } from '../public/js/config/thresholds.mjs';
 import { gimiCutoffs, assessGimi, reviewWindow, METHODOLOGIES, METHODOLOGY_IDS } from '../public/js/model/gimi.js';
 import { METHODOLOGIES as STATE_METHODOLOGIES } from '../public/js/core/state.js';
 import { inrFlow, pct, pp, signedPct, factorPct, count, cr, EM_DASH } from '../public/js/core/format.js';
+import { feedRegistry } from '../public/js/data/companies.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -1071,6 +1072,121 @@ async function main() {
     sabotage: (c) => {
       // Convert nothing: hand back the dollar series as though it were rupees.
       c.benchmarks.fx.series = c.benchmarks.fx.series.map((p) => ({ ...p, close: 1 }));
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 35,
+    what: 'every dated feed on the record is in the freshness registry, and the oldest one governs',
+    clone: deepClone,
+    run: (c) => {
+      // ⚠ A REGISTRY THAT OMITS A FEED OVERSTATES FRESHNESS SILENTLY.
+      //
+      // freshness().oldest is what the CSV banner prints as "the oldest of these
+      // governs how current this file is". It ran over four feeds and left out
+      // both inputs the relative-performance column depends on — and those were
+      // the stale ones: quote-stats 19 Aug and fund-benchmarks 21 Aug against a
+      // 27 Aug bhavcopy. A workbook measured to the 19th was stamped as current
+      // to the 27th.
+      //
+      // The threshold is the RECORD's own asOf block, which the registry cannot
+      // move: every dated key there must have a feed. A new feed added to the
+      // build without one fails here rather than quietly not being counted.
+      const asOf = c.companiesFile.asOf ?? {};
+      const feeds = feedRegistry(asOf);
+      const covered = new Set(feeds.map((f) => f.raw).filter(Boolean));
+      const uncovered = Object.entries(asOf)
+        .filter(([, value]) => value)
+        .filter(([, value]) => !covered.has(value));
+      empty(uncovered,
+        'every dated key in the record\'s asOf block is carried by a freshness feed',
+        ([key, value]) => `asOf.${key} = ${value} is on the record but in no feed`);
+
+      const dated = feeds.filter((f) => f.date);
+      ok(dated.length === feeds.length, 'every registered feed resolved to a date',
+        feeds.filter((f) => !f.date).map((f) => f.id).join(', ') || 'all dated');
+
+      const oldest = dated.reduce((a, b) => (a.date <= b.date ? a : b));
+      // The consequence, not just the coverage: the oldest must actually be
+      // older than the newest, or the registry is reporting one moment for
+      // feeds that plainly move on different cadences.
+      const newest = dated.reduce((a, b) => (a.date >= b.date ? a : b));
+      ok(oldest.id !== newest.id, 'the feeds genuinely differ in age — one date for all of them is not a registry',
+        `oldest ${oldest.id} ${oldest.date.toISOString().slice(0, 10)}, newest ${newest.id} ${newest.date.toISOString().slice(0, 10)}`);
+
+      return `${feeds.length} feeds · oldest "${oldest.label}" ${oldest.date.toISOString().slice(0, 10)}`
+        + ` · newest "${newest.label}" ${newest.date.toISOString().slice(0, 10)}`;
+    },
+    sabotage: (c) => {
+      // Add a feed to the record without adding it to the registry — the exact
+      // shape of the bug, and the one a future author will actually make.
+      c.companiesFile.asOf.someNewFeedCapturedAt = '2020-01-01T00:00:00.000Z';
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 34,
+    what: 'every stored distance names the rule it was measured against, and reproduces from it',
+    clone: deepClone,
+    run: (c) => {
+      // ⚠ THIS EXISTS BECAUSE TWO SEPARATE BUGS MET HERE.
+      //
+      // First, build-companies wrote company.assessment as an explicit allowlist
+      // and silently dropped distanceRuleKey and methodology — so the field was
+      // not null on the record, it was ABSENT on all 1,263, and the drill panel
+      // only worked because the browser re-assesses in memory.
+      //
+      // Second, assess() fell back to "the last rule fired", which was the wrong
+      // rule for three of the eight verdicts that carry a distance:
+      // possible-inclusion is measured against the UPPER band while the lower
+      // one fired last, exclusion-risk against the LOWER band while the upper
+      // one fired last, and the final stable against the upper exclusion band
+      // while a rank crossing may have been pushed after it. Each paired a real
+      // percentage with an unrelated threshold, in the drill and in the export.
+      //
+      // The reproduction test is the load-bearing half: naming a rule is cheap,
+      // and only recomputing the distance from that rule's own threshold proves
+      // the name is the right one.
+      const missing = c.companies.filter((x) => x.assessment && x.assessment.distanceRuleKey === undefined);
+      empty(missing, 'distanceRuleKey survives the build\'s allowlist', (x) => x.name);
+      const noMethod = c.companies.filter((x) => x.assessment && x.assessment.methodology === undefined);
+      empty(noMethod, 'methodology survives the build\'s allowlist', (x) => x.name);
+
+      const orphans = [];
+      const wrong = [];
+      let reproduced = 0;
+      for (const company of c.companies) {
+        const a = company.assessment;
+        if (!a || a.distancePct === null || a.distancePct === undefined) continue;
+        const rule = (a.rulesFired ?? []).find((r) => r.key === a.distanceRuleKey);
+        if (!rule) { orphans.push(`${company.name}: names "${a.distanceRuleKey}", not in its own rulesFired`); continue; }
+        if (rule.unit !== 'inr' || !(rule.threshold > 0) || company.freeFloatMcapInr == null) continue;
+        const implied = ((company.freeFloatMcapInr - rule.threshold) / rule.threshold) * 100;
+        reproduced += 1;
+        if (Math.abs(implied - a.distancePct) > 0.01) {
+          wrong.push(`${company.name} (${a.verdict}): stored ${a.distancePct}, "${a.distanceRuleKey}" implies ${implied.toFixed(3)}`);
+        }
+      }
+      empty(orphans, 'every distance names a rule present in its own audit trail', (x) => x);
+      empty(wrong, 'every rupee distance recomputes from the threshold it names', (x) => x);
+      ok(reproduced > 500, 'enough distances were actually recomputed for that to mean something',
+        `${reproduced} recomputed`);
+
+      const tally = {};
+      for (const company of c.companies) {
+        const a = company.assessment;
+        if (a?.distanceRuleKey) tally[`${a.verdict}->${a.distanceRuleKey}`] = (tally[`${a.verdict}->${a.distanceRuleKey}`] ?? 0) + 1;
+      }
+      return `${reproduced} rupee distances recomputed, 0 wrong · ${Object.keys(tally).length} verdict/rule pairings`;
+    },
+    sabotage: (c) => {
+      // The bug itself: point every distance at the last rule fired, which is
+      // what the fallback did before every call site named its own.
+      for (const company of c.companies) {
+        const a = company.assessment;
+        if (!a?.rulesFired?.length) continue;
+        a.distanceRuleKey = a.rulesFired[a.rulesFired.length - 1].key;
+      }
     },
   }, ctx);
 

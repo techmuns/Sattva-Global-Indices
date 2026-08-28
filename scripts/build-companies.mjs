@@ -678,6 +678,14 @@ function main() {
     company.assessment = {
       verdict: assessment.verdict,
       distancePct: assessment.distancePct,
+      // ⚠ AN ALLOWLIST SILENTLY DROPS WHAT IT DOES NOT NAME. These two were
+      // computed by assess() and thrown away here, so nothing reading
+      // companies.json could tell which threshold a distance was measured
+      // against or which model produced a verdict — the drill worked only
+      // because the browser re-assesses in memory. Anything added to the
+      // assessment must be added here too, or it exists only on screen.
+      distanceRuleKey: assessment.distanceRuleKey,
+      methodology: assessment.methodology,
       rulesFired: assessment.rulesFired,
       notes: assessment.notes,
       // Stated on the record, not only on the screen — this travels into the
@@ -1184,6 +1192,10 @@ function main() {
       bseCapturedAt: bseFreeFloat.capturedAt,
       bhavcopyTradeDate: prices.tradeDate,
       quoteStatsCapturedAt: quoteStats?.capturedAt ?? null,
+      // The benchmark series' own newest close — not capturedAt. A fetch that
+      // ran today over a series that ends four days ago is four days stale, and
+      // this is the field the freshness registry reads.
+      benchmarksAsOf: benchmarks?.asOf ?? null,
       bseScripMasterCapturedAt: master.capturedAt,
       nseUniverseCapturedAt: nseUniverse.capturedAt,
     },

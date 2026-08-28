@@ -124,7 +124,21 @@ export function rebuildModel() {
   const assessments = new Map();
   const gimiAssessments = new Map();
   const flows = new Map();
-  const context = { boundary, ranks, quarantined, keyOf: data.keyOf };
+  // ⚠ segmentReturns IS LOAD-BEARING AND WAS MISSING.
+  //
+  // build-companies.mjs passes it; this did not. So every verdict in
+  // companies.json was computed against bands FLOATED by the segment's move,
+  // and every verdict the browser recomputed was against the RAW bands — two
+  // different models wearing one name, differing silently on any row near a
+  // band. It is read from the record rather than recomputed so the browser and
+  // the build cannot drift apart again.
+  const context = {
+    boundary,
+    ranks,
+    quarantined,
+    keyOf: data.keyOf,
+    segmentReturns: data.benchmarks()?.adjustment?.segmentReturnsInrPct ?? null,
+  };
   const flowContext = { flowPrimitives: data.flowPrimitives(), segmentFloatTotals: floatTotals };
 
   const cutoffs = gimiCutoffs(live);
@@ -202,6 +216,29 @@ export function assessmentFor(company, methodology = state.getMethodology()) {
 /** The same company under the OTHER methodology, for side-by-side comparison. */
 export const otherAssessmentFor = (company) =>
   assessmentFor(company, state.getMethodology() === 'gimi' ? 'freefloat' : 'gimi');
+
+/**
+ * The rule a stored distance was measured against — never "the last rule fired".
+ *
+ * The last rule is the wrong one for three of the eight verdicts that carry a
+ * distance: possible-inclusion is measured against the UPPER inclusion band
+ * while the lower one fired last, exclusion-risk against the LOWER exclusion
+ * band while the upper one fired last, and a final stable against the upper
+ * exclusion band while a rank crossing may have been pushed after it. The
+ * fallback stands only for a record written before distanceRuleKey existed.
+ */
+function distanceRule(row) {
+  const assessment = assessmentFor(row);
+  const rules = assessment?.rulesFired ?? [];
+  return rules.find((r) => r.key === assessment?.distanceRuleKey) ?? rules[rules.length - 1] ?? null;
+}
+
+/** A threshold's unit, spelled out, because an export carries no chrome. */
+const THRESHOLD_UNIT_LABEL = {
+  inr: '₹ Cr',
+  rank: 'position in the free-float ranking',
+  factor: 'dimensionless float factor',
+};
 
 export function flowsFor(company) {
   return modelState?.flows.get(data.keyOf(company)) ?? company.flowEstimate ?? { flows: [], notSampled: [], shape: null };
@@ -1559,20 +1596,23 @@ export function renderCompanies(host, { onStatusChange } = {}) {
             // it, by name and by value.
             { label: 'Distance to threshold % (measured against its OWN threshold — not comparable across rows)',
               value: (r) => assessmentFor(r)?.distancePct ?? '' },
-            { label: 'Threshold it was measured against', value: (r) => {
-              const rules = assessmentFor(r)?.rulesFired ?? [];
-              const last = rules[rules.length - 1];
-              return last?.label ?? '';
+            // ⚠ THE RULE THE DISTANCE NAMES, NOT THE LAST ONE PUSHED, AND ITS
+            // OWN UNIT. These columns read rulesFired[length - 1] under a
+            // hard-coded "₹ Cr" header. Both were wrong: a rank rule's
+            // threshold is a COUNT of companies, and 165 of them went through
+            // toCrore and exported as "0" beside a header asserting rupees. The
+            // export is where a mislabelled unit is least recoverable, because
+            // the sheet leaves the page with none of its chrome.
+            { label: 'Threshold it was measured against', value: (r) => distanceRule(r)?.label ?? '' },
+            { label: 'Threshold value', value: (r) => {
+              const rule = distanceRule(r);
+              if (!rule || rule.threshold === null || rule.threshold === undefined) return '';
+              return rule.unit === 'inr' ? Math.round(toCrore(rule.threshold)) : rule.threshold;
             } },
-            { label: 'Threshold value ₹ Cr', value: (r) => {
-              const rules = assessmentFor(r)?.rulesFired ?? [];
-              const last = rules[rules.length - 1];
-              return last?.threshold === null || last?.threshold === undefined ? '' : Math.round(toCrore(last.threshold));
-            } },
+            { label: 'Threshold unit', value: (r) => THRESHOLD_UNIT_LABEL[distanceRule(r)?.unit] ?? '' },
             { label: 'Threshold source', value: (r) => {
-              const rules = assessmentFor(r)?.rulesFired ?? [];
-              const last = rules[rules.length - 1];
-              return last ? (THRESHOLD_SOURCE[last.thresholdSource]?.label ?? last.thresholdSource) : '';
+              const rule = distanceRule(r);
+              return rule ? (THRESHOLD_SOURCE[rule.thresholdSource]?.label ?? rule.thresholdSource) : '';
             } },
             { label: 'Rules fired', value: (r) => (assessmentFor(r)?.rulesFired ?? []).map((x) => `${x.label}: ${x.result}`).join(' | ') },
             { label: 'Share count quarantined', value: (r) => (r.shareCountQuarantine ? 'yes' : '') },

@@ -102,8 +102,14 @@ export const benchmarks = () => requireLoaded().benchmarks ?? null;
  * the newest would claim the page is fresher than its oldest input. The oldest
  * is what actually governs how current the screen is, and it is named.
  */
-export function freshness() {
-  const asOf = requireLoaded().asOf ?? {};
+/**
+ * The feed registry, as a pure function of the record's own `asOf` block.
+ *
+ * Split out of `freshness()` so a verifier can run it against a committed file
+ * without loading the browser's data module — a registry nothing can test
+ * against the record is how a feed goes missing from it for a week.
+ */
+export function feedRegistry(asOf = {}) {
   const feeds = [
     {
       id: 'ishares',
@@ -148,7 +154,66 @@ export function freshness() {
       cadence: 'every trading day',
       staleAfterDays: 4,
     },
-  ].map((feed) => ({ ...feed, date: parseFeedDate(feed.raw) }));
+    // ⚠ THESE TWO WERE MISSING, AND THEY ARE THE STALE ONES.
+    //
+    // freshness().oldest is what the export banner prints as "the oldest of
+    // these governs how current this file is", and it was computed over four
+    // feeds that did not include either input the relative-performance column
+    // depends on. Measured the day they were added: quote-stats 19 Aug,
+    // fund-benchmarks 21 Aug, prices 27 Aug — so a workbook carrying a column
+    // measured to 19 August was stamped with a freshness governed by the 27th.
+    //
+    // The benchmark feed is the sharper case. It is a soft step in the daily
+    // refresh, and it went unwritten from 21 to 28 August while every run
+    // reported green — an outage that was invisible on the one surface built to
+    // make outages visible. A soft-failing step whose staleness nothing tracks
+    // is exactly how an outage becomes an absence.
+    {
+      id: 'benchmarks',
+      label: 'Segment benchmark closes',
+      raw: asOf.benchmarksAsOf ?? null,
+      detail: 'the newest close across the benchmark series — Yahoo, and the ETF rather than the index',
+      // Attempted daily and allowed to fail so a Yahoo outage cannot stop the
+      // exchange pipeline behind it. Past about three days the bands are being
+      // floated by a segment move that is no longer current.
+      cadence: 'attempted every trading day, allowed to fail',
+      staleAfterDays: 3,
+    },
+    {
+      id: 'quote-stats',
+      label: 'Munshot quote statistics',
+      raw: asOf.quoteStatsCapturedAt ?? null,
+      detail: 'average daily volume and corporate-action flags, captured monthly from a rate-limited third party',
+      cadence: 'monthly, on the 1st',
+      staleAfterDays: 40,
+    },
+    // The two reference feeds. They decide WHO IS IN the universe and how a
+    // holding row reaches an ISIN, so a stale one does not show as a wrong
+    // number — it shows as a company that is simply not there. That is the
+    // harder failure to notice, which is the argument for registering them.
+    {
+      id: 'bse-master',
+      label: 'BSE scrip master',
+      raw: asOf.bseScripMasterCapturedAt ?? null,
+      detail: 'the active-equity scrip list the whole scrape universe is built from — a code not in it is never fetched',
+      cadence: 'every trading day',
+      staleAfterDays: 4,
+    },
+    {
+      id: 'nse-universe',
+      label: 'NSE index universe',
+      raw: asOf.nseUniverseCapturedAt ?? null,
+      detail: 'the ISIN-to-NSE-symbol bridge from niftyindices — the only thing an NSE symbol is ever asserted from',
+      cadence: 'every trading day, guaranteed weekly',
+      staleAfterDays: 9,
+    },
+  ];
+  return feeds.map((feed) => ({ ...feed, date: parseFeedDate(feed.raw) }));
+}
+
+export function freshness() {
+  const asOf = requireLoaded().asOf ?? {};
+  const feeds = feedRegistry(asOf);
 
   const dated = feeds.filter((f) => f.date);
   const oldest = dated.length
@@ -252,9 +317,62 @@ export function sourceRegistry() {
       tier: 'measured',
       asOf: meta.nseUniverseCapturedAt ?? null,
       asOfDate: parseFeedDate(meta.nseUniverseCapturedAt ?? null),
+      cadence: byId['nse-universe']?.cadence ?? null,
+      staleAfterDays: byId['nse-universe']?.staleAfterDays ?? null,
       status: meta.nseUniverseCapturedAt ? 'ok' : 'missing',
       count: null,
       countLabel: null,
+    },
+    {
+      id: 'bse-master',
+      name: 'BSE scrip master',
+      publisher: 'BSE Ltd',
+      what:
+        'The active-equity scrip list. Every scrape universe is built from it and nothing is ever fetched '
+        + 'for a code that is not in it — which is the only thing standing between this project and a '
+        + 'delisted company\'s frozen figures, because BSE answers for those as though nothing happened.',
+      tier: 'measured',
+      asOf: meta.bseScripMasterCapturedAt ?? null,
+      asOfDate: parseFeedDate(meta.bseScripMasterCapturedAt ?? null),
+      cadence: byId['bse-master']?.cadence ?? null,
+      staleAfterDays: byId['bse-master']?.staleAfterDays ?? null,
+      status: meta.bseScripMasterCapturedAt ? 'ok' : 'missing',
+      count: requireLoaded().coverage?.scripMasterCount ?? null,
+      countLabel: 'active equity scrips',
+    },
+    {
+      id: 'benchmarks',
+      name: 'Segment benchmark closes',
+      publisher: 'Yahoo Finance',
+      what:
+        'Daily closes for EEM, SMIN, EEMS and INDA, plus USDINR. THE ETF, NOT THE INDEX — an ETF carries '
+        + 'tracking error and trades at a premium or discount, and MSCI index levels are licensed. The '
+        + 'funds quote in dollars, so every figure derived here is converted to rupees with both halves '
+        + 'of each product struck on the same date.',
+      tier: 'measured',
+      asOf: meta.benchmarksAsOf ?? null,
+      asOfDate: parseFeedDate(meta.benchmarksAsOf ?? null),
+      cadence: byId.benchmarks?.cadence ?? null,
+      staleAfterDays: byId.benchmarks?.staleAfterDays ?? null,
+      status: meta.benchmarksAsOf ? 'ok' : 'missing',
+      count: requireLoaded().benchmarks?.funds?.length ?? null,
+      countLabel: 'benchmark series',
+    },
+    {
+      id: 'quote-stats',
+      name: 'Munshot quote statistics',
+      publisher: 'fastapi.muns.io — Yahoo Finance NSE data',
+      what:
+        'Average daily volume, used to express a modelled flow in days of trading. Captured monthly from a '
+        + 'rate-limited third party, so it is the feed most likely to be the oldest thing on the page.',
+      tier: 'measured',
+      asOf: meta.quoteStatsCapturedAt ?? null,
+      asOfDate: parseFeedDate(meta.quoteStatsCapturedAt ?? null),
+      cadence: byId['quote-stats']?.cadence ?? null,
+      staleAfterDays: byId['quote-stats']?.staleAfterDays ?? null,
+      status: meta.quoteStatsCapturedAt ? 'ok' : 'missing',
+      count: requireLoaded().quoteStats?.companyCount ?? null,
+      countLabel: 'companies with a statistics row',
     },
   ];
 }

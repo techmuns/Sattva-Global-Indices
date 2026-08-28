@@ -225,7 +225,7 @@ export function assess(company, context) {
       null, bandInfo
     ));
     if (freeFloat >= inclusion.highInr) {
-      return finish('likely-inclusion', rulesFired, distanceTo(freeFloat, inclusion.highInr), segment, company);
+      return finish('likely-inclusion', rulesFired, distanceTo(freeFloat, inclusion.highInr), segment, company, 'entry-upper-band');
     }
     rulesFired.push(rule(
       'entry-lower-band', 'Free float vs the desk\'s lower inclusion band',
@@ -234,9 +234,11 @@ export function assess(company, context) {
       null, bandInfo
     ));
     if (freeFloat >= inclusion.lowInr) {
-      return finish('possible-inclusion', rulesFired, distanceTo(freeFloat, inclusion.highInr), segment, company);
+      // Measured against the UPPER band while the last rule fired is the LOWER one
+      // — the fallback named the wrong threshold here.
+      return finish('possible-inclusion', rulesFired, distanceTo(freeFloat, inclusion.highInr), segment, company, 'entry-upper-band');
     }
-    return finish('stable', rulesFired, distanceTo(freeFloat, inclusion.lowInr), segment, company);
+    return finish('stable', rulesFired, distanceTo(freeFloat, inclusion.lowInr), segment, company, 'entry-lower-band');
   }
 
   // Constituents: exclusion first, because falling out of the index entirely
@@ -248,7 +250,7 @@ export function assess(company, context) {
       null, bandInfo
   ));
   if (freeFloat < exclusion.lowInr) {
-    return finish('likely-exclusion', rulesFired, distanceTo(freeFloat, exclusion.lowInr), segment, company);
+    return finish('likely-exclusion', rulesFired, distanceTo(freeFloat, exclusion.lowInr), segment, company, 'exclusion-lower-band');
   }
 
   rulesFired.push(rule(
@@ -258,7 +260,8 @@ export function assess(company, context) {
       null, bandInfo
   ));
   if (freeFloat < exclusion.highInr) {
-    return finish('exclusion-risk', rulesFired, distanceTo(freeFloat, exclusion.lowInr), segment, company);
+    // Measured against the LOWER band while the last rule fired is the UPPER one.
+    return finish('exclusion-risk', rulesFired, distanceTo(freeFloat, exclusion.lowInr), segment, company, 'exclusion-lower-band');
   }
 
   // ---- the segment question, by RANK CROSSING ---------------------------
@@ -274,7 +277,7 @@ export function assess(company, context) {
         `Ranked ${rank} of ${ranks.size} companies with a free-float reading.`,
       ));
       if (rank <= standardCount) {
-        return finish('migration-up', rulesFired, distanceTo(freeFloat, boundary.rankCutoffInr), segment, company);
+        return finish('migration-up', rulesFired, distanceTo(freeFloat, boundary.rankCutoffInr), segment, company, 'rank-crossing-up');
       }
     } else if (segment === 'standard') {
       rulesFired.push(rule(
@@ -284,12 +287,14 @@ export function assess(company, context) {
         `Ranked ${rank} of ${ranks.size} companies with a free-float reading.`,
       ));
       if (rank > standardCount) {
-        return finish('migration-down', rulesFired, distanceTo(freeFloat, boundary.rankCutoffInr), segment, company);
+        return finish('migration-down', rulesFired, distanceTo(freeFloat, boundary.rankCutoffInr), segment, company, 'rank-crossing-down');
       }
     }
   }
 
-  return finish('stable', rulesFired, distanceTo(freeFloat, exclusion.highInr), segment, company);
+  // The final stable: measured against the upper EXCLUSION band, while the last
+  // rule fired may be a rank crossing that did not trigger.
+  return finish('stable', rulesFired, distanceTo(freeFloat, exclusion.highInr), segment, company, 'exclusion-upper-band');
 }
 
 /** Signed distance to a threshold, as a percentage of that threshold. */
@@ -308,9 +313,16 @@ function finish(verdict, rulesFired, distancePct, segment, company, distanceRule
     segment,
     rulesFired,
     distancePct: distancePct === null ? null : Number(distancePct.toFixed(3)),
-    // Which rule the distance was measured against. Reading "the last rule
-    // fired" instead breaks the moment a verdict turns on one rule while
-    // another was pushed after it.
+    // Which rule the distance was measured against.
+    //
+    // ⚠ THE FALLBACK IS A LAST RESORT, NOT THE NORMAL PATH. Every call site
+    // above names its rule explicitly, because "the last rule fired" was WRONG
+    // for three of the eight verdicts that carry a distance: possible-inclusion
+    // is measured against the upper band while the lower one fired last,
+    // exclusion-risk against the lower band while the upper one fired last, and
+    // the final stable against the upper exclusion band while a rank crossing
+    // may have been pushed after it. Each paired a real percentage with an
+    // unrelated threshold in the drill and in the export.
     distanceRuleKey: distanceRuleKey ?? (rulesFired.length ? rulesFired[rulesFired.length - 1].key : null),
     notes,
     // Named explicitly rather than left undefined: the interface now carries

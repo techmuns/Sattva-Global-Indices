@@ -253,14 +253,59 @@ export function returnSince(series, fromDate, fxMap) {
   return percentChange(first, last, fxMap);
 }
 
-/** The date of the point `returnSince` would measure from, for disclosure. */
-export function anchorDateFor(series, fromDate) {
+/**
+ * The date of the point `returnSince` would measure from, for disclosure.
+ *
+ * ⚠ IT CLAMPS, AND A CALLER MUST BE ABLE TO SEE THAT IT DID.
+ *
+ * The on-or-before scan returns the last point in the series when `fromDate` is
+ * past the end of it — so anchorDateFor(eem, '2027-01-01') answers 2026-08-28
+ * with no signal that the date asked for was unreachable. That is the common
+ * case, not an exotic one: the benchmark series is chronically a few days behind
+ * the price file, so a caller asking for "today" routinely lands past the end
+ * and gets a real-looking percentage for a window that closed days earlier.
+ *
+ * The date is still returned, because the walk-back is legitimate across a
+ * holiday and callers depend on it. `resolvedWithin` is what lets a caller tell
+ * a two-day holiday walk from a two-week clamp, and any window that must be
+ * struck on an exact date should refuse rather than accept the clamp.
+ */
+export function anchorDateFor(series, fromDate, { maxWalkBackDays = null } = {}) {
   let first = null;
   for (const point of series ?? []) {
     if (point.date <= fromDate) first = point;
     else break;
   }
-  return first?.date ?? null;
+  if (!first) return null;
+  if (maxWalkBackDays === null) return first.date;
+  const gapDays = Math.round((Date.parse(fromDate) - Date.parse(first.date)) / 86400000);
+  return gapDays <= maxWalkBackDays ? first.date : null;
+}
+
+/**
+ * The same scan, reporting what it did rather than only its answer.
+ *
+ * `{requested, resolved, walkedBackDays, exact, pastEndOfSeries}` — everything a
+ * guard needs to assert that a window was struck where it was asked to be.
+ */
+export function resolveAnchor(series, requestedDate) {
+  const points = series ?? [];
+  if (points.length === 0 || !requestedDate) {
+    return { requested: requestedDate ?? null, resolved: null, walkedBackDays: null, exact: false, pastEndOfSeries: false };
+  }
+  const resolved = anchorDateFor(points, requestedDate);
+  const seriesEnd = points[points.length - 1].date;
+  return {
+    requested: requestedDate,
+    resolved,
+    walkedBackDays: resolved === null
+      ? null
+      : Math.round((Date.parse(requestedDate) - Date.parse(resolved)) / 86400000),
+    exact: resolved === requestedDate,
+    // The distinguishing fact: a walk-back inside the series is a holiday, a
+    // walk-back FROM PAST THE END is the series not reaching far enough.
+    pastEndOfSeries: requestedDate > seriesEnd,
+  };
 }
 
 function percentChange(first, last, fxMap) {
