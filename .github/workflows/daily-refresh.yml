@@ -146,4 +146,32 @@ jobs:
           TRADE_DATE=$(node -e "console.log(require('./public/data/prices.json').tradeDate)")
           git add public/data
           git commit -m "Daily refresh for ${TRADE_DATE}"
-          git push
+
+          # REBASE AND RETRY, because a bare `git push` loses the whole run.
+          #
+          # This job holds the working tree for several minutes (the BSE float
+          # scrape alone is ~7 of them), and ANY push to main inside that window
+          # makes the final push non-fast-forward. Measured on 28 Aug 2026: the
+          # full pipeline ran clean end to end — master, NSE, float, prices,
+          # rebuild, verify — committed, and then threw all of it away on
+          # `! [rejected] main -> main (fetch first)` because a commit had landed
+          # while it worked. A human pushing during the evening window, or two
+          # workflows overlapping, does this in ordinary operation.
+          #
+          # Rebasing is safe here specifically because this job only ever touches
+          # public/data: it has no opinion about anything else on the branch, so
+          # replaying its one commit onto whatever arrived cannot lose work.
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              echo "Pushed on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Push rejected on attempt ${attempt} — someone pushed while this ran. Rebasing."
+            sleep $((attempt * 5))
+            git pull --rebase origin main || {
+              echo "::error title=Rebase failed::public/data conflicts with origin/main. Resolve by hand."
+              exit 1
+            }
+          done
+          echo "::error title=Push failed::Five attempts, all rejected. The data is built and verified but not committed."
+          exit 1
