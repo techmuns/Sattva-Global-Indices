@@ -1,7 +1,7 @@
 {
   "source": "BSE India — api.bseindia.com/BseIndiaAPI/api/ListofScripData (status=Active; the equity segment plus GROUP=IF, which is InvITs and REITs)",
   "note": "indicativeFullMcapInr selects the scrape universe only. It is BSE's Mktcap field converted from ₹ crore to rupees, struck at a moment this endpoint does not disclose, and must not render as a company's market cap. The authoritative full market cap comes from scripts/scrape-bse-freefloat.mjs, alongside the free float it is divided by.",
-  "capturedAt": "2026-08-28T02:20:18.637Z",
+  "capturedAt": "2026-08-28T02:32:37.948Z",
   "scripCount": 5006,
   "withIneIsinCount": 4735,
   "scrips": [
@@ -140,7 +140,7 @@
     {
       "scripCode": "500031",
       "scripId": "BAJAJELEC",
-      "name": "Bajaj Electricals Ltd",
+      "name": "Bajaj Electricals Ltd-$",
       "issuerName": "Bajaj Electricals Ltd.",
       "isin": "INE193E01025",
       "group": "A",
@@ -162,7 +162,7 @@
     {
       "scripCode": "500033",
       "scripId": "FORCEMOT",
-      "name": "Force Motors Ltd",
+      "name": "Force Motors Ltd-$",
       "issuerName": "Force Motors Limited",
       "isin": "INE451A01017",
       "group": "A",
@@ -195,7 +195,7 @@
     {
       "scripCode": "500039",
       "scripId": "BANCOINDIA",
-      "name": "Banco Products (India) Ltd",
+      "name": "Banco Products (India) Ltd-$",
       "issuerName": "Banco Products (India) Ltd.",
       "isin": "INE213C01025",
       "group": "A",
@@ -283,7 +283,7 @@
     {
       "scripCode": "500052",
       "scripId": "BEPL",
-      "name": "Bhansali Engineering Polymers Ltd",
+      "name": "Bhansali Engineering Polymers Ltd-$",
       "issuerName": "Bhansali Engineering Polymers Ltd.",
       "isin": "INE922A01025",
       "group": "B",
@@ -371,7 +371,7 @@
     {
       "scripCode": "500078",
       "scripId": "OAL",
-      "name": "Oriental Aromatics Ltd",
+      "name": "Oriental Aromatics Ltd-$",
       "issuerName": "ORIENTAL AROMATICS LIMITED",
       "isin": "INE959C01023",
       "group": "B",
@@ -635,7 +635,7 @@
     {
       "scripCode": "500120",
       "scripId": "DIAMINESQ",
-      "name": "Diamines & Chemicals Ltd",
+      "name": "Diamines & Chemicals Ltd-$",
       "issuerName": "Diamines & Chemicals Ltd.",
       "isin": "INE591D01014",
       "group": "B",
@@ -646,7 +646,7 @@
     {
       "scripCode": "500123",
       "scripId": "ELANTAS",
-      "name": "Elantas Beck India Ltd",
+      "name": "Elantas Beck India Ltd-$",
       "issuerName": "Elantas Beck India Ltd",
       "isin": "INE280B01018",
       "group": "B",
@@ -767,7 +767,7 @@
     {
       "scripCode": "500147",
       "scripId": "COCKERILL",
-      "name": "John Cockerill India Ltd",
+      "name": "John Cockerill India Ltd-$",
       "issuerName": "JOHN COCKERILL INDIA LIMITED",
       "isin": "INE515A01019",
       "group": "B",
@@ -1174,7 +1174,7 @@
     {
       "scripCode": "500213",
       "scripId": "ITHL",
-      "name": "International Travel House Ltd",
+      "name": "International Travel House Ltd-$",
       "issuerName": "International Travel House Ltd",
       "isin": "INE262B01016",
       "group": "X",
@@ -1185,7 +1185,7 @@
     {
       "scripCode": "500214",
       "scripId": "IONEXCHANG",
-      "name": "Ion Exchange India Ltd",
+      "name": "Ion Exchange India Ltd-$",
       "issuerName": "Ion Exchange (India) Ltd",
       "isin": "INE570A01022",
       "group": "A",
@@ -1328,7 +1328,7 @@
     {
       "scripCode": "500241",
       "scripId": "KIRLOSBROS",
-      "name": "Kirloskar Brothers Ltd",
+      "name": "Kirloskar Brothers Ltd-$",
       "issuerName": "Kirloskar Brothers Ltd.",
       "isin": "INE732A01036",
       "group": "A",
@@ -1493,7 +1493,7 @@
     {
       "scripCode": "500264",
       "scripId": "MAFATIND",
-      "name": "Mafatlal Industries Ltd",
+      "name": "Mafatlal Industries Ltd-$",
       "issuerName": "Mafatlal Industries Ltd.",
       "isin": "INE270B01035",
       "group": "B",
@@ -1526,7 +1526,7 @@
     {
       "scripCode": "500267",
       "scripId": "MAJESAUT",
-      "name": "Majestic Auto Ltd",
+      "name": "Majestic Auto Ltd-$",
       "issuerName": "Majestic Auto Ltd.",
       "isin": "INE201B01022",
       "group": "T",
@@ -1955,7 +1955,7 @@
     {
       "scripCode": "500346",
       "scripId": "PUNJCOMMU",
-      "name": "Punjab Communications Ltd",
+      "name": "Punjab Communications Ltd-$",
       "issuerName": "Punjab Communications Limited",
       "isin": "INE609A01010",
       "group": "B",
@@ -2076,7 +2076,7 @@
     {
       "scripCode": "500371",
       "scripId": "SAMTELIN",
-      "name": "Samtel India Ltd",
+      "name": "Samtel India Ltd-$",
       "issuerName": "Samtel (India) Ltd.",
       "isin": "INE538C01017",
       "group": "XT",
@@ -2274,7 +2274,7 @@
     {
       "scripCode": "500414",
       "scripId": "TIMEX",
-      "name": "Timex Group India Ltd",
+      "name": "Timex Group India Ltd-$",
       "issuerName": "Timex Group India Ltd",
       "isin": "INE064A01026",
       "group": "B",
@@ -2318,7 +2318,7 @@
     {
       "scripCode": "500422",
       "scripId": "TRANSCHEM",
-      "name": "Transchem Ltd",
+      "name": "Transchem Ltd-$",
       "issuerName": "Transchem Limited.",
       "isin": "INE019B01010",
       "group": "XT",
@@ -3143,7 +3143,7 @@
     {
       "scripCode": "501311",
       "scripId": "JAYBHCR",
-      "name": "Jayabharat Credit Ltd",
+      "name": "Jayabharat Credit Ltd-$",
       "issuerName": "Jayabharat Credit Ltd.",
       "isin": "INE998D01011",
       "group": "X",
@@ -3330,7 +3330,7 @@
     {
       "scripCode": "501848",
       "scripId": "GARWAOFFS",
-      "name": "Garware Offshore Services Ltd",
+      "name": "Garware Offshore Services Ltd-$",
       "issuerName": "GARWARE OFFSHORE SERVICES LIMITED",
       "isin": "INE446C01013",
       "group": "X",
@@ -3363,7 +3363,7 @@
     {
       "scripCode": "502090",
       "scripId": "SAGCEM",
-      "name": "Sagar Cements Ltd",
+      "name": "Sagar Cements Ltd-$",
       "issuerName": "Sagar Cements Ltd",
       "isin": "INE229C01021",
       "group": "B",
@@ -3374,7 +3374,7 @@
     {
       "scripCode": "502137",
       "scripId": "DECCANCE",
-      "name": "Deccan Cements Ltd",
+      "name": "Deccan Cements Ltd-$",
       "issuerName": "Deccan Cements Ltd.",
       "isin": "INE583C01021",
       "group": "B",
@@ -3396,7 +3396,7 @@
     {
       "scripCode": "502168",
       "scripId": "NCLIND",
-      "name": "NCL Industries Ltd",
+      "name": "NCL Industries Ltd-$",
       "issuerName": "NCL Industries Limited",
       "isin": "INE732C01016",
       "group": "B",
@@ -3418,7 +3418,7 @@
     {
       "scripCode": "502180",
       "scripId": "SHREDIGCEM",
-      "name": "Shree Digvijay Cement Company Ltd",
+      "name": "Shree Digvijay Cement Company Ltd-$",
       "issuerName": "Shree Digvijay Cement Co. Ltd.",
       "isin": "INE232A01011",
       "group": "B",
@@ -3451,7 +3451,7 @@
     {
       "scripCode": "502281",
       "scripId": "TRIVENIGQ",
-      "name": "Triveni Glass Ltd",
+      "name": "Triveni Glass Ltd-$",
       "issuerName": "Triveni Glass Ltd.",
       "isin": "INE094C01011",
       "group": "XT",
@@ -3484,7 +3484,7 @@
     {
       "scripCode": "502355",
       "scripId": "BALKRISIND",
-      "name": "Balkrishna Industries Ltd",
+      "name": "Balkrishna Industries Ltd-$",
       "issuerName": "Balkrishna Industries Ltd.",
       "isin": "INE787D01026",
       "group": "A",
@@ -3583,7 +3583,7 @@
     {
       "scripCode": "502865",
       "scripId": "FORBESCO",
-      "name": "Forbes & Company Ltd",
+      "name": "Forbes & Company Ltd-$",
       "issuerName": "Forbes & Company Ltd",
       "isin": "INE518A01013",
       "group": "X",
@@ -3616,7 +3616,7 @@
     {
       "scripCode": "502901",
       "scripId": "JAMSHRI",
-      "name": "Jamshri Realty Ltd",
+      "name": "Jamshri Realty Ltd-$",
       "issuerName": "JAMSHRI REALTY LIMITED",
       "isin": "INE462D01034",
       "group": "X",
@@ -3649,7 +3649,7 @@
     {
       "scripCode": "502958",
       "scripId": "LAKSHMIMIL",
-      "name": "Lakshmi Mills Company Ltd",
+      "name": "Lakshmi Mills Company Ltd-$",
       "issuerName": "Lakshmi Mills Company ltd",
       "isin": "INE938C01019",
       "group": "B",
@@ -3726,7 +3726,7 @@
     {
       "scripCode": "503162",
       "scripId": "RELCHEMQ",
-      "name": "Reliance Chemotex Industries Ltd",
+      "name": "Reliance Chemotex Industries Ltd-$",
       "issuerName": "Reliance Chemotex Industries Ltd.",
       "isin": "INE750D01016",
       "group": "B",
@@ -3946,7 +3946,7 @@
     {
       "scripCode": "503722",
       "scripId": "BANSWRAS",
-      "name": "Banswara Syntex Ltd",
+      "name": "Banswara Syntex Ltd-$",
       "issuerName": "Banswara Syntex Ltd.",
       "isin": "INE629D01020",
       "group": "B",
@@ -3979,7 +3979,7 @@
     {
       "scripCode": "503804",
       "scripId": "SHRIDINE",
-      "name": "Shri Dinesh Mills Ltd",
+      "name": "Shri Dinesh Mills Ltd-$",
       "issuerName": "Shri Dinesh Mills Ltd.",
       "isin": "INE204C01024",
       "group": "XT",
@@ -4001,7 +4001,7 @@
     {
       "scripCode": "503811",
       "scripId": "SIYSIL",
-      "name": "Siyaram Silk Mills Ltd",
+      "name": "Siyaram Silk Mills Ltd-$",
       "issuerName": "Siyaram Silk Mills Ltd.",
       "isin": "INE076B01028",
       "group": "B",
@@ -4023,7 +4023,7 @@
     {
       "scripCode": "503837",
       "scripId": "SHRAJSYNQ",
-      "name": "Shree Rajasthan Syntex Ltd",
+      "name": "Shree Rajasthan Syntex Ltd-$",
       "issuerName": "Shree Rajasthan Syntex Ltd.",
       "isin": "INE796C01011",
       "group": "X",
@@ -4056,7 +4056,7 @@
     {
       "scripCode": "503960",
       "scripId": "BBL",
-      "name": "Bharat Bijlee Ltd",
+      "name": "Bharat Bijlee Ltd-$",
       "issuerName": "Bharat Bijlee Ltd.",
       "isin": "INE464A01036",
       "group": "B",
@@ -4122,7 +4122,7 @@
     {
       "scripCode": "504076",
       "scripId": "JYOTI",
-      "name": "Jyoti Ltd",
+      "name": "Jyoti Ltd-$",
       "issuerName": "Jyoti Ltd.",
       "isin": "INE511D01012",
       "group": "X",
@@ -4166,7 +4166,7 @@
     {
       "scripCode": "504093",
       "scripId": "PANAENERG",
-      "name": "Panasonic Energy India Company Ltd",
+      "name": "Panasonic Energy India Company Ltd-$",
       "issuerName": "Panasonic Energy India Co. Ltd.",
       "isin": "INE795A01017",
       "group": "X",
@@ -4188,7 +4188,7 @@
     {
       "scripCode": "504132",
       "scripId": "PERMAGN",
-      "name": "Permanent Magnets Ltd",
+      "name": "Permanent Magnets Ltd-$",
       "issuerName": "Permanent Magnets Ltd.",
       "isin": "INE418E01018",
       "group": "B",
@@ -4232,7 +4232,7 @@
     {
       "scripCode": "504220",
       "scripId": "WSI",
-      "name": "W. S. Industries (India) Ltd",
+      "name": "W. S. Industries (India) Ltd-$",
       "issuerName": "W.S. Industries (India) Ltd.",
       "isin": "INE100D01014",
       "group": "B",
@@ -4430,7 +4430,7 @@
     {
       "scripCode": "504614",
       "scripId": "SARDAEN",
-      "name": "Sarda Energy & Minerals Ltd",
+      "name": "Sarda Energy & Minerals Ltd-$",
       "issuerName": "Sarda Energy & Minerals Ltd",
       "isin": "INE385C01021",
       "group": "A",
@@ -4540,7 +4540,7 @@
     {
       "scripCode": "504879",
       "scripId": "ORIENTCER",
-      "name": "Orient Ceratech Ltd",
+      "name": "Orient Ceratech Ltd-$",
       "issuerName": "ORIENT CERATECH LIMITED",
       "isin": "INE569C01020",
       "group": "B",
@@ -4562,7 +4562,7 @@
     {
       "scripCode": "504903",
       "scripId": "RATHIST",
-      "name": "Rathi Steel & Power Ltd",
+      "name": "Rathi Steel & Power Ltd-$",
       "issuerName": "Rathi Steel & Power Ltd",
       "isin": "INE336C01016",
       "group": "XT",
@@ -4573,7 +4573,7 @@
     {
       "scripCode": "504908",
       "scripId": "DUNCANENG",
-      "name": "Duncan Engineering Ltd",
+      "name": "Duncan Engineering Ltd-$",
       "issuerName": "Duncan Engineering Limited",
       "isin": "INE340F01011",
       "group": "X",
@@ -4672,7 +4672,7 @@
     {
       "scripCode": "505036",
       "scripId": "ACGL",
-      "name": "Automobile Corporation of Goa Ltd",
+      "name": "Automobile Corporation of Goa Ltd-$",
       "issuerName": "Automobile Corpn. of Goa Ltd.",
       "isin": "INE451C01013",
       "group": "B",
@@ -4705,7 +4705,7 @@
     {
       "scripCode": "505163",
       "scripId": "ZFSTEERING",
-      "name": "ZF Steering Gear India Ltd",
+      "name": "ZF Steering Gear India Ltd-$",
       "issuerName": "Z.F. Steering Gear (India) Limited",
       "isin": "INE116C01012",
       "group": "B",
@@ -4782,7 +4782,7 @@
     {
       "scripCode": "505242",
       "scripId": "DYNAMATECH",
-      "name": "Dynamatic Technologies Ltd",
+      "name": "Dynamatic Technologies Ltd-$",
       "issuerName": "Dynamatic Technologies Ltd.",
       "isin": "INE221B01012",
       "group": "A",
@@ -4848,7 +4848,7 @@
     {
       "scripCode": "505324",
       "scripId": "MANUGRAPH",
-      "name": "Manugraph India Ltd",
+      "name": "Manugraph India Ltd-$",
       "issuerName": "Manugraph India Ltd",
       "isin": "INE867A01022",
       "group": "T",
@@ -4903,7 +4903,7 @@
     {
       "scripCode": "505368",
       "scripId": "SEMAC",
-      "name": "Semac Construction Ltd",
+      "name": "Semac Construction Ltd-$",
       "issuerName": "Semac Construction Limited",
       "isin": "INE617A01013",
       "group": "B",
@@ -5079,7 +5079,7 @@
     {
       "scripCode": "505681",
       "scripId": "BIMETAL",
-      "name": "Bimetal Bearings Ltd",
+      "name": "Bimetal Bearings Ltd-$",
       "issuerName": "Bimetal Bearings Ltd",
       "isin": "INE469A01019",
       "group": "B",
@@ -5145,7 +5145,7 @@
     {
       "scripCode": "505710",
       "scripId": "GRAUWEIL",
-      "name": "Grauer & Weil India Ltd",
+      "name": "Grauer & Weil India Ltd-$",
       "issuerName": "Grauer & Weil (India) Ltd.",
       "isin": "INE266D01021",
       "group": "B",
@@ -5167,7 +5167,7 @@
     {
       "scripCode": "505714",
       "scripId": "GABRIEL",
-      "name": "Gabriel India Ltd",
+      "name": "Gabriel India Ltd-$",
       "issuerName": "Gabriel India Ltd.",
       "isin": "INE524A01029",
       "group": "A",
@@ -5321,7 +5321,7 @@
     {
       "scripCode": "505854",
       "scripId": "TRF",
-      "name": "TRF Ltd",
+      "name": "TRF Ltd-$",
       "issuerName": "TRF Ltd",
       "isin": "INE391D01019",
       "group": "B",
@@ -5343,7 +5343,7 @@
     {
       "scripCode": "505890",
       "scripId": "KENNAMET",
-      "name": "Kennametal India Ltd",
+      "name": "Kennametal India Ltd-$",
       "issuerName": "Kennametal India Limtied",
       "isin": "INE717A01029",
       "group": "B",
@@ -5431,7 +5431,7 @@
     {
       "scripCode": "506076",
       "scripId": "GRINDWELL",
-      "name": "Grindwell Norton Ltd",
+      "name": "Grindwell Norton Ltd-$",
       "issuerName": "Grindwell Norton Ltd.",
       "isin": "INE536A01023",
       "group": "A",
@@ -5596,7 +5596,7 @@
     {
       "scripCode": "506186",
       "scripId": "GSLTD",
-      "name": "Galaxy Supermarket Ltd",
+      "name": "Galaxy Supermarket Ltd-$",
       "issuerName": "GALAXY SUPERMARKET LIMITED",
       "isin": "INE403B01016",
       "group": "X",
@@ -5695,7 +5695,7 @@
     {
       "scripCode": "506261",
       "scripId": "MODISONLTD",
-      "name": "Modison Ltd",
+      "name": "Modison Ltd-$",
       "issuerName": "MODISON LIMITED",
       "isin": "INE737D01021",
       "group": "T",
@@ -5750,7 +5750,7 @@
     {
       "scripCode": "506401",
       "scripId": "DEEPAKNTR",
-      "name": "Deepak Nitrite Ltd",
+      "name": "Deepak Nitrite Ltd-$",
       "issuerName": "Deepak Nitrite Limited",
       "isin": "INE288B01029",
       "group": "A",
@@ -5783,7 +5783,7 @@
     {
       "scripCode": "506480",
       "scripId": "GOCLCORP",
-      "name": "GOCL Corporation Ltd",
+      "name": "GOCL Corporation Ltd-$",
       "issuerName": "GOCL Corporation Limited",
       "isin": "INE077F01035",
       "group": "B",
@@ -5838,7 +5838,7 @@
     {
       "scripCode": "506532",
       "scripId": "NITTAGELA",
-      "name": "Nitta Gelatin India Ltd",
+      "name": "Nitta Gelatin India Ltd-$",
       "issuerName": "Nitta Gelatin India Ltd",
       "isin": "INE265B01019",
       "group": "B",
@@ -5860,7 +5860,7 @@
     {
       "scripCode": "506579",
       "scripId": "AGVENTURES",
-      "name": "AG Ventures Ltd",
+      "name": "AG Ventures Ltd-$",
       "issuerName": "AG VENTURES LIMITED",
       "isin": "INE321D01016",
       "group": "X",
@@ -5915,7 +5915,7 @@
     {
       "scripCode": "506618",
       "scripId": "PUNJABCHEM",
-      "name": "Punjab Chemicals & Crop Protection Ltd",
+      "name": "Punjab Chemicals & Crop Protection Ltd-$",
       "issuerName": "Punjab Chemicals and Crop Protection Ltd.",
       "isin": "INE277B01014",
       "group": "B",
@@ -5970,7 +5970,7 @@
     {
       "scripCode": "506685",
       "scripId": "ULTRAMAR",
-      "name": "Ultramarine & Pigments Ltd",
+      "name": "Ultramarine & Pigments Ltd-$",
       "issuerName": "Ultramarine & Pigments Ltd.",
       "isin": "INE405A01021",
       "group": "B",
@@ -5981,7 +5981,7 @@
     {
       "scripCode": "506687",
       "scripId": "TRANSPEK",
-      "name": "Transpek Industry Ltd",
+      "name": "Transpek Industry Ltd-$",
       "issuerName": "Transpek Industry Ltd.",
       "isin": "INE687A01016",
       "group": "T",
@@ -6003,7 +6003,7 @@
     {
       "scripCode": "506734",
       "scripId": "MYSORPETRO",
-      "name": "Mysore Petro Chemicals Ltd",
+      "name": "Mysore Petro Chemicals Ltd-$",
       "issuerName": "Mysore Petro Chemicals Ltd.",
       "isin": "INE741A01011",
       "group": "T",
@@ -6014,7 +6014,7 @@
     {
       "scripCode": "506767",
       "scripId": "ALKYLAMINE",
-      "name": "Alkyl Amines Chemicals Ltd",
+      "name": "Alkyl Amines Chemicals Ltd-$",
       "issuerName": "Alkyl Amines Chemicals Ltd.",
       "isin": "INE150B01039",
       "group": "A",
@@ -6058,7 +6058,7 @@
     {
       "scripCode": "506854",
       "scripId": "TANFACIND",
-      "name": "TANFAC Industries Ltd",
+      "name": "TANFAC Industries Ltd-$",
       "issuerName": "TANFAC Industries Ltd.",
       "isin": "INE639B01023",
       "group": "B",
@@ -6102,7 +6102,7 @@
     {
       "scripCode": "506919",
       "scripId": "MAKERSL",
-      "name": "Makers Laboratories Ltd",
+      "name": "Makers Laboratories Ltd-$",
       "issuerName": "Makers Laboratories Ltd.",
       "isin": "INE987A01010",
       "group": "B",
@@ -6190,7 +6190,7 @@
     {
       "scripCode": "507180",
       "scripId": "KESARENT",
-      "name": "Kesar Enterprises Ltd",
+      "name": "Kesar Enterprises Ltd-$",
       "issuerName": "Kesar Enterprises Ltd.",
       "isin": "INE133B01027",
       "group": "X",
@@ -6201,7 +6201,7 @@
     {
       "scripCode": "507205",
       "scripId": "TI",
-      "name": "Tilaknagar Industries Ltd",
+      "name": "Tilaknagar Industries Ltd-$",
       "issuerName": "Tilaknagar Industries Ltd",
       "isin": "INE133E01013",
       "group": "A",
@@ -6487,7 +6487,7 @@
     {
       "scripCode": "507747",
       "scripId": "TTKHLTCARE",
-      "name": "TTK Healthcare Ltd",
+      "name": "TTK Healthcare Ltd-$",
       "issuerName": "TTK Healthcare Ltd.",
       "isin": "INE910C01018",
       "group": "B",
@@ -6608,7 +6608,7 @@
     {
       "scripCode": "507828",
       "scripId": "ANSALHSG",
-      "name": "Ansal Housing Ltd",
+      "name": "Ansal Housing Ltd-$",
       "issuerName": "ANSAL HOUSING LIMITED",
       "isin": "INE880B01015",
       "group": "X",
@@ -6641,7 +6641,7 @@
     {
       "scripCode": "507852",
       "scripId": "ADDIND",
-      "name": "Addi Industries Ltd",
+      "name": "Addi Industries Ltd-$",
       "issuerName": "Addi Industries Ltd.",
       "isin": "INE757C01021",
       "group": "B",
@@ -6685,7 +6685,7 @@
     {
       "scripCode": "507880",
       "scripId": "VIPIND",
-      "name": "VIP Industries Ltd",
+      "name": "VIP Industries Ltd-$",
       "issuerName": "V.I.P. Industries Ltd.",
       "isin": "INE054A01027",
       "group": "A",
@@ -6883,7 +6883,7 @@
     {
       "scripCode": "508486",
       "scripId": "HAWKINCOOK",
-      "name": "Hawkins Cookers Ltd",
+      "name": "Hawkins Cookers Ltd-$",
       "issuerName": "Hawkins Cooker Ltd.",
       "isin": "INE979B01015",
       "group": "B",
@@ -6894,7 +6894,7 @@
     {
       "scripCode": "508494",
       "scripId": "WARRENTEA",
-      "name": "Warren Tea Ltd",
+      "name": "Warren Tea Ltd-$",
       "issuerName": "Warren Tea Ltd.",
       "isin": "INE712A01012",
       "group": "X",
@@ -7037,7 +7037,7 @@
     {
       "scripCode": "508941",
       "scripId": "PANCARBON",
-      "name": "Panasonic Carbon India Company Ltd",
+      "name": "Panasonic Carbon India Company Ltd-$",
       "issuerName": "Panasonic Carbon India Co.Ltd",
       "isin": "INE013E01017",
       "group": "X",
@@ -7301,7 +7301,7 @@
     {
       "scripCode": "509162",
       "scripId": "INDAG",
-      "name": "Indag Rubber Ltd",
+      "name": "Indag Rubber Ltd-$",
       "issuerName": "Indag Rubber Ltd.",
       "isin": "INE802D01023",
       "group": "X",
@@ -7323,7 +7323,7 @@
     {
       "scripCode": "509220",
       "scripId": "PTL",
-      "name": "PTL Enterprises Ltd",
+      "name": "PTL Enterprises Ltd-$",
       "issuerName": "PTL Enterprises Ltd",
       "isin": "INE034D01049",
       "group": "B",
@@ -7334,7 +7334,7 @@
     {
       "scripCode": "509243",
       "scripId": "TVSSRICHAK",
-      "name": "TVS Srichakra Ltd",
+      "name": "TVS Srichakra Ltd-$",
       "issuerName": "TVS Srichakra Ltd.",
       "isin": "INE421C01016",
       "group": "B",
@@ -7411,7 +7411,7 @@
     {
       "scripCode": "509486",
       "scripId": "CAPRIHANS",
-      "name": "Caprihans India Ltd",
+      "name": "Caprihans India Ltd-$",
       "issuerName": "Caprihans India Ltd.",
       "isin": "INE479A01018",
       "group": "XT",
@@ -7488,7 +7488,7 @@
     {
       "scripCode": "509567",
       "scripId": "GOACARBON",
-      "name": "Goa Carbon Ltd",
+      "name": "Goa Carbon Ltd-$",
       "issuerName": "Goa Carbon Ltd.",
       "isin": "INE426D01013",
       "group": "B",
@@ -7675,7 +7675,7 @@
     {
       "scripCode": "509874",
       "scripId": "SHALPAINTS",
-      "name": "Shalimar Paints Ltd",
+      "name": "Shalimar Paints Ltd-$",
       "issuerName": "Shalimar Paints Ltd.",
       "isin": "INE849C01026",
       "group": "T",
@@ -7906,7 +7906,7 @@
     {
       "scripCode": "511076",
       "scripId": "AEROENTER",
-      "name": "Aeroflex Enterprises Ltd",
+      "name": "Aeroflex Enterprises Ltd-$",
       "issuerName": "AEROFLEX ENTERPRISES LIMITED",
       "isin": "INE065D01027",
       "group": "B",
@@ -8247,7 +8247,7 @@
     {
       "scripCode": "511431",
       "scripId": "VAKRANGEE",
-      "name": "Vakrangee Ltd",
+      "name": "Vakrangee Ltd-$",
       "issuerName": "Vakrangee Limited",
       "isin": "INE051B01021",
       "group": "B",
@@ -9919,7 +9919,7 @@
     {
       "scripCode": "512519",
       "scripId": "DONEAR",
-      "name": "Donear Industries Ltd",
+      "name": "Donear Industries Ltd-$",
       "issuerName": "Donear Industries Ltd",
       "isin": "INE668D01028",
       "group": "B",
@@ -9930,7 +9930,7 @@
     {
       "scripCode": "512527",
       "scripId": "SUPER",
-      "name": "Super Sales India Ltd",
+      "name": "Super Sales India Ltd-$",
       "issuerName": "Super Sales India Ltd.",
       "isin": "INE091C01017",
       "group": "XT",
@@ -9985,7 +9985,7 @@
     {
       "scripCode": "512565",
       "scripId": "NEELKANTH",
-      "name": "Neelkanth Ltd",
+      "name": "Neelkanth Ltd-$",
       "issuerName": "NEELKANTH LIMITED",
       "isin": "INE581D01015",
       "group": "X",
@@ -9996,7 +9996,7 @@
     {
       "scripCode": "512573",
       "scripId": "AVANTIFEED",
-      "name": "Avanti Feeds Ltd",
+      "name": "Avanti Feeds Ltd-$",
       "issuerName": "Avanti Feeds ltd.",
       "isin": "INE871C01038",
       "group": "A",
@@ -10084,7 +10084,7 @@
     {
       "scripCode": "512604",
       "scripId": "HARIAEXPO",
-      "name": "Haria Exports Ltd",
+      "name": "Haria Exports Ltd-$",
       "issuerName": "Haria Exports Ltd.",
       "isin": "INE772B01014",
       "group": "XT",
@@ -10150,7 +10150,7 @@
     {
       "scripCode": "513005",
       "scripId": "CHROME",
-      "name": "Chrome Silicon Ltd",
+      "name": "Chrome Silicon Ltd-$",
       "issuerName": "Chrome Silicon Limited",
       "isin": "INE114E01013",
       "group": "X",
@@ -10238,7 +10238,7 @@
     {
       "scripCode": "513108",
       "scripId": "GANDHITUBE",
-      "name": "Gandhi Special Tubes Ltd",
+      "name": "Gandhi Special Tubes Ltd-$",
       "issuerName": "Gandhi Special Tubes Ltd.",
       "isin": "INE524B01027",
       "group": "B",
@@ -10271,7 +10271,7 @@
     {
       "scripCode": "513121",
       "scripId": "ORICONENT",
-      "name": "Oricon Enterprises Ltd",
+      "name": "Oricon Enterprises Ltd-$",
       "issuerName": "Oricon Enterprises Ltd.",
       "isin": "INE730A01022",
       "group": "B",
@@ -10304,7 +10304,7 @@
     {
       "scripCode": "513228",
       "scripId": "PENIND",
-      "name": "Pennar Industries Ltd",
+      "name": "Pennar Industries Ltd-$",
       "issuerName": "Pennar Industries Ltd.",
       "isin": "INE932A01024",
       "group": "A",
@@ -10337,7 +10337,7 @@
     {
       "scripCode": "513262",
       "scripId": "SSWL",
-      "name": "Steel Strips Wheels Ltd",
+      "name": "Steel Strips Wheels Ltd-$",
       "issuerName": "Steel Strips & Wheels Ltd",
       "isin": "INE802C01033",
       "group": "B",
@@ -10348,7 +10348,7 @@
     {
       "scripCode": "513269",
       "scripId": "MANINDS",
-      "name": "Man Industries (India) Ltd",
+      "name": "Man Industries (India) Ltd-$",
       "issuerName": "Man Industries (India) Ltd",
       "isin": "INE993A01026",
       "group": "B",
@@ -10370,7 +10370,7 @@
     {
       "scripCode": "513303",
       "scripId": "MDRNSTL",
-      "name": "Modern Steels Ltd",
+      "name": "Modern Steels Ltd-$",
       "issuerName": "Modern Steels Limited",
       "isin": "INE001F01019",
       "group": "X",
@@ -10414,7 +10414,7 @@
     {
       "scripCode": "513353",
       "scripId": "COCHINM",
-      "name": "Cochin Minerals & Rutiles Ltd",
+      "name": "Cochin Minerals & Rutiles Ltd-$",
       "issuerName": "Cochin Minerals & Rutile Ltd.",
       "isin": "INE105D01013",
       "group": "X",
@@ -10469,7 +10469,7 @@
     {
       "scripCode": "513397",
       "scripId": "VALLABHSQ",
-      "name": "Vallabh Steels Ltd",
+      "name": "Vallabh Steels Ltd-$",
       "issuerName": "Vallabh Steels ltd",
       "isin": "INE457E01016",
       "group": "X",
@@ -10546,7 +10546,7 @@
     {
       "scripCode": "513460",
       "scripId": "MAHALXSE",
-      "name": "Mahalaxmi Seamless Ltd",
+      "name": "Mahalaxmi Seamless Ltd-$",
       "issuerName": "Mahalaxmi Seamless Ltd.",
       "isin": "INE257F01017",
       "group": "Z",
@@ -10667,7 +10667,7 @@
     {
       "scripCode": "513519",
       "scripId": "PITTIENG",
-      "name": "Pitti Engineering Ltd",
+      "name": "Pitti Engineering Ltd-$",
       "issuerName": "PITTI ENGINEERING LIMITED",
       "isin": "INE450D01021",
       "group": "B",
@@ -10788,7 +10788,7 @@
     {
       "scripCode": "513629",
       "scripId": "TULSYAN",
-      "name": "Tulsyan NEC Ltd",
+      "name": "Tulsyan NEC Ltd-$",
       "issuerName": "Tulsyan NEC Ltd",
       "isin": "INE463D01016",
       "group": "X",
@@ -10854,7 +10854,7 @@
     {
       "scripCode": "513709",
       "scripId": "SHILGRAVQ",
-      "name": "Shilp Gravures Ltd",
+      "name": "Shilp Gravures Ltd-$",
       "issuerName": "Shilp Gravures Ltd.",
       "isin": "INE960A01017",
       "group": "B",
@@ -10887,7 +10887,7 @@
     {
       "scripCode": "513729",
       "scripId": "AROGRANITE",
-      "name": "Aro Granite Industries Ltd",
+      "name": "Aro Granite Industries Ltd-$",
       "issuerName": "Aro Granite Industries Ltd.",
       "isin": "INE210C01013",
       "group": "B",
@@ -10920,7 +10920,7 @@
     {
       "scripCode": "514030",
       "scripId": "DEEPAKSP",
-      "name": "Deepak Spinners Ltd",
+      "name": "Deepak Spinners Ltd-$",
       "issuerName": "Deepak Spinners Ltd.",
       "isin": "INE272C01013",
       "group": "X",
@@ -10931,7 +10931,7 @@
     {
       "scripCode": "514036",
       "scripId": "LOYALTEX",
-      "name": "Loyal Textile Mills Ltd",
+      "name": "Loyal Textile Mills Ltd-$",
       "issuerName": "Loyal Textiles Mills Ltd",
       "isin": "INE970D01010",
       "group": "B",
@@ -10975,7 +10975,7 @@
     {
       "scripCode": "514087",
       "scripId": "PBMPOLY",
-      "name": "PBM Polytex Ltd",
+      "name": "PBM Polytex Ltd-$",
       "issuerName": "P.B.M. Polytex Ltd.",
       "isin": "INE501F01018",
       "group": "B",
@@ -10997,7 +10997,7 @@
     {
       "scripCode": "514138",
       "scripId": "SURYALA",
-      "name": "Suryalata Spinning Mills Ltd",
+      "name": "Suryalata Spinning Mills Ltd-$",
       "issuerName": "Suryalata Spinning Mills Ltd.",
       "isin": "INE132C01027",
       "group": "B",
@@ -11008,7 +11008,7 @@
     {
       "scripCode": "514142",
       "scripId": "TTL",
-      "name": "T T Ltd",
+      "name": "T T Ltd-$",
       "issuerName": "T T Ltd",
       "isin": "INE592B01024",
       "group": "B",
@@ -11107,7 +11107,7 @@
     {
       "scripCode": "514211",
       "scripId": "SUMEETINDS",
-      "name": "Sumeet Industries Ltd",
+      "name": "Sumeet Industries Ltd-$",
       "issuerName": "Sumeet Industries Ltd",
       "isin": "INE235C01036",
       "group": "B",
@@ -11195,7 +11195,7 @@
     {
       "scripCode": "514264",
       "scripId": "SEASONST",
-      "name": "Seasons Textiles Ltd",
+      "name": "Seasons Textiles Ltd-$",
       "issuerName": "Seasons Textiles Ltd",
       "isin": "INE707B01010",
       "group": "X",
@@ -11206,7 +11206,7 @@
     {
       "scripCode": "514266",
       "scripId": "ZENIFIB",
-      "name": "Zenith Fibres Ltd",
+      "name": "Zenith Fibres Ltd-$",
       "issuerName": "Zenith Fibres Limited",
       "isin": "INE106C01013",
       "group": "X",
@@ -11261,7 +11261,7 @@
     {
       "scripCode": "514300",
       "scripId": "PIONEEREMB",
-      "name": "Pioneer Embroideries Ltd",
+      "name": "Pioneer Embroideries Ltd-$",
       "issuerName": "Pioneer Embroideries Ltd.",
       "isin": "INE156C01018",
       "group": "B",
@@ -11316,7 +11316,7 @@
     {
       "scripCode": "514322",
       "scripId": "KAMADGIRI",
-      "name": "Kamadgiri Fashion Ltd",
+      "name": "Kamadgiri Fashion Ltd-$",
       "issuerName": "Kamadgiri Fashion Limited",
       "isin": "INE535C01013",
       "group": "X",
@@ -11459,7 +11459,7 @@
     {
       "scripCode": "514412",
       "scripId": "SARUPINDUS",
-      "name": "Sarup Industries Ltd",
+      "name": "Sarup Industries Ltd-$",
       "issuerName": "SARUP INDUSTRIES LIMITED",
       "isin": "INE305D01019",
       "group": "X",
@@ -11558,7 +11558,7 @@
     {
       "scripCode": "514470",
       "scripId": "WINSOMTX",
-      "name": "Winsome Textile Industries Ltd",
+      "name": "Winsome Textile Industries Ltd-$",
       "issuerName": "Winsome Textile Industries Ltd",
       "isin": "INE837B01031",
       "group": "X",
@@ -11624,7 +11624,7 @@
     {
       "scripCode": "515055",
       "scripId": "ANANTRAJ",
-      "name": "Anant Raj Ltd",
+      "name": "Anant Raj Ltd-$",
       "issuerName": "Anant Raj Limited",
       "isin": "INE242C01024",
       "group": "A",
@@ -11668,7 +11668,7 @@
     {
       "scripCode": "515147",
       "scripId": "HALDYNGL",
-      "name": "Haldyn Glass Ltd",
+      "name": "Haldyn Glass Ltd-$",
       "issuerName": "Haldyn Glass Limited",
       "isin": "INE506D01020",
       "group": "T",
@@ -11690,7 +11690,7 @@
     {
       "scripCode": "516016",
       "scripId": "SHREYANIND",
-      "name": "Shreyans Industries Ltd",
+      "name": "Shreyans Industries Ltd-$",
       "issuerName": "Shreyans Industries Limited.",
       "isin": "INE231C01019",
       "group": "B",
@@ -11701,7 +11701,7 @@
     {
       "scripCode": "516020",
       "scripId": "AGIOPAPER",
-      "name": "Agio Paper & Industries Ltd",
+      "name": "Agio Paper & Industries Ltd-$",
       "issuerName": "Agio Paper & Industries Limited",
       "isin": "INE112C01011",
       "group": "X",
@@ -11723,7 +11723,7 @@
     {
       "scripCode": "516030",
       "scripId": "PAKKA",
-      "name": "Pakka Ltd",
+      "name": "Pakka Ltd-$",
       "issuerName": "PAKKA LIMITED",
       "isin": "INE551D01018",
       "group": "B",
@@ -11910,7 +11910,7 @@
     {
       "scripCode": "517059",
       "scripId": "SALZERELEC",
-      "name": "Salzer Electronics Ltd",
+      "name": "Salzer Electronics Ltd-$",
       "issuerName": "Salzer Electronics Ltd.",
       "isin": "INE457F01013",
       "group": "B",
@@ -11943,7 +11943,7 @@
     {
       "scripCode": "517096",
       "scripId": "APLAB",
-      "name": "Aplab Ltd",
+      "name": "Aplab Ltd-$",
       "issuerName": "Aplab Ltd.",
       "isin": "INE273A01015",
       "group": "X",
@@ -12053,7 +12053,7 @@
     {
       "scripCode": "517214",
       "scripId": "DIGISPICE",
-      "name": "Digispice Technologies Ltd",
+      "name": "Digispice Technologies Ltd-$",
       "issuerName": "DIGISPICE TECHNOLOGIES LIMITED",
       "isin": "INE927C01020",
       "group": "B",
@@ -12130,7 +12130,7 @@
     {
       "scripCode": "517271",
       "scripId": "HBLENGINE",
-      "name": "HBL Engineering Ltd",
+      "name": "HBL Engineering Ltd-$",
       "issuerName": "HBL ENGINEERING LIMITED",
       "isin": "INE292B01021",
       "group": "A",
@@ -12273,7 +12273,7 @@
     {
       "scripCode": "517372",
       "scripId": "GUJINTRX",
-      "name": "Gujarat Intrux Ltd",
+      "name": "Gujarat Intrux Ltd-$",
       "issuerName": "Gujarat Intrux Limited",
       "isin": "INE877E01015",
       "group": "X",
@@ -12383,7 +12383,7 @@
     {
       "scripCode": "517429",
       "scripId": "ATHENAGLO",
-      "name": "Athena Global Technologies Ltd",
+      "name": "Athena Global Technologies Ltd-$",
       "issuerName": "Athena Global Technologies Limited",
       "isin": "INE576B01019",
       "group": "X",
@@ -12405,7 +12405,7 @@
     {
       "scripCode": "517437",
       "scripId": "DUTRON",
-      "name": "Dutron Polymers Ltd",
+      "name": "Dutron Polymers Ltd-$",
       "issuerName": "Dutron  Polymers Ltd.",
       "isin": "INE940C01015",
       "group": "X",
@@ -12427,7 +12427,7 @@
     {
       "scripCode": "517449",
       "scripId": "MAGNAELQ",
-      "name": "Magna Electro Castings Ltd",
+      "name": "Magna Electro Castings Ltd-$",
       "issuerName": "Magna Electro Castings Ltd.",
       "isin": "INE437D01010",
       "group": "X",
@@ -12449,7 +12449,7 @@
     {
       "scripCode": "517477",
       "scripId": "ELNET",
-      "name": "Elnet Technologies Ltd",
+      "name": "Elnet Technologies Ltd-$",
       "issuerName": "Elnet Technologies Ltd.",
       "isin": "INE033C01019",
       "group": "X",
@@ -12504,7 +12504,7 @@
     {
       "scripCode": "517514",
       "scripId": "DHINDIA",
-      "name": "D & H India Ltd",
+      "name": "D & H India Ltd-$",
       "issuerName": "D & H India Limited",
       "isin": "INE589D01018",
       "group": "X",
@@ -12647,7 +12647,7 @@
     {
       "scripCode": "518091",
       "scripId": "APCL",
-      "name": "Anjani Portland Cement Ltd",
+      "name": "Anjani Portland Cement Ltd-$",
       "issuerName": "Anjani Portland Cement Ltd.",
       "isin": "INE071F01012",
       "group": "B",
@@ -12746,7 +12746,7 @@
     {
       "scripCode": "519136",
       "scripId": "NAHARINDUS",
-      "name": "Nahar Industrial Enterprises Ltd",
+      "name": "Nahar Industrial Enterprises Ltd-$",
       "issuerName": "Nahar Industrial Enterprises Ltd",
       "isin": "INE289A01011",
       "group": "B",
@@ -12768,7 +12768,7 @@
     {
       "scripCode": "519156",
       "scripId": "VADILALIND",
-      "name": "Vadilal Industries Ltd",
+      "name": "Vadilal Industries Ltd-$",
       "issuerName": "Vadilal Industries Ltd.",
       "isin": "INE694D01016",
       "group": "B",
@@ -12790,7 +12790,7 @@
     {
       "scripCode": "519183",
       "scripId": "ADFFOODS",
-      "name": "Adf Foods Ltd",
+      "name": "Adf Foods Ltd-$",
       "issuerName": "ADF Foods Limited.",
       "isin": "INE982B01027",
       "group": "B",
@@ -12878,7 +12878,7 @@
     {
       "scripCode": "519260",
       "scripId": "SANWARIA",
-      "name": "Sanwaria Consumer Ltd",
+      "name": "Sanwaria Consumer Ltd-$",
       "issuerName": "SANWARIA CONSUMER LIMITED",
       "isin": "INE890C01046",
       "group": "Z",
@@ -13054,7 +13054,7 @@
     {
       "scripCode": "519421",
       "scripId": "KSE",
-      "name": "KSE Ltd",
+      "name": "KSE Ltd-$",
       "issuerName": "KSE Ltd.",
       "isin": "INE953E01022",
       "group": "B",
@@ -13131,7 +13131,7 @@
     {
       "scripCode": "519483",
       "scripId": "TAIIND",
-      "name": "TAI Industries Ltd",
+      "name": "TAI Industries Ltd-$",
       "issuerName": "Tai Industries Ltd.",
       "isin": "INE358D01018",
       "group": "X",
@@ -13186,7 +13186,7 @@
     {
       "scripCode": "519532",
       "scripId": "ASIANTNE",
-      "name": "Asian Tea & Exports Ltd",
+      "name": "Asian Tea & Exports Ltd-$",
       "issuerName": "Asian Tea & Exports Ltd.",
       "isin": "INE822B01017",
       "group": "B",
@@ -13384,7 +13384,7 @@
     {
       "scripCode": "520075",
       "scripId": "SAMKRG",
-      "name": "Samkrg Pistons & Rings Ltd",
+      "name": "Samkrg Pistons & Rings Ltd-$",
       "issuerName": "Samkrg Pistons and Rings Ltd.",
       "isin": "INE706B01012",
       "group": "X",
@@ -13417,7 +13417,7 @@
     {
       "scripCode": "520111",
       "scripId": "RATNAMANI",
-      "name": "Ratnamani Metals & Tubes Ltd",
+      "name": "Ratnamani Metals & Tubes Ltd-$",
       "issuerName": "Ratnamani Metals & Tubes Ltd",
       "isin": "INE703B01027",
       "group": "A",
@@ -13461,7 +13461,7 @@
     {
       "scripCode": "520123",
       "scripId": "ABCINDQ",
-      "name": "ABC India Ltd",
+      "name": "ABC India Ltd-$",
       "issuerName": "ABC India Ltd.",
       "isin": "INE125D01011",
       "group": "X",
@@ -13703,7 +13703,7 @@
     {
       "scripCode": "521109",
       "scripId": "NAGREEKEXP",
-      "name": "Nagreeka Exports Ltd",
+      "name": "Nagreeka Exports Ltd-$",
       "issuerName": "Nagreeka Exports Ltd.",
       "isin": "INE123B01028",
       "group": "B",
@@ -13791,7 +13791,7 @@
     {
       "scripCode": "521161",
       "scripId": "SLSTLQ",
-      "name": "Sri Lakshmi Saraswathi Textiles Arni Ltd",
+      "name": "Sri Lakshmi Saraswathi Textiles Arni Ltd-$",
       "issuerName": "Sri Lakshmi Saraswathi Textiles (Ar",
       "isin": "INE456D01010",
       "group": "X",
@@ -13824,7 +13824,7 @@
     {
       "scripCode": "521178",
       "scripId": "SRMCL",
-      "name": "Sri Ramakrishna Mills Coimbatore Ltd",
+      "name": "Sri Ramakrishna Mills Coimbatore Ltd-$",
       "issuerName": "Sri Ramakrishna Mills (Coimbatore) Ltd.",
       "isin": "INE306D01017",
       "group": "X",
@@ -13868,7 +13868,7 @@
     {
       "scripCode": "521206",
       "scripId": "SAMTEX",
-      "name": "Samtex Fashions Ltd",
+      "name": "Samtex Fashions Ltd-$",
       "issuerName": "Samtex Fashions Ltd.",
       "isin": "INE931D01020",
       "group": "X",
@@ -13901,7 +13901,7 @@
     {
       "scripCode": "521220",
       "scripId": "DAMODARIND",
-      "name": "Damodar Industries Ltd",
+      "name": "Damodar Industries Ltd-$",
       "issuerName": "Damodar Industries Limited",
       "isin": "INE497D01022",
       "group": "T",
@@ -13956,7 +13956,7 @@
     {
       "scripCode": "521234",
       "scripId": "SRINACHA",
-      "name": "Sri Nachammai Cotton Mills Ltd",
+      "name": "Sri Nachammai Cotton Mills Ltd-$",
       "issuerName": "Sri Nachammai Cotton Mills Ltd.",
       "isin": "INE443E01016",
       "group": "X",
@@ -13978,7 +13978,7 @@
     {
       "scripCode": "521240",
       "scripId": "SAMBANDAM",
-      "name": "Sambandam Spinning Mills Ltd",
+      "name": "Sambandam Spinning Mills Ltd-$",
       "issuerName": "Sambandam Spinning Mills Ltd.",
       "isin": "INE304D01012",
       "group": "B",
@@ -14033,7 +14033,7 @@
     {
       "scripCode": "522004",
       "scripId": "BATLIBOI",
-      "name": "Batliboi Ltd",
+      "name": "Batliboi Ltd-$",
       "issuerName": "Batliboi Ltd",
       "isin": "INE177C01022",
       "group": "B",
@@ -14187,7 +14187,7 @@
     {
       "scripCode": "522108",
       "scripId": "YUKEN",
-      "name": "Yuken India Ltd",
+      "name": "Yuken India Ltd-$",
       "issuerName": "Yuken India Ltd.",
       "isin": "INE384C01016",
       "group": "B",
@@ -14209,7 +14209,7 @@
     {
       "scripCode": "522122",
       "scripId": "VOITHPAPR",
-      "name": "Voith Paper Fabrics India Ltd",
+      "name": "Voith Paper Fabrics India Ltd-$",
       "issuerName": "Voith Paper Fabrics India Ltd",
       "isin": "INE285C01015",
       "group": "B",
@@ -14242,7 +14242,7 @@
     {
       "scripCode": "522163",
       "scripId": "DIACABS",
-      "name": "Diamond Power Infrastructure Ltd",
+      "name": "Diamond Power Infrastructure Ltd-$",
       "issuerName": "Diamond Power Infrastructure Limited",
       "isin": "INE989C01038",
       "group": "T",
@@ -14253,7 +14253,7 @@
     {
       "scripCode": "522165",
       "scripId": "INDSILHYD",
-      "name": "Indsil Hydro Power and Manganese Ltd",
+      "name": "Indsil Hydro Power and Manganese Ltd-$",
       "issuerName": "Indsil Hydro Power and Manganese Limited",
       "isin": "INE867D01018",
       "group": "X",
@@ -14264,7 +14264,7 @@
     {
       "scripCode": "522183",
       "scripId": "ITL",
-      "name": "ITL Industries Ltd",
+      "name": "ITL Industries Ltd-$",
       "issuerName": "ITL Industries Ltd.",
       "isin": "INE478D01014",
       "group": "B",
@@ -14297,7 +14297,7 @@
     {
       "scripCode": "522207",
       "scripId": "RASANDIK",
-      "name": "Rasandik Engineering Industries India Ltd",
+      "name": "Rasandik Engineering Industries India Ltd-$",
       "issuerName": "Rasandik Engg. Industries India Ltd",
       "isin": "INE682D01011",
       "group": "X",
@@ -14341,7 +14341,7 @@
     {
       "scripCode": "522229",
       "scripId": "TANAA",
-      "name": "Taneja Aerospace & Aviation Ltd",
+      "name": "Taneja Aerospace & Aviation Ltd-$",
       "issuerName": "Taneja Aerospace & Aviation Ltd.",
       "isin": "INE692C01020",
       "group": "B",
@@ -14352,7 +14352,7 @@
     {
       "scripCode": "522231",
       "scripId": "CONART",
-      "name": "Conart Engineers Ltd",
+      "name": "Conart Engineers Ltd-$",
       "issuerName": "Conart Engineers Ltd.",
       "isin": "INE714D01020",
       "group": "X",
@@ -14385,7 +14385,7 @@
     {
       "scripCode": "522241",
       "scripId": "MMFL",
-      "name": "MM Forgings Ltd",
+      "name": "MM Forgings Ltd-$",
       "issuerName": "M.M.Forgings Ltd.",
       "isin": "INE227C01017",
       "group": "B",
@@ -14396,7 +14396,7 @@
     {
       "scripCode": "522249",
       "scripId": "MAYURUNIQ",
-      "name": "Mayur Uniquoters Ltd",
+      "name": "Mayur Uniquoters Ltd-$",
       "issuerName": "Mayur Uniquoters ltd.",
       "isin": "INE040D01038",
       "group": "B",
@@ -14418,7 +14418,7 @@
     {
       "scripCode": "522257",
       "scripId": "RAJOOENG",
-      "name": "Rajoo Engineers Ltd",
+      "name": "Rajoo Engineers Ltd-$",
       "issuerName": "Rajoo Engineers Ltd.",
       "isin": "INE535F01024",
       "group": "T",
@@ -14429,7 +14429,7 @@
     {
       "scripCode": "522261",
       "scripId": "DOLPHIN",
-      "name": "Dolphin Offshore Enterprises (India) Ltd",
+      "name": "Dolphin Offshore Enterprises (India) Ltd-$",
       "issuerName": "Dolphin Offshore Enterprises (India) ltd.",
       "isin": "INE920A01037",
       "group": "B",
@@ -14440,7 +14440,7 @@
     {
       "scripCode": "522267",
       "scripId": "VJLAXMIE",
-      "name": "Veejay Lakshmi Engineering Works Ltd",
+      "name": "Veejay Lakshmi Engineering Works Ltd-$",
       "issuerName": "Veejay Lakshmi Engineering Works Lt",
       "isin": "INE466D01019",
       "group": "X",
@@ -14473,7 +14473,7 @@
     {
       "scripCode": "522281",
       "scripId": "RAMRAT",
-      "name": "Ram Ratna Wires Ltd",
+      "name": "Ram Ratna Wires Ltd-$",
       "issuerName": "Ram Ratna Wires Ltd.",
       "isin": "INE207E01023",
       "group": "B",
@@ -14539,7 +14539,7 @@
     {
       "scripCode": "522295",
       "scripId": "CONTROLPR",
-      "name": "Control Print Ltd",
+      "name": "Control Print Ltd-$",
       "issuerName": "CONTROL PRINT LIMITED",
       "isin": "INE663B01015",
       "group": "B",
@@ -14561,7 +14561,7 @@
     {
       "scripCode": "523007",
       "scripId": "ANSALBU",
-      "name": "Ansal Buildwell Ltd",
+      "name": "Ansal Buildwell Ltd-$",
       "issuerName": "Ansal Buildwell Ltd.",
       "isin": "INE030C01015",
       "group": "B",
@@ -14605,7 +14605,7 @@
     {
       "scripCode": "523023",
       "scripId": "SINCLAIR",
-      "name": "Sinclairs Hotels Ltd",
+      "name": "Sinclairs Hotels Ltd-$",
       "issuerName": "SINCLAIRS HOTELS LIMITED",
       "isin": "INE985A01022",
       "group": "B",
@@ -14660,7 +14660,7 @@
     {
       "scripCode": "523100",
       "scripId": "COSMOFE",
-      "name": "Cosmo Ferrites Ltd",
+      "name": "Cosmo Ferrites Ltd-$",
       "issuerName": "Cosmo Ferrites Ltd.",
       "isin": "INE124B01018",
       "group": "XT",
@@ -14715,7 +14715,7 @@
     {
       "scripCode": "523127",
       "scripId": "EIHAHOTELS",
-      "name": "EIH Associated Hotels Ltd",
+      "name": "EIH Associated Hotels Ltd-$",
       "issuerName": "EIH Associated Hotels Ltd.",
       "isin": "INE276C01014",
       "group": "B",
@@ -14726,7 +14726,7 @@
     {
       "scripCode": "523144",
       "scripId": "MEDICAPQ",
-      "name": "Medi Caps Ltd",
+      "name": "Medi Caps Ltd-$",
       "issuerName": "Medi-Caps Ltd.",
       "isin": "INE442D01010",
       "group": "B",
@@ -14770,7 +14770,7 @@
     {
       "scripCode": "523207",
       "scripId": "KOKUYOCMLN",
-      "name": "Kokuyo Camlin Ltd",
+      "name": "Kokuyo Camlin Ltd-$",
       "issuerName": "Kokuyo Camlin Ltd",
       "isin": "INE760A01029",
       "group": "B",
@@ -14792,7 +14792,7 @@
     {
       "scripCode": "523229",
       "scripId": "BHARATSE",
-      "name": "Bharat Seats Ltd",
+      "name": "Bharat Seats Ltd-$",
       "issuerName": "Bharat Seats Ltd",
       "isin": "INE415D01024",
       "group": "B",
@@ -14825,7 +14825,7 @@
     {
       "scripCode": "523248",
       "scripId": "MACPLASQ",
-      "name": "Machino Plastics Ltd",
+      "name": "Machino Plastics Ltd-$",
       "issuerName": "Machino Plastics Ltd",
       "isin": "INE082B01018",
       "group": "X",
@@ -14902,7 +14902,7 @@
     {
       "scripCode": "523301",
       "scripId": "TCPLPACK",
-      "name": "TCPL Packaging Ltd",
+      "name": "TCPL Packaging Ltd-$",
       "issuerName": "TCPL Packaging Limited",
       "isin": "INE822C01015",
       "group": "B",
@@ -14990,7 +14990,7 @@
     {
       "scripCode": "523369",
       "scripId": "DCMSRIND",
-      "name": "DCM Shriram Industries Ltd",
+      "name": "DCM Shriram Industries Ltd-$",
       "issuerName": "DCM Shriram Industries Ltd.",
       "isin": "INE843D01027",
       "group": "B",
@@ -15089,7 +15089,7 @@
     {
       "scripCode": "523405",
       "scripId": "JMFINANCIL",
-      "name": "JM Financial Ltd",
+      "name": "JM Financial Ltd-$",
       "issuerName": "JM Financial Limited",
       "isin": "INE780C01023",
       "group": "A",
@@ -15100,7 +15100,7 @@
     {
       "scripCode": "523411",
       "scripId": "ADCINDIA",
-      "name": "ADC India Communications Ltd",
+      "name": "ADC India Communications Ltd-$",
       "issuerName": "ADC India Communications Limited",
       "isin": "INE833A01016",
       "group": "XT",
@@ -15199,7 +15199,7 @@
     {
       "scripCode": "523489",
       "scripId": "CMMHOSP",
-      "name": "Chennai Meenakshi Multispeciality Hospital Ltd",
+      "name": "Chennai Meenakshi Multispeciality Hospital Ltd-$",
       "issuerName": "Chennai Meenakshi Multispeciality Hospital Ltd.",
       "isin": "INE889F01017",
       "group": "X",
@@ -15221,7 +15221,7 @@
     {
       "scripCode": "523537",
       "scripId": "APMIN",
-      "name": "APM Industries Ltd",
+      "name": "APM Industries Ltd-$",
       "issuerName": "APM Industries Ltd.",
       "isin": "INE170D01025",
       "group": "X",
@@ -15287,7 +15287,7 @@
     {
       "scripCode": "523586",
       "scripId": "INDTONER",
-      "name": "Indian Toners & Developers Ltd",
+      "name": "Indian Toners & Developers Ltd-$",
       "issuerName": "Indian Toners & Developers Ltd.",
       "isin": "INE826B01026",
       "group": "X",
@@ -15375,7 +15375,7 @@
     {
       "scripCode": "523638",
       "scripId": "IPRINGLTD",
-      "name": "IP Rings Ltd",
+      "name": "IP Rings Ltd-$",
       "issuerName": "IP Rings Ltd.",
       "isin": "INE558A01019",
       "group": "B",
@@ -15397,7 +15397,7 @@
     {
       "scripCode": "523648",
       "scripId": "PLASTIBLEN",
-      "name": "Plastiblends India Ltd",
+      "name": "Plastiblends India Ltd-$",
       "issuerName": "Plastiblends India Ltd.",
       "isin": "INE083C01022",
       "group": "B",
@@ -15430,7 +15430,7 @@
     {
       "scripCode": "523672",
       "scripId": "FLEXFO",
-      "name": "Flex Foods Ltd",
+      "name": "Flex Foods Ltd-$",
       "issuerName": "Flex Foods Ltd.",
       "isin": "INE954B01018",
       "group": "X",
@@ -15507,7 +15507,7 @@
     {
       "scripCode": "523716",
       "scripId": "ASHIANA",
-      "name": "Ashiana Housing Ltd",
+      "name": "Ashiana Housing Ltd-$",
       "issuerName": "Ashiana Housing Limited",
       "isin": "INE365D01021",
       "group": "B",
@@ -15540,7 +15540,7 @@
     {
       "scripCode": "523736",
       "scripId": "DVL",
-      "name": "Dhunseri Ventures Ltd",
+      "name": "Dhunseri Ventures Ltd-$",
       "issuerName": "Dhunseri Ventures Limited",
       "isin": "INE477B01010",
       "group": "B",
@@ -15595,7 +15595,7 @@
     {
       "scripCode": "523792",
       "scripId": "MAZDA",
-      "name": "Mazda Ltd",
+      "name": "Mazda Ltd-$",
       "issuerName": "Mazda Ltd.",
       "isin": "INE885E01042",
       "group": "T",
@@ -15628,7 +15628,7 @@
     {
       "scripCode": "523828",
       "scripId": "MENONBE",
-      "name": "Menon Bearings Ltd",
+      "name": "Menon Bearings Ltd-$",
       "issuerName": "Menon Bearings Ltd",
       "isin": "INE071D01033",
       "group": "T",
@@ -15639,7 +15639,7 @@
     {
       "scripCode": "523832",
       "scripId": "MUKATPIP",
-      "name": "Mukat Pipes Ltd",
+      "name": "Mukat Pipes Ltd-$",
       "issuerName": "Mukat Pipes Limited",
       "isin": "INE862C01029",
       "group": "XT",
@@ -15771,7 +15771,7 @@
     {
       "scripCode": "524019",
       "scripId": "KINGFA",
-      "name": "Kingfa Science & Technology (India) Ltd",
+      "name": "Kingfa Science & Technology (India) Ltd-$",
       "issuerName": "Kingfa Science & Technology (India) Ltd",
       "isin": "INE473D01015",
       "group": "B",
@@ -15848,7 +15848,7 @@
     {
       "scripCode": "524075",
       "scripId": "ALBERTDAVD",
-      "name": "Albert David Ltd",
+      "name": "Albert David Ltd-$",
       "issuerName": "Albert David Ltd.",
       "isin": "INE155C01010",
       "group": "B",
@@ -15947,7 +15947,7 @@
     {
       "scripCode": "524200",
       "scripId": "VINATIORGA",
-      "name": "Vinati Organics Ltd",
+      "name": "Vinati Organics Ltd-$",
       "issuerName": "Vinati Organics Ltd.",
       "isin": "INE410B01037",
       "group": "A",
@@ -16013,7 +16013,7 @@
     {
       "scripCode": "524218",
       "scripId": "RESONANCE",
-      "name": "Resonance Specialties Ltd",
+      "name": "Resonance Specialties Ltd-$",
       "issuerName": "Resonance Specialties Limited",
       "isin": "INE486D01017",
       "group": "XT",
@@ -16123,7 +16123,7 @@
     {
       "scripCode": "524332",
       "scripId": "BCLIND",
-      "name": "BCL Industries Ltd",
+      "name": "BCL Industries Ltd-$",
       "issuerName": "BCL INDUSTRIES LIMITED",
       "isin": "INE412G01024",
       "group": "B",
@@ -16145,7 +16145,7 @@
     {
       "scripCode": "524342",
       "scripId": "INDOBORAX",
-      "name": "Indo Borax & Chemicals Ltd",
+      "name": "Indo Borax & Chemicals Ltd-$",
       "issuerName": "Indo Borax & Chemicals Ltd.",
       "isin": "INE803D01021",
       "group": "B",
@@ -16189,7 +16189,7 @@
     {
       "scripCode": "524394",
       "scripId": "VIMTALABS",
-      "name": "Vimta Labs Ltd",
+      "name": "Vimta Labs Ltd-$",
       "issuerName": "Vimta Labs Ltd.",
       "isin": "INE579C01029",
       "group": "B",
@@ -16310,7 +16310,7 @@
     {
       "scripCode": "524470",
       "scripId": "SYNCOMF",
-      "name": "Syncom Formulations India Ltd",
+      "name": "Syncom Formulations India Ltd-$",
       "issuerName": "Syncom Formulations (India) Ltd.",
       "isin": "INE312C01025",
       "group": "B",
@@ -16321,7 +16321,7 @@
     {
       "scripCode": "524480",
       "scripId": "RIDDHI",
-      "name": "Riddhi Siddhi Gluco Biols Ltd",
+      "name": "Riddhi Siddhi Gluco Biols Ltd-$",
       "issuerName": "Riddhi Siddhi Gluco Biols Ltd",
       "isin": "INE249D01019",
       "group": "XT",
@@ -16409,7 +16409,7 @@
     {
       "scripCode": "524518",
       "scripId": "KREBSBIO",
-      "name": "Krebs Biochemicals & Industries Ltd",
+      "name": "Krebs Biochemicals & Industries Ltd-$",
       "issuerName": "Krebs Biochemicals & Industries Ltd.",
       "isin": "INE268B01013",
       "group": "B",
@@ -16431,7 +16431,7 @@
     {
       "scripCode": "524522",
       "scripId": "LAFFANSQ",
-      "name": "Laffans Petrochemicals Ltd",
+      "name": "Laffans Petrochemicals Ltd-$",
       "issuerName": "Laffans Petrochemicals Ltd.",
       "isin": "INE919B01011",
       "group": "X",
@@ -16453,7 +16453,7 @@
     {
       "scripCode": "524542",
       "scripId": "SUKHJITS",
-      "name": "Sukhjit Starch & Chemicals Ltd",
+      "name": "Sukhjit Starch & Chemicals Ltd-$",
       "issuerName": "Sukhjit Starch & Chemicals Ltd.",
       "isin": "INE450E01029",
       "group": "B",
@@ -16497,7 +16497,7 @@
     {
       "scripCode": "524570",
       "scripId": "PODDARMENT",
-      "name": "Poddar Pigments Ltd",
+      "name": "Poddar Pigments Ltd-$",
       "issuerName": "Poddar Pigments Ltd.",
       "isin": "INE371C01013",
       "group": "B",
@@ -16530,7 +16530,7 @@
     {
       "scripCode": "524580",
       "scripId": "PRIYALT",
-      "name": "Priya Ltd",
+      "name": "Priya Ltd-$",
       "issuerName": "Priya Limited.",
       "isin": "INE686C01014",
       "group": "X",
@@ -16574,7 +16574,7 @@
     {
       "scripCode": "524598",
       "scripId": "AKSHARCHEM",
-      "name": "AksharChem India Ltd",
+      "name": "AksharChem India Ltd-$",
       "issuerName": "AksharChem (India) Ltd.",
       "isin": "INE542B01011",
       "group": "T",
@@ -16651,7 +16651,7 @@
     {
       "scripCode": "524628",
       "scripId": "PARKERAC",
-      "name": "Parker Agrochem Exports Ltd",
+      "name": "Parker Agrochem Exports Ltd-$",
       "issuerName": "Parker Agro Chem Export Ltd.",
       "isin": "INE750B01010",
       "group": "X",
@@ -16706,7 +16706,7 @@
     {
       "scripCode": "524648",
       "scripId": "INDOAMIN",
-      "name": "Indo Amines Ltd",
+      "name": "Indo Amines Ltd-$",
       "issuerName": "Indo Amines Ltd.",
       "isin": "INE760F01028",
       "group": "T",
@@ -16739,7 +16739,7 @@
     {
       "scripCode": "524663",
       "scripId": "BIBCL",
-      "name": "Bharat Immunologicals & Biologicals Corporation Ltd",
+      "name": "Bharat Immunologicals & Biologicals Corporation Ltd-$",
       "issuerName": "Bharat Immunologicals & Biologicals",
       "isin": "INE994B01014",
       "group": "B",
@@ -16783,7 +16783,7 @@
     {
       "scripCode": "524687",
       "scripId": "BASANTGL",
-      "name": "Basant Agro Tech India Ltd",
+      "name": "Basant Agro Tech India Ltd-$",
       "issuerName": "Basant Agro-Tech (India) Ltd.",
       "isin": "INE473E01021",
       "group": "X",
@@ -16860,7 +16860,7 @@
     {
       "scripCode": "524727",
       "scripId": "SDL",
-      "name": "Span Divergent Ltd",
+      "name": "Span Divergent Ltd-$",
       "issuerName": "Span Divergent Limited",
       "isin": "INE004E01016",
       "group": "X",
@@ -17003,7 +17003,7 @@
     {
       "scripCode": "524818",
       "scripId": "DYNAMIND",
-      "name": "Dynamic Industries Ltd",
+      "name": "Dynamic Industries Ltd-$",
       "issuerName": "Dynamic Industries Ltd.",
       "isin": "INE457C01010",
       "group": "X",
@@ -17234,7 +17234,7 @@
     {
       "scripCode": "526159",
       "scripId": "NIKHILAD",
-      "name": "Nikhil Adhesives Ltd",
+      "name": "Nikhil Adhesives Ltd-$",
       "issuerName": "Nikhil Adhesives Ltd.",
       "isin": "INE926C01022",
       "group": "X",
@@ -17300,7 +17300,7 @@
     {
       "scripCode": "526193",
       "scripId": "ROYALCU",
-      "name": "Royal Cushion Vinyl Products Ltd",
+      "name": "Royal Cushion Vinyl Products Ltd-$",
       "issuerName": "Royal Cushion Vinyl Products Ltd.",
       "isin": "INE618A01011",
       "group": "X",
@@ -17322,7 +17322,7 @@
     {
       "scripCode": "526217",
       "scripId": "HITECHCORP",
-      "name": "Hitech Corporation Ltd",
+      "name": "Hitech Corporation Ltd-$",
       "issuerName": "Hitech Corporation Limited",
       "isin": "INE120D01012",
       "group": "T",
@@ -17333,7 +17333,7 @@
     {
       "scripCode": "526227",
       "scripId": "FILATEX",
-      "name": "Filatex India Ltd",
+      "name": "Filatex India Ltd-$",
       "issuerName": "Filatex India Ltd.",
       "isin": "INE816B01035",
       "group": "B",
@@ -17520,7 +17520,7 @@
     {
       "scripCode": "526367",
       "scripId": "GANESHHOU",
-      "name": "Ganesh Housing Ltd",
+      "name": "Ganesh Housing Ltd-$",
       "issuerName": "GANESH HOUSING LIMITED",
       "isin": "INE460C01014",
       "group": "B",
@@ -17542,7 +17542,7 @@
     {
       "scripCode": "526373",
       "scripId": "CINDHO",
-      "name": "Cindrella Hotels Ltd",
+      "name": "Cindrella Hotels Ltd-$",
       "issuerName": "Cindrella Hotels Ltd.",
       "isin": "INE908C01012",
       "group": "X",
@@ -17553,7 +17553,7 @@
     {
       "scripCode": "526381",
       "scripId": "PATINTLOG",
-      "name": "Patel Integrated Logistics Ltd",
+      "name": "Patel Integrated Logistics Ltd-$",
       "issuerName": "Patel Integrated Logistics Ltd",
       "isin": "INE529D01014",
       "group": "T",
@@ -17564,7 +17564,7 @@
     {
       "scripCode": "526397",
       "scripId": "ALPHAGEO",
-      "name": "Alphageo (India) Ltd",
+      "name": "Alphageo (India) Ltd-$",
       "issuerName": "Alphageo (India)Ltd.",
       "isin": "INE137C01018",
       "group": "T",
@@ -17608,7 +17608,7 @@
     {
       "scripCode": "526423",
       "scripId": "KRITI",
-      "name": "Kriti Industries India Ltd",
+      "name": "Kriti Industries India Ltd-$",
       "issuerName": "Kriti Industries (India) Ltd.",
       "isin": "INE479D01038",
       "group": "B",
@@ -17718,7 +17718,7 @@
     {
       "scripCode": "526479",
       "scripId": "SKYIND",
-      "name": "Sky Industries Ltd",
+      "name": "Sky Industries Ltd-$",
       "issuerName": "Sky Industries Ltd",
       "isin": "INE765B01018",
       "group": "X",
@@ -17806,7 +17806,7 @@
     {
       "scripCode": "526508",
       "scripId": "SHAHISHIP",
-      "name": "Shahi Shipping Ltd",
+      "name": "Shahi Shipping Ltd-$",
       "issuerName": "Shahi Shipping Limited",
       "isin": "INE825D01016",
       "group": "X",
@@ -17960,7 +17960,7 @@
     {
       "scripCode": "526604",
       "scripId": "LIPPISYS",
-      "name": "Lippi Systems Ltd",
+      "name": "Lippi Systems Ltd-$",
       "issuerName": "Lippi Systems Ltd.",
       "isin": "INE845B01018",
       "group": "XT",
@@ -18147,7 +18147,7 @@
     {
       "scripCode": "526703",
       "scripId": "ECOPLAST",
-      "name": "Ecoplast Ltd",
+      "name": "Ecoplast Ltd-$",
       "issuerName": "Ecoplast Ltd.",
       "isin": "INE423D01010",
       "group": "X",
@@ -18202,7 +18202,7 @@
     {
       "scripCode": "526721",
       "scripId": "NICCOPAR",
-      "name": "Nicco Parks & Resorts Ltd",
+      "name": "Nicco Parks & Resorts Ltd-$",
       "issuerName": "Nicco Parks And Resorts Ltd.",
       "isin": "INE653C01022",
       "group": "B",
@@ -18257,7 +18257,7 @@
     {
       "scripCode": "526731",
       "scripId": "BRIGHTBR",
-      "name": "Bright Brothers Ltd",
+      "name": "Bright Brothers Ltd-$",
       "issuerName": "Bright Brothers Ltd.",
       "isin": "INE630D01010",
       "group": "B",
@@ -18323,7 +18323,7 @@
     {
       "scripCode": "526775",
       "scripId": "VALIANT",
-      "name": "Valiant Communications Ltd",
+      "name": "Valiant Communications Ltd-$",
       "issuerName": "Valiant Communications Ltd.",
       "isin": "INE760B01019",
       "group": "X",
@@ -18334,7 +18334,7 @@
     {
       "scripCode": "526783",
       "scripId": "DRAGARWQ",
-      "name": "Dr Agarwals Eye Hospital Ltd",
+      "name": "Dr Agarwals Eye Hospital Ltd-$",
       "issuerName": "Dr.Agarwals Eye Hospital Ltd.",
       "isin": "INE934C01018",
       "group": "B",
@@ -18389,7 +18389,7 @@
     {
       "scripCode": "526817",
       "scripId": "CHEVIOT",
-      "name": "Cheviot Company Ltd",
+      "name": "Cheviot Company Ltd-$",
       "issuerName": "Cheviot Co.Ltd.",
       "isin": "INE974B01016",
       "group": "B",
@@ -18400,7 +18400,7 @@
     {
       "scripCode": "526821",
       "scripId": "DAICHI",
-      "name": "Dai-Ichi Karkaria Ltd",
+      "name": "Dai-Ichi Karkaria Ltd-$",
       "issuerName": "Dai-Ichi Karkaria Ltd.",
       "isin": "INE928C01010",
       "group": "B",
@@ -18422,7 +18422,7 @@
     {
       "scripCode": "526827",
       "scripId": "SPICEISLIN",
-      "name": "Spice Islands Industries Ltd",
+      "name": "Spice Islands Industries Ltd-$",
       "issuerName": "SPICE ISLANDS INDUSTRIES LIMITED",
       "isin": "INE882D01025",
       "group": "XT",
@@ -18444,7 +18444,7 @@
     {
       "scripCode": "526839",
       "scripId": "SIPL",
-      "name": "Shelter Infra Projects Ltd",
+      "name": "Shelter Infra Projects Ltd-$",
       "issuerName": "Shelter Infra Projects Limited",
       "isin": "INE413C01013",
       "group": "X",
@@ -18499,7 +18499,7 @@
     {
       "scripCode": "526853",
       "scripId": "BI",
-      "name": "Bilcare Ltd",
+      "name": "Bilcare Ltd-$",
       "issuerName": "Bilcare Ltd.",
       "isin": "INE986A01012",
       "group": "T",
@@ -18598,7 +18598,7 @@
     {
       "scripCode": "526885",
       "scripId": "SARLAPOLY",
-      "name": "Sarla Performance Fibers Ltd",
+      "name": "Sarla Performance Fibers Ltd-$",
       "issuerName": "Sarla Performance Fibers Ltd",
       "isin": "INE453D01025",
       "group": "B",
@@ -18675,7 +18675,7 @@
     {
       "scripCode": "526931",
       "scripId": "HRYNSHP",
-      "name": "Hariyana Ship Breakers Ltd",
+      "name": "Hariyana Ship Breakers Ltd-$",
       "issuerName": "Hariyana Ship Breakers Ltd.",
       "isin": "INE400G01011",
       "group": "B",
@@ -19038,7 +19038,7 @@
     {
       "scripCode": "530075",
       "scripId": "ANTELOPUS",
-      "name": "Antelopus Selan Energy Ltd",
+      "name": "Antelopus Selan Energy Ltd-$",
       "issuerName": "Antelopus Selan Energy Limited",
       "isin": "INE818A01017",
       "group": "B",
@@ -19060,7 +19060,7 @@
     {
       "scripCode": "530079",
       "scripId": "FAZE3Q",
-      "name": "Faze Three Ltd",
+      "name": "Faze Three Ltd-$",
       "issuerName": "Faze Three Ltd.",
       "isin": "INE963C01033",
       "group": "B",
@@ -19115,7 +19115,7 @@
     {
       "scripCode": "530125",
       "scripId": "SAMRATPH",
-      "name": "Samrat Pharmachem Ltd",
+      "name": "Samrat Pharmachem Ltd-$",
       "issuerName": "Samrat Pharmachem Ltd.",
       "isin": "INE103E01016",
       "group": "X",
@@ -19148,7 +19148,7 @@
     {
       "scripCode": "530133",
       "scripId": "AMCOIND",
-      "name": "Amco India Ltd",
+      "name": "Amco India Ltd-$",
       "issuerName": "Amco India Ltd.",
       "isin": "INE924B01011",
       "group": "X",
@@ -19192,7 +19192,7 @@
     {
       "scripCode": "530145",
       "scripId": "KISAN",
-      "name": "Kisan Mouldings Ltd",
+      "name": "Kisan Mouldings Ltd-$",
       "issuerName": "Kisan Mouldings Ltd.",
       "isin": "INE017C01012",
       "group": "XT",
@@ -19247,7 +19247,7 @@
     {
       "scripCode": "530175",
       "scripId": "ODYSSEY",
-      "name": "Odyssey Technologies Ltd",
+      "name": "Odyssey Technologies Ltd-$",
       "issuerName": "Odyssey Technologies Ltd.",
       "isin": "INE213B01019",
       "group": "X",
@@ -19313,7 +19313,7 @@
     {
       "scripCode": "530201",
       "scripId": "KALLAM",
-      "name": "Kallam Textiles Ltd",
+      "name": "Kallam Textiles Ltd-$",
       "issuerName": "KALLAM TEXTILES LTD",
       "isin": "INE629F01025",
       "group": "XT",
@@ -19599,7 +19599,7 @@
     {
       "scripCode": "530307",
       "scripId": "CLSEL",
-      "name": "Chaman Lal Setia Exports Ltd",
+      "name": "Chaman Lal Setia Exports Ltd-$",
       "issuerName": "CHAMAN LAL SETIA EXPORTS LIMITED",
       "isin": "INE419D01026",
       "group": "B",
@@ -19610,7 +19610,7 @@
     {
       "scripCode": "530309",
       "scripId": "CHANDRAP",
-      "name": "Chandra Prabhu International Ltd",
+      "name": "Chandra Prabhu International Ltd-$",
       "issuerName": "Chandra Prabhu International Ltd.",
       "isin": "INE368D01025",
       "group": "X",
@@ -19632,7 +19632,7 @@
     {
       "scripCode": "530315",
       "scripId": "HINDTIN",
-      "name": "Hindustan Tin Works Ltd",
+      "name": "Hindustan Tin Works Ltd-$",
       "issuerName": "Hindustan Tin Works Ltd.",
       "isin": "INE428D01019",
       "group": "X",
@@ -19654,7 +19654,7 @@
     {
       "scripCode": "530331",
       "scripId": "PREMCO",
-      "name": "Premco Global Ltd",
+      "name": "Premco Global Ltd-$",
       "issuerName": "Premco Global Ltd.",
       "isin": "INE001E01012",
       "group": "B",
@@ -19676,7 +19676,7 @@
     {
       "scripCode": "530343",
       "scripId": "GENUSPOWER",
-      "name": "Genus Power Infrastructures Ltd",
+      "name": "Genus Power Infrastructures Ltd-$",
       "issuerName": "Genus Power Infrastructures Ltd",
       "isin": "INE955D01029",
       "group": "A",
@@ -19720,7 +19720,7 @@
     {
       "scripCode": "530363",
       "scripId": "UGARSUGAR",
-      "name": "Ugar Sugar Works Ltd",
+      "name": "Ugar Sugar Works Ltd-$",
       "issuerName": "Ugar Sugar Works Ltd.",
       "isin": "INE071E01023",
       "group": "B",
@@ -19731,7 +19731,7 @@
     {
       "scripCode": "530365",
       "scripId": "ORIENTBELL",
-      "name": "Orient Bell Ltd",
+      "name": "Orient Bell Ltd-$",
       "issuerName": "Orient Bell Limited",
       "isin": "INE607D01018",
       "group": "B",
@@ -19808,7 +19808,7 @@
     {
       "scripCode": "530407",
       "scripId": "EPIC",
-      "name": "EPIC Energy Ltd",
+      "name": "EPIC Energy Ltd-$",
       "issuerName": "EPIC Energy Ltd.",
       "isin": "INE932F01015",
       "group": "X",
@@ -19929,7 +19929,7 @@
     {
       "scripCode": "530459",
       "scripId": "VALSONQ",
-      "name": "Valson Industries Ltd",
+      "name": "Valson Industries Ltd-$",
       "issuerName": "Valson Industries Ltd.",
       "isin": "INE808A01018",
       "group": "X",
@@ -20006,7 +20006,7 @@
     {
       "scripCode": "530517",
       "scripId": "RELAXO",
-      "name": "Relaxo Footwears Ltd",
+      "name": "Relaxo Footwears Ltd-$",
       "issuerName": "Relaxo Footwears Ltd.",
       "isin": "INE131B01039",
       "group": "A",
@@ -20061,7 +20061,7 @@
     {
       "scripCode": "530545",
       "scripId": "COSCO",
-      "name": "Cosco India Ltd",
+      "name": "Cosco India Ltd-$",
       "issuerName": "Cosco (India) ltd.",
       "isin": "INE949B01018",
       "group": "X",
@@ -20094,7 +20094,7 @@
     {
       "scripCode": "530555",
       "scripId": "PARACABLES",
-      "name": "Paramount Communications Ltd",
+      "name": "Paramount Communications Ltd-$",
       "issuerName": "Paramount Communications Ltd.",
       "isin": "INE074B01023",
       "group": "B",
@@ -20336,7 +20336,7 @@
     {
       "scripCode": "530695",
       "scripId": "PRIMEPRO",
-      "name": "Prime Property Development Corporation Ltd",
+      "name": "Prime Property Development Corporation Ltd-$",
       "issuerName": "Prime Property Development Corporation Ltd.",
       "isin": "INE233C01023",
       "group": "XT",
@@ -20358,7 +20358,7 @@
     {
       "scripCode": "530699",
       "scripId": "RAJRILTD",
-      "name": "Raj Rayon Industries Ltd",
+      "name": "Raj Rayon Industries Ltd-$",
       "issuerName": "Raj Rayon Industries Limited",
       "isin": "INE533D01032",
       "group": "T",
@@ -20490,7 +20490,7 @@
     {
       "scripCode": "530759",
       "scripId": "STERTOOLS",
-      "name": "Sterling Tools Ltd",
+      "name": "Sterling Tools Ltd-$",
       "issuerName": "Sterling Tools Ltd.",
       "isin": "INE334A01023",
       "group": "T",
@@ -20622,7 +20622,7 @@
     {
       "scripCode": "530821",
       "scripId": "SSPDL",
-      "name": "SSPDL Ltd",
+      "name": "SSPDL Ltd-$",
       "issuerName": "SSPDL Limited",
       "isin": "INE838C01011",
       "group": "X",
@@ -20666,7 +20666,7 @@
     {
       "scripCode": "530843",
       "scripId": "CUPID",
-      "name": "Cupid Ltd",
+      "name": "Cupid Ltd-$",
       "issuerName": "Cupid Limited",
       "isin": "INE509F01029",
       "group": "A",
@@ -20710,7 +20710,7 @@
     {
       "scripCode": "530871",
       "scripId": "CHEMBOND",
-      "name": "Chembond Material Technologies Ltd",
+      "name": "Chembond Material Technologies Ltd-$",
       "issuerName": "Chembond Material Technologies Limited",
       "isin": "INE995D01025",
       "group": "B",
@@ -20765,7 +20765,7 @@
     {
       "scripCode": "530897",
       "scripId": "NGIND",
-      "name": "NG Industries Ltd",
+      "name": "NG Industries Ltd-$",
       "issuerName": "N.G.Industries Ltd.",
       "isin": "INE825C01018",
       "group": "X",
@@ -20897,7 +20897,7 @@
     {
       "scripCode": "530953",
       "scripId": "SUNILAGR",
-      "name": "Sunil Agro Foods Ltd",
+      "name": "Sunil Agro Foods Ltd-$",
       "issuerName": "Sunil Agro Foods ltd.",
       "isin": "INE224D01012",
       "group": "X",
@@ -21007,7 +21007,7 @@
     {
       "scripCode": "530999",
       "scripId": "BALAMINES",
-      "name": "Balaji Amines Ltd",
+      "name": "Balaji Amines Ltd-$",
       "issuerName": "Balaji Amines Ltd.",
       "isin": "INE050E01027",
       "group": "B",
@@ -21282,7 +21282,7 @@
     {
       "scripCode": "531120",
       "scripId": "PATELENG",
-      "name": "Patel Engineering Ltd",
+      "name": "Patel Engineering Ltd-$",
       "issuerName": "Patel Engineering Ltd",
       "isin": "INE244B01030",
       "group": "A",
@@ -21337,7 +21337,7 @@
     {
       "scripCode": "531144",
       "scripId": "ELFORGE",
-      "name": "El Forge Ltd",
+      "name": "El Forge Ltd-$",
       "issuerName": "El Forge Ltd.",
       "isin": "INE158F01017",
       "group": "X",
@@ -21348,7 +21348,7 @@
     {
       "scripCode": "531146",
       "scripId": "MEDICAMEQ",
-      "name": "Medicamen Biotech Ltd",
+      "name": "Medicamen Biotech Ltd-$",
       "issuerName": "Medicamen Biotech Ltd.",
       "isin": "INE646B01010",
       "group": "B",
@@ -21436,7 +21436,7 @@
     {
       "scripCode": "531162",
       "scripId": "EMAMILTD",
-      "name": "Emami Ltd",
+      "name": "Emami Ltd-$",
       "issuerName": "Emami Ltd",
       "isin": "INE548C01032",
       "group": "A",
@@ -21645,7 +21645,7 @@
     {
       "scripCode": "531216",
       "scripId": "COMFINTE",
-      "name": "Comfort Intech Ltd",
+      "name": "Comfort Intech Ltd-$",
       "issuerName": "Comfort Intech Ltd",
       "isin": "INE819A01049",
       "group": "B",
@@ -21678,7 +21678,7 @@
     {
       "scripCode": "531223",
       "scripId": "ANJANI",
-      "name": "Anjani Synthetics Ltd",
+      "name": "Anjani Synthetics Ltd-$",
       "issuerName": "Anjani Synthetics Limited",
       "isin": "INE364D01032",
       "group": "X",
@@ -21766,7 +21766,7 @@
     {
       "scripCode": "531241",
       "scripId": "LINC",
-      "name": "Linc Ltd",
+      "name": "Linc Ltd-$",
       "issuerName": "LINC LIMITED",
       "isin": "INE802B01027",
       "group": "B",
@@ -21788,7 +21788,7 @@
     {
       "scripCode": "531253",
       "scripId": "INDGELA",
-      "name": "India Gelatine & Chemicals Ltd",
+      "name": "India Gelatine & Chemicals Ltd-$",
       "issuerName": "India Gelatine & Chemicals Ltd.",
       "isin": "INE342D01012",
       "group": "X",
@@ -21854,7 +21854,7 @@
     {
       "scripCode": "531266",
       "scripId": "VSTTILLERS",
-      "name": "VST Tillers Tractors Ltd",
+      "name": "VST Tillers Tractors Ltd-$",
       "issuerName": "V.S.T.Tillers Tractors Ltd.",
       "isin": "INE764D01017",
       "group": "B",
@@ -22151,7 +22151,7 @@
     {
       "scripCode": "531335",
       "scripId": "ZYDUSWELL",
-      "name": "Zydus Wellness Ltd",
+      "name": "Zydus Wellness Ltd-$",
       "issuerName": "Zydus Wellness Limited",
       "isin": "INE768C01028",
       "group": "A",
@@ -22327,7 +22327,7 @@
     {
       "scripCode": "531381",
       "scripId": "ARIHANT",
-      "name": "Arihant Foundations & Housing Ltd",
+      "name": "Arihant Foundations & Housing Ltd-$",
       "issuerName": "Arihant Foundations & Housing Ltd.",
       "isin": "INE413D01011",
       "group": "B",
@@ -22514,7 +22514,7 @@
     {
       "scripCode": "531431",
       "scripId": "SHAKTIPUMP",
-      "name": "Shakti Pumps India Ltd",
+      "name": "Shakti Pumps India Ltd-$",
       "issuerName": "Shakti Pumps (India) Ltd.",
       "isin": "INE908D01010",
       "group": "A",
@@ -22602,7 +22602,7 @@
     {
       "scripCode": "531453",
       "scripId": "MOHITIND",
-      "name": "Mohit Industries Ltd",
+      "name": "Mohit Industries Ltd-$",
       "issuerName": "Mohit Industries Limited",
       "isin": "INE954E01012",
       "group": "B",
@@ -22745,7 +22745,7 @@
     {
       "scripCode": "531497",
       "scripId": "MADHUCON",
-      "name": "Madhucon Projects Ltd",
+      "name": "Madhucon Projects Ltd-$",
       "issuerName": "Madhucon Projects Ltd.",
       "isin": "INE378D01032",
       "group": "T",
@@ -22778,7 +22778,7 @@
     {
       "scripCode": "531503",
       "scripId": "MARIS",
-      "name": "Maris Spinners Ltd",
+      "name": "Maris Spinners Ltd-$",
       "issuerName": "Maris Spinners Ltd.",
       "isin": "INE866D01010",
       "group": "X",
@@ -22866,7 +22866,7 @@
     {
       "scripCode": "531525",
       "scripId": "ACESOFT",
-      "name": "ACE Software Exports Ltd",
+      "name": "ACE Software Exports Ltd-$",
       "issuerName": "Ace Software Exports ltd.",
       "isin": "INE849B01010",
       "group": "XT",
@@ -22921,7 +22921,7 @@
     {
       "scripCode": "531539",
       "scripId": "RISHDIGA",
-      "name": "Rishabh Digha Steel & Allied Products Ltd",
+      "name": "Rishabh Digha Steel & Allied Products Ltd-$",
       "issuerName": "Rishabh Digha Steel And Allied Prod",
       "isin": "INE864D01015",
       "group": "X",
@@ -22943,7 +22943,7 @@
     {
       "scripCode": "531541",
       "scripId": "KOBO",
-      "name": "Kobo Biotech Ltd",
+      "name": "Kobo Biotech Ltd-$",
       "issuerName": "KOBO BIOTECH LIMITED",
       "isin": "INE881A01015",
       "group": "Z",
@@ -23251,7 +23251,7 @@
     {
       "scripCode": "531626",
       "scripId": "OROSMITHS",
-      "name": "Orosil Smiths India Ltd",
+      "name": "Orosil Smiths India Ltd-$",
       "issuerName": "Orosil Smiths India Limited",
       "isin": "INE628B01034",
       "group": "XT",
@@ -23306,7 +23306,7 @@
     {
       "scripCode": "531638",
       "scripId": "SURAJLTD",
-      "name": "Suraj Ltd",
+      "name": "Suraj Ltd-$",
       "issuerName": "Suraj Ltd.",
       "isin": "INE713C01016",
       "group": "B",
@@ -23548,7 +23548,7 @@
     {
       "scripCode": "531717",
       "scripId": "VIDHIING",
-      "name": "Vidhi Specialty Food Ingredients Ltd",
+      "name": "Vidhi Specialty Food Ingredients Ltd-$",
       "issuerName": "Vidhi Specialty Food Ingredients Limited",
       "isin": "INE632C01026",
       "group": "B",
@@ -23647,7 +23647,7 @@
     {
       "scripCode": "531744",
       "scripId": "GINISILK",
-      "name": "Gini Silk Mills Ltd",
+      "name": "Gini Silk Mills Ltd-$",
       "issuerName": "Gini Silk Mills Ltd.",
       "isin": "INE548B01018",
       "group": "X",
@@ -23790,7 +23790,7 @@
     {
       "scripCode": "531795",
       "scripId": "ATULAUTO",
-      "name": "Atul Auto Ltd",
+      "name": "Atul Auto Ltd-$",
       "issuerName": "Atul Auto Limited",
       "isin": "INE951D01028",
       "group": "B",
@@ -23933,7 +23933,7 @@
     {
       "scripCode": "531842",
       "scripId": "LAHOTIOV",
-      "name": "Lahoti Overseas Ltd",
+      "name": "Lahoti Overseas Ltd-$",
       "issuerName": "Lahoti Overseas Ltd.",
       "isin": "INE515C01023",
       "group": "B",
@@ -23944,7 +23944,7 @@
     {
       "scripCode": "531845",
       "scripId": "ZENITHSTL",
-      "name": "Zenith Steel Pipes & Industries Ltd",
+      "name": "Zenith Steel Pipes & Industries Ltd-$",
       "issuerName": "ZENITH STEEL PIPES AND  INDUSTRIES LIMITED",
       "isin": "INE318D01020",
       "group": "B",
@@ -23966,7 +23966,7 @@
     {
       "scripCode": "531847",
       "scripId": "ASTAR",
-      "name": "Asian Star Company Ltd",
+      "name": "Asian Star Company Ltd-$",
       "issuerName": "Asian Star Co. Ltd.",
       "isin": "INE194D01017",
       "group": "B",
@@ -24362,7 +24362,7 @@
     {
       "scripCode": "531979",
       "scripId": "HINDALUMI",
-      "name": "Hind Aluminium Industries Ltd",
+      "name": "Hind Aluminium Industries Ltd-$",
       "issuerName": "HIND ALUMINIUM INDUSTRIES LTD.",
       "isin": "INE227B01019",
       "group": "B",
@@ -24483,7 +24483,7 @@
     {
       "scripCode": "532015",
       "scripId": "GRAVITY",
-      "name": "Gravity India Ltd",
+      "name": "Gravity India Ltd-$",
       "issuerName": "Gravity (India) Ltd.",
       "isin": "INE995A01013",
       "group": "X",
@@ -24582,7 +24582,7 @@
     {
       "scripCode": "532051",
       "scripId": "SWELECTES",
-      "name": "Swelect Energy Systems Ltd",
+      "name": "Swelect Energy Systems Ltd-$",
       "issuerName": "Swelect Energy Systems Limited",
       "isin": "INE409B01013",
       "group": "B",
@@ -24604,7 +24604,7 @@
     {
       "scripCode": "532054",
       "scripId": "KDDL",
-      "name": "KDDL Ltd",
+      "name": "KDDL Ltd-$",
       "issuerName": "KDDL Ltd",
       "isin": "INE291D01011",
       "group": "B",
@@ -24703,7 +24703,7 @@
     {
       "scripCode": "532100",
       "scripId": "INDOCITY",
-      "name": "Indo City Infotech Ltd",
+      "name": "Indo City Infotech Ltd-$",
       "issuerName": "Indo-City Infotech Ltd.",
       "isin": "INE456B01014",
       "group": "X",
@@ -25473,7 +25473,7 @@
     {
       "scripCode": "532326",
       "scripId": "INTENTECH",
-      "name": "Intense Technologies Ltd",
+      "name": "Intense Technologies Ltd-$",
       "issuerName": "Intense Technologies",
       "isin": "INE781A01025",
       "group": "B",
@@ -25484,7 +25484,7 @@
     {
       "scripCode": "532329",
       "scripId": "DANLAW",
-      "name": "Danlaw Technologies India Ltd",
+      "name": "Danlaw Technologies India Ltd-$",
       "issuerName": "Danlaw Technologies India Ltd.",
       "isin": "INE310B01013",
       "group": "XT",
@@ -25550,7 +25550,7 @@
     {
       "scripCode": "532339",
       "scripId": "COMPUSOFT",
-      "name": "Compucom Software Ltd",
+      "name": "Compucom Software Ltd-$",
       "issuerName": "Compucom Software Lt.",
       "isin": "INE453B01029",
       "group": "B",
@@ -25572,7 +25572,7 @@
     {
       "scripCode": "532341",
       "scripId": "IZMO",
-      "name": "IZMO Ltd",
+      "name": "IZMO Ltd-$",
       "issuerName": "IZMO Limited",
       "isin": "INE848A01014",
       "group": "B",
@@ -25858,7 +25858,7 @@
     {
       "scripCode": "532380",
       "scripId": "BABA",
-      "name": "Baba Arts Ltd",
+      "name": "Baba Arts Ltd-$",
       "issuerName": "Baba Arts Ltd",
       "isin": "INE893A01036",
       "group": "X",
@@ -26111,7 +26111,7 @@
     {
       "scripCode": "532430",
       "scripId": "BFUTILITIE",
-      "name": "BF Utilities Ltd",
+      "name": "BF Utilities Ltd-$",
       "issuerName": "BF Utilities Ltd.",
       "isin": "INE243D01012",
       "group": "B",
@@ -26265,7 +26265,7 @@
     {
       "scripCode": "532467",
       "scripId": "HAZOOR",
-      "name": "Hazoor Multi Projects Ltd",
+      "name": "Hazoor Multi Projects Ltd-$",
       "issuerName": "Hazoor Multi Projects Limited",
       "isin": "INE550F01049",
       "group": "B",
@@ -26276,7 +26276,7 @@
     {
       "scripCode": "532468",
       "scripId": "KAMAHOLD",
-      "name": "Kama Holdings Ltd",
+      "name": "Kama Holdings Ltd-$",
       "issuerName": "Kama Holdings Limited",
       "isin": "INE411F01010",
       "group": "B",
@@ -26320,7 +26320,7 @@
     {
       "scripCode": "532478",
       "scripId": "UBL",
-      "name": "United Breweries Ltd",
+      "name": "United Breweries Ltd-$",
       "issuerName": "United Breweries Ltd.",
       "isin": "INE686F01025",
       "group": "A",
@@ -26342,7 +26342,7 @@
     {
       "scripCode": "532482",
       "scripId": "GRANULES",
-      "name": "Granules India Ltd",
+      "name": "Granules India Ltd-$",
       "issuerName": "Granules India Ltd.",
       "isin": "INE101D01020",
       "group": "A",
@@ -26430,7 +26430,7 @@
     {
       "scripCode": "532503",
       "scripId": "RAJPALAYAM",
-      "name": "Rajapalayam Mills Ltd",
+      "name": "Rajapalayam Mills Ltd-$",
       "issuerName": "Rajapalayam Mills Limited",
       "isin": "INE296E01026",
       "group": "B",
@@ -26441,7 +26441,7 @@
     {
       "scripCode": "532504",
       "scripId": "NAVINFLUOR",
-      "name": "Navin Fluorine International Ltd",
+      "name": "Navin Fluorine International Ltd-$",
       "issuerName": "Navin Fluorine International Limited",
       "isin": "INE048G01026",
       "group": "A",
@@ -26485,7 +26485,7 @@
     {
       "scripCode": "532509",
       "scripId": "SUPRAJIT",
-      "name": "Suprajit Engineering Ltd",
+      "name": "Suprajit Engineering Ltd-$",
       "issuerName": "Suprajit Engineering Ltd.",
       "isin": "INE399C01030",
       "group": "A",
@@ -26639,7 +26639,7 @@
     {
       "scripCode": "532539",
       "scripId": "UNOMINDA",
-      "name": "UNO Minda Ltd",
+      "name": "UNO Minda Ltd-$",
       "issuerName": "UNO Minda Limited",
       "isin": "INE405E01023",
       "group": "A",
@@ -26683,7 +26683,7 @@
     {
       "scripCode": "532548",
       "scripId": "CENTURYPLY",
-      "name": "Century Plyboards (India) Ltd",
+      "name": "Century Plyboards (India) Ltd-$",
       "issuerName": "Century Plyboards (India) Ltd.",
       "isin": "INE348B01021",
       "group": "A",
@@ -29059,7 +29059,7 @@
     {
       "scripCode": "532974",
       "scripId": "BIRLAMONEY",
-      "name": "Aditya Birla Money Ltd",
+      "name": "Aditya Birla Money Ltd-$",
       "issuerName": "Aditya Birla  Money Ltd",
       "isin": "INE865C01022",
       "group": "B",
@@ -51598,7 +51598,7 @@
     {
       "scripCode": "544620",
       "scripId": "MSCIADD",
-      "name": "DSP MSCI India ETF",
+      "name": "MSCIADD",
       "issuerName": "DSP Mutual Fund",
       "isin": "INF740KA1WV7",
       "group": "B",
@@ -54403,7 +54403,7 @@
     {
       "scripCode": "590006",
       "scripId": "AMRUTANJAN",
-      "name": "Amrutanjan Health Care Ltd",
+      "name": "Amrutanjan Health Care Ltd-$",
       "issuerName": "Amrutanjan Health Care Limited",
       "isin": "INE098F01031",
       "group": "B",
@@ -54425,7 +54425,7 @@
     {
       "scripCode": "590018",
       "scripId": "HISARMETAL",
-      "name": "Hisar Metal Industries Ltd",
+      "name": "Hisar Metal Industries Ltd-$",
       "issuerName": "Hisar Metal Industries Ltd.",
       "isin": "INE598C01011",
       "group": "B",
@@ -54502,7 +54502,7 @@
     {
       "scripCode": "590041",
       "scripId": "KAVDEFENCE",
-      "name": "Kavveri Defence & Wireless Technologies Ltd",
+      "name": "Kavveri Defence & Wireless Technologies Ltd-$",
       "issuerName": "Kavveri Defence & Wireless Technologies Limited",
       "isin": "INE641C01019",
       "group": "B",
@@ -54634,7 +54634,7 @@
     {
       "scripCode": "590075",
       "scripId": "LAMBODHARA",
-      "name": "Lambodhara Textile Ltd",
+      "name": "Lambodhara Textile Ltd-$",
       "issuerName": "Lambodhara Textiles Ltd.",
       "isin": "INE112F01022",
       "group": "B",

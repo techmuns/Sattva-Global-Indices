@@ -1,14 +1,14 @@
 {
   "source": "BSE end-of-day bhavcopy — bseindia.com/download/BhavCopy/Equity",
   "note": "End-of-day BSE prices, committed so the static site renders with no Worker and no network. A scrip absent from the file did NOT trade: its last close is carried forward with staleDays > 0 and source \"bhavcopy-bse-carried\". Live NSE prices, where available, overlay this in memory only and are never written back here.",
-  "capturedAt": "2026-08-28T02:20:26.935Z",
+  "capturedAt": "2026-08-28T02:37:33.415Z",
   "tradeDate": "2026-08-27",
   "fileRowCount": 4923,
-  "universeCount": 1230,
-  "pricedCount": 1223,
+  "universeCount": 1237,
+  "pricedCount": 1230,
   "carriedForwardCount": 3,
   "missingCount": 4,
-  "coveragePct": 99.431,
+  "coveragePct": 99.434,
   "continuity": {
     "against": "2026-08-26",
     "compared": 1222,
@@ -3991,6 +3991,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "513554": {
+      "scripCode": "513554",
+      "isin": "INE451L01014",
+      "symbol": "MAHASTEEL",
+      "tradeDate": "2026-08-27",
+      "open": 1255,
+      "high": 1269,
+      "low": 1205,
+      "close": 1268.45,
+      "prevClose": 1237,
+      "volume": 1083,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "513599": {
       "scripCode": "513599",
       "isin": "INE531E01026",
@@ -5164,6 +5178,20 @@
       "close": 1116.65,
       "prevClose": 1139.9,
       "volume": 6037,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
+    "524109": {
+      "scripCode": "524109",
+      "isin": "INE900B01029",
+      "symbol": "KABRAEXTRU",
+      "tradeDate": "2026-08-27",
+      "open": 603.5,
+      "high": 610,
+      "low": 586.65,
+      "close": 589.15,
+      "prevClose": 603.1,
+      "volume": 13382,
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
@@ -8499,6 +8527,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "532880": {
+      "scripCode": "532880",
+      "isin": "INE800H01010",
+      "symbol": "OMAXE",
+      "tradeDate": "2026-08-27",
+      "open": 107.99,
+      "high": 115.06,
+      "low": 107.27,
+      "close": 113.23,
+      "prevClose": 109.81,
+      "volume": 200892,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "532884": {
       "scripCode": "532884",
       "isin": "INE056I01025",
@@ -9616,6 +9658,20 @@
       "close": 88.72,
       "prevClose": 89.18,
       "volume": 188195,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
+    "534369": {
+      "scripCode": "534369",
+      "isin": "INE760L01018",
+      "symbol": "TBZ",
+      "tradeDate": "2026-08-27",
+      "open": 308.9,
+      "high": 312.8,
+      "low": 300.3,
+      "close": 306.85,
+      "prevClose": 305.5,
+      "volume": 137303,
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
@@ -13987,6 +14043,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "543978": {
+      "scripCode": "543978",
+      "isin": "INE05CZ01011",
+      "symbol": "RATNAVEER",
+      "tradeDate": "2026-08-27",
+      "open": 281.5,
+      "high": 296.75,
+      "low": 280.8,
+      "close": 293.95,
+      "prevClose": 278.9,
+      "volume": 285790,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "543980": {
       "scripCode": "543980",
       "isin": "INE682M01020",
@@ -15765,20 +15835,6 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
-    "544459": {
-      "scripCode": "544459",
-      "isin": "INE06ZD01017",
-      "symbol": "SHANTIGOLD",
-      "tradeDate": "2026-08-27",
-      "open": 260.95,
-      "high": 260.95,
-      "low": 242.6,
-      "close": 246.35,
-      "prevClose": 266.35,
-      "volume": 381084,
-      "staleDays": 0,
-      "source": "bhavcopy-bse"
-    },
     "544466": {
       "scripCode": "544466",
       "isin": "INE819V01029",
@@ -17064,6 +17120,48 @@
       "close": 132.47,
       "prevClose": 132.48,
       "volume": 375180,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
+    "544879": {
+      "scripCode": "544879",
+      "isin": "INE0K9O01026",
+      "symbol": "LALITHAA",
+      "tradeDate": "2026-08-27",
+      "open": 245.3,
+      "high": 255.5,
+      "low": 240.3,
+      "close": 246.15,
+      "prevClose": 244,
+      "volume": 1156317,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
+    "544880": {
+      "scripCode": "544880",
+      "isin": "INE685T01010",
+      "symbol": "HORIZONIND",
+      "tradeDate": "2026-08-27",
+      "open": 55.6,
+      "high": 57.5,
+      "low": 55.55,
+      "close": 56.77,
+      "prevClose": 56.75,
+      "volume": 247407,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
+    "544885": {
+      "scripCode": "544885",
+      "isin": "INE18UN01038",
+      "symbol": "GAJA",
+      "tradeDate": "2026-08-27",
+      "open": 172,
+      "high": 173.9,
+      "low": 164.1,
+      "close": 165.2,
+      "prevClose": 168.7,
+      "volume": 461398,
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
