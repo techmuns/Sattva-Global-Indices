@@ -1,7 +1,7 @@
 {
   "source": "niftyindices.com index constituent CSVs",
   "note": "The authoritative NSE symbol <-> ISIN mapping for this project. BSE scrip_id is never used as a substitute, however often the two agree.",
-  "capturedAt": "2026-08-21T15:02:11.567Z",
+  "capturedAt": "2026-08-28T02:20:19.725Z",
   "sources": [
     {
       "key": "nifty500",
@@ -7136,7 +7136,7 @@
     },
     {
       "symbol": "TDPOWERSYS",
-      "isin": "INE419M01027",
+      "isin": "INE419M01035",
       "name": "TD Power Systems Ltd.",
       "industry": "Capital Goods",
       "series": "EQ",
