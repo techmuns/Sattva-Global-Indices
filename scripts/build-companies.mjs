@@ -77,8 +77,9 @@ import { assess, verdictFromRules, VERDICTS, DISCLOSURE } from '../public/js/mod
 import { estimateFlows } from '../public/js/model/flows.js';
 import { nextReview, previousReview, reviewCutoffs } from '../public/js/model/calendar.js';
 import * as MSCI from '../public/js/config/msci-methodology.mjs';
-import { seriesToMap, summarise, FUND_BENCHMARKS } from '../public/js/model/benchmarks.js';
-import { SEGMENT_BAND_ADJUSTMENT } from '../public/js/config/thresholds.mjs';
+import { seriesToMap, summarise, rateOn, FUND_BENCHMARKS } from '../public/js/model/benchmarks.js';
+import { assessRelative, WINDOW_STATES } from '../public/js/model/relative.js';
+import { SEGMENT_BAND_ADJUSTMENT, RELATIVE_PERFORMANCE } from '../public/js/config/thresholds.mjs';
 import { renderTable, num, round, CheckList } from './lib/report.mjs';
 import {
   SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
@@ -143,6 +144,15 @@ function main() {
   // become `unknown` rather than a confident answer on a suspect input.
   const reconPath = join(REPO, 'public', 'data', 'share-reconciliation.json');
   const reconciliation = existsSync(reconPath) ? JSON.parse(readFileSync(reconPath, 'utf8')) : null;
+
+  // ---- the review-quarter relative-performance inputs ---------------------
+  // Optional together, and USELESS APART. A price series with no corporate-action
+  // data reads a 1:1 bonus as a 50% collapse, so if either is missing the reading
+  // is a stated absence for every company rather than a number for some of them.
+  const priceHistoryPath = join(REPO, 'public', 'data', 'price-history.json');
+  const priceHistory = existsSync(priceHistoryPath) ? JSON.parse(readFileSync(priceHistoryPath, 'utf8')) : null;
+  const actionsPath = join(REPO, 'public', 'data', 'corporate-actions.json');
+  const corporateActions = existsSync(actionsPath) ? JSON.parse(readFileSync(actionsPath, 'utf8')) : null;
 
   const checks = new CheckList('build');
 
@@ -660,6 +670,84 @@ function main() {
     segmentReturns[segment] = benchmarkById[benchmarkId]?.sinceLastReview?.inrPct ?? null;
   }
 
+  // ---- relative performance, review window to review window --------------
+  // Computed HERE and stored, not recomputed in the browser: this is a
+  // historical window and no live price moves it. It is also 980 KB of price
+  // history and 343 KB of corporate actions, which the browser has no reason to
+  // download to answer a question whose answer cannot change during a session.
+  const relativeByKey = new Map();
+  const relativeStates = {};
+  let relativeContext = null;
+  if (priceHistory && corporateActions && benchmarks) {
+    const dateIndex = new Map(priceHistory.dates.map((d, i) => [d, i]));
+    const [windowFrom, windowTo] = priceHistory.windows;
+    const fxForWindows = seriesToMap(benchmarks.fx?.series ?? []);
+
+    // The index leg, in RUPEES, on exactly the Indian window dates. Both halves
+    // of each product come from the same date; nothing is walked back, because a
+    // fund CLOSE does not persist across a day the way an FX rate does.
+    const indexCloses = {};
+    for (const descriptor of FUND_BENCHMARKS) {
+      const fund = (benchmarks.funds ?? []).find((f) => (f.id ?? f.fundId) === descriptor.id);
+      if (!fund) continue;
+      const closes = seriesToMap(fund.series ?? []);
+      const inrOn = (date) => {
+        const close = closes.get(date);
+        const fx = rateOn(fxForWindows, date, 0);   // 0: the SAME date or nothing
+        return close > 0 && fx?.rate > 0 ? close * fx.rate : null;
+      };
+      indexCloses[descriptor.id] = {
+        descriptor,
+        from: windowFrom.dates.map(inrOn),
+        to: windowTo.dates.map(inrOn),
+      };
+    }
+
+    for (const company of out) {
+      const key = keyOfCompany(company);
+      const code = company.bseScripCode != null ? String(company.bseScripCode) : null;
+      const scrip = code ? priceHistory.scrips[code] : null;
+      const actionRecord = code ? corporateActions.scrips[code] : null;
+      const benchmarkId = RELATIVE_PERFORMANCE.benchmarkForSegment[segmentOf(company)] ?? null;
+      const leg = benchmarkId ? indexCloses[benchmarkId] : null;
+
+      const reading = assessRelative({
+        hasPriceHistory: Boolean(scrip),
+        closesFrom: windowFrom.dates.map((d) => scrip?.closes[dateIndex.get(d)] ?? null),
+        closesTo: windowTo.dates.map((d) => scrip?.closes[dateIndex.get(d)] ?? null),
+        indexFrom: leg?.from ?? [],
+        indexTo: leg?.to ?? [],
+        // NULL, not [], when BSE could not be read for this scrip. Unknown
+        // actions are not the same fact as no actions, and only one of them
+        // permits a return to be computed.
+        actions: actionRecord ? actionRecord.actions : null,
+        windowFromFrom: windowFrom.from,
+        windowFromTo: windowFrom.to,
+        windowToFrom: windowTo.from,
+        windowToTo: windowTo.to,
+        benchmark: leg?.descriptor ?? null,
+      });
+      relativeByKey.set(key, reading);
+      relativeStates[reading.state] = (relativeStates[reading.state] ?? 0) + 1;
+    }
+
+    relativeContext = {
+      from: { review: windowFrom.review, from: windowFrom.from, to: windowFrom.to, sessions: windowFrom.dates.length },
+      to: { review: windowTo.review, from: windowTo.from, to: windowTo.to, sessions: windowTo.dates.length },
+      benchmarkForSegment: RELATIVE_PERFORMANCE.benchmarkForSegment,
+      bandPct: RELATIVE_PERFORMANCE.bandPct,
+      nearBoundaryPct: RELATIVE_PERFORMANCE.nearBoundaryPct,
+      basis: RELATIVE_PERFORMANCE.basis,
+      attribution: RELATIVE_PERFORMANCE.attribution,
+      windowNote: windowFrom.note,
+      windowSource: windowFrom.source,
+      states: relativeStates,
+      stateMeanings: WINDOW_STATES,
+      priceHistoryCapturedAt: priceHistory.capturedAt,
+      actionsCapturedAt: corporateActions.capturedAt,
+    };
+  }
+
   const assessContext = { boundary, ranks, quarantined, keyOf: keyOfCompany, segmentReturns };
   const flowContext = { flowPrimitives: flowPrimitivesByFund, segmentFloatTotals: floatTotals };
 
@@ -696,6 +784,9 @@ function main() {
     company.flowEstimate = flows.length || notSampled.length
       ? { shape, flows, notSampled }
       : null;
+    // A MEASUREMENT beside the verdict, never an input to it — see the header of
+    // model/relative.js on why a rank already contains every past price move.
+    company.relativePerformance = relativeByKey.get(keyOfCompany(company)) ?? null;
     if (quarantined.has(keyOfCompany(company))) {
       const finding = reconciliation.findings.find((f) => f.isin === company.isin);
       company.shareCountQuarantine = { reason: finding?.cause ?? 'share count could not be corroborated', gapPct: finding?.gapPct ?? null };
@@ -1228,6 +1319,7 @@ function main() {
       },
       funds: Object.values(benchmarkById),
     } : null,
+    relativePerformance: relativeContext,
     prices: {
       tradeDate: prices.tradeDate,
       source: prices.source,

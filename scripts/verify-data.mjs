@@ -27,7 +27,9 @@ import { Suite, parseArgs, ok, equal, empty, fail } from './lib/assert.mjs';
 import { assertBhavcopyShape, parseBhavcopy, assertContinuity } from './lib/bhavcopy.mjs';
 import { parseRawQuote, quoteNumber, quoteText } from './lib/munshot.mjs';
 import { buildIndex, resolveAll } from './lib/resolve.mjs';
-import { verdictFromRules } from '../public/js/model/assess.js';
+import { assess, verdictFromRules } from '../public/js/model/assess.js';
+import { observedBoundary, rankByFreeFloat } from '../public/js/model/thresholds.js';
+import { segmentOf } from '../public/js/model/segments.js';
 import { seriesToMap, summarise, assertSeriesDates, comparableInInr } from '../public/js/model/benchmarks.js';
 import { reviewCutoffs, CONVENTION } from '../public/js/model/calendar.js';
 import * as MSCI from '../public/js/config/msci-methodology.mjs';
@@ -36,6 +38,8 @@ import { gimiCutoffs, assessGimi, reviewWindow, METHODOLOGIES, METHODOLOGY_IDS }
 import { METHODOLOGIES as STATE_METHODOLOGIES } from '../public/js/core/state.js';
 import { inrFlow, pct, pp, signedPct, factorPct, count, cr, EM_DASH } from '../public/js/core/format.js';
 import { feedRegistry } from '../public/js/data/companies.js';
+import { relativeOf, windowMean, WINDOW_STATES } from '../public/js/model/relative.js';
+import { RELATIVE_PERFORMANCE } from '../public/js/config/thresholds.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -1072,6 +1076,153 @@ async function main() {
     sabotage: (c) => {
       // Convert nothing: hand back the dollar series as though it were rupees.
       c.benchmarks.fx.series = c.benchmarks.fx.series.map((p) => ({ ...p, close: 1 }));
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 36,
+    what: 'a relative return recomputes from the committed windows, and a missing leg never becomes a number',
+    clone: deepClone,
+    run: (c) => {
+      const rp = c.companiesFile.relativePerformance;
+      ok(rp, 'the relative-performance block is on the record', rp ? 'present' : 'absent');
+
+      // ⚠ THE COERCION IS THE WHOLE POINT OF THIS CHECK.
+      //
+      // `null - 4.5` is -4.5 in JavaScript. Finite, sortable, plausible. A bare
+      // subtraction would give every company with a missing leg a mild
+      // underperformer reading that sorts AMONG the real ones rather than into
+      // the missing group — and zero is a real value here (parity), so nothing
+      // downstream could tell a fabricated reading from a genuine one.
+      equal(relativeOf(null, 4.5), null, 'a null stock leg yields null, not minus the index');
+      equal(relativeOf(4.5, null), null, 'a null index leg yields null');
+      equal(relativeOf(undefined, 4.5), null, 'an undefined stock leg yields null');
+      equal(relativeOf(NaN, 4.5), null, 'a NaN stock leg yields null');
+      // And a partial window mean is null, not the mean of what happened to be
+      // there — a mean over eight of ten sessions is a different window.
+      equal(windowMean([1, 2, null, 4]), null, 'a window with a gap has no mean');
+
+      const fabricated = c.companies.filter((x) => {
+        const r = x.relativePerformance;
+        return r && r.relativePct !== null && (r.stockPct === null || r.indexPct === null);
+      });
+      empty(fabricated, 'no company has a relative return without both legs', (x) => x.name);
+
+      // Every state is one of the named ones, and every named state carries its
+      // own words — a state with no sentence is an em dash with no reason.
+      const unnamed = c.companies
+        .filter((x) => x.relativePerformance && !WINDOW_STATES[x.relativePerformance.state]);
+      empty(unnamed, 'every window state is one this model names', (x) => `${x.name}: ${x.relativePerformance.state}`);
+      const wordless = Object.entries(WINDOW_STATES).filter(([, v]) => !v.detail || !v.label);
+      empty(wordless, 'every named state carries its own explanation', ([k]) => k);
+
+      // Recompute one leg from the raw inputs rather than trusting the record.
+      const history = readJson('public/data/price-history.json');
+      const actions = readJson('public/data/corporate-actions.json');
+      const index = new Map(history.dates.map((d, i) => [d, i]));
+      const [wFrom, wTo] = history.windows;
+      const wrong = [];
+      let rechecked = 0;
+      for (const company of c.companies) {
+        const r = company.relativePerformance;
+        if (!r || r.stockPct === null || company.bseScripCode == null) continue;
+        const scrip = history.scrips[String(company.bseScripCode)];
+        if (!scrip) continue;
+        const meanFrom = windowMean(wFrom.dates.map((d) => scrip.closes[index.get(d)] ?? null));
+        const meanTo = windowMean(wTo.dates.map((d) => scrip.closes[index.get(d)] ?? null));
+        if (meanFrom === null || meanTo === null) continue;
+        const factor = r.adjustmentFactor ?? 1;
+        const implied = ((meanTo - (meanFrom / factor)) / (meanFrom / factor)) * 100;
+        rechecked += 1;
+        if (Math.abs(implied - r.stockPct) > 0.01) {
+          wrong.push(`${company.name}: stored ${r.stockPct}, price history implies ${implied.toFixed(3)}`);
+        }
+      }
+      empty(wrong, 'every stock leg recomputes from the committed price history', (x) => x);
+      ok(rechecked > 1000, 'enough legs were recomputed for that to mean something', `${rechecked} recomputed`);
+
+      // A price series with UNKNOWN actions must never produce a return: a bonus
+      // we cannot see reads as a collapse.
+      const blind = c.companies.filter((x) => {
+        const code = x.bseScripCode != null ? String(x.bseScripCode) : null;
+        return x.relativePerformance?.relativePct !== null
+          && x.relativePerformance
+          && code && !actions.scrips[code];
+      });
+      empty(blind, 'no return is computed for a scrip whose corporate actions could not be read', (x) => x.name);
+
+      const withReading = c.companies.filter((x) => x.relativePerformance?.relativePct !== null
+        && x.relativePerformance).length;
+      return `${withReading} of ${c.companies.length} companies have a reading · states `
+        + `${Object.entries(rp.states).map(([k, v]) => `${k} ${v}`).join(', ')}`;
+    },
+    sabotage: (c) => {
+      // The bare subtraction, which is the mistake a future author will make.
+      for (const company of c.companies) {
+        const r = company.relativePerformance;
+        if (!r) continue;
+        r.relativePct = r.stockPct - r.indexPct;
+      }
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 37,
+    what: 'the relative reading never moves a verdict — swept across its whole plausible range',
+    clone: deepClone,
+    run: (c) => {
+      // The reading is a MEASUREMENT beside a verdict, not an input to one. A
+      // migration verdict turns on a rank by free-float market cap, and free
+      // float is floatFactor x shares x price — so today's rank ALREADY contains
+      // every past price move. Letting the trend move the verdict would count
+      // the same evidence twice.
+      //
+      // Asserting that by sweeping is stronger than asserting it by reading the
+      // code: the verdict multiset must not move for ANY value the reading could
+      // take, including ones no market would produce.
+      const before = {};
+      for (const company of c.companies) {
+        before[company.assessment.verdict] = (before[company.assessment.verdict] ?? 0) + 1;
+      }
+      const keyOf = (x) => x.isin ?? `bse:${x.bseScripCode}`;
+      const context = {
+        boundary: observedBoundary(c.companies, segmentOf),
+        ranks: rankByFreeFloat(c.companies, keyOf),
+        quarantined: new Set(c.companies.filter((x) => x.shareCountQuarantine).map(keyOf)),
+        keyOf,
+        segmentReturns: c.companiesFile.benchmarks?.adjustment?.segmentReturnsInrPct ?? null,
+      };
+      const moved = [];
+      for (const sweep of [-200, -100, -40, -15, 0, 15, 40, 100, 200]) {
+        const after = {};
+        for (const company of c.companies) {
+          const withReading = {
+            ...company,
+            relativePerformance: {
+              ...(company.relativePerformance ?? {}),
+              relativePct: sweep,
+              envelope: [sweep - 1, sweep + 1],
+              robust: true,
+              direction: sweep > 0 ? 'outperformed' : 'underperformed',
+            },
+          };
+          const verdict = assess(withReading, context).verdict;
+          after[verdict] = (after[verdict] ?? 0) + 1;
+        }
+        for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+          if ((before[key] ?? 0) !== (after[key] ?? 0)) {
+            moved.push(`at ${sweep}pp: ${key} ${before[key] ?? 0} -> ${after[key] ?? 0}`);
+          }
+        }
+      }
+      empty(moved, 'no value of the reading changes any verdict count', (x) => x);
+      return `swept -200..+200 pp across ${c.companies.length} companies · verdict multiset unchanged at every point`;
+    },
+    sabotage: (c) => {
+      // Make the verdict depend on it, which is the change this check forbids.
+      for (const company of c.companies) {
+        if (company.relativePerformance?.robust) company.assessment.verdict = 'migration-up';
+      }
     },
   }, ctx);
 

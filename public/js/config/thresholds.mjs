@@ -152,6 +152,69 @@ export const SEGMENT_BAND_ADJUSTMENT = {
 };
 
 /**
+ * Relative performance — how a company moved against its segment, review window
+ * to review window.
+ *
+ * ---------------------------------------------------------------------------
+ * ⚠ THE BAND IS SET FROM A MEASUREMENT, NOT FROM A ROUND NUMBER
+ * ---------------------------------------------------------------------------
+ * MSCI's price cut-off is "one of the last 10 business days of the month before
+ * the review month" and it does not publish WHICH. So the same quarter has 100
+ * (from-day, to-day) pairs it could have meant, and they do not agree.
+ *
+ * Measured across all 1,177 companies with a reading, on the committed windows
+ * 2026-04-17..04-30 and 2026-07-20..07-31:
+ *
+ *     envelope width   p10 8.30   MEDIAN 14.73   p75 21.03   p90 29.16   max 133.15
+ *     envelope entirely one side of zero:  807 of 1,177  (68.6%)
+ *
+ * A first design proposed 5 pp and 10 pp. Both are below the median width of
+ * their own input — a threshold smaller than the uncertainty of the thing it
+ * bands produces state changes that are noise wearing a threshold's face.
+ *
+ * `bandPct` is therefore set AT the measured median. It is the desk's number in
+ * the sense that the desk chose to sit at the median rather than at p75, and the
+ * measurement it was chosen against is written above so the choice can be argued
+ * with rather than merely accepted.
+ *
+ * The band alone is not the gate. A reading may only act when its WHOLE envelope
+ * clears the band, so acting typically needs roughly 15 + half a width, or about
+ * 22 pp. Measured consequence: of 37 migration rows, 2 clear it; of the 32
+ * companies within `nearBoundaryPct` of the rank cutoff, 3 do. Those figures are
+ * reported on the surface rather than used to argue the band down — a gate that
+ * admits almost nobody is a finding, not a calibration failure.
+ */
+export const RELATIVE_PERFORMANCE = {
+  enabled: true,
+  basis: "the company's ten-day mean close across MSCI's price window, against the same ten days of "
+    + "the segment benchmark in rupees, compared geometrically: (1 + stock) / (1 + index) - 1",
+  attribution: "the desk's own reading. MSCI publishes neither the day it prices on nor any "
+    + 'performance rule — this measures a window MSCI does publish and draws no conclusion MSCI '
+    + 'would recognise.',
+  /**
+   * The measured median day-choice envelope width, in percentage points. Below
+   * this a reading cannot be distinguished from a different choice of day.
+   */
+  bandPct: 15,
+  /**
+   * How close to the observed rank cutoff a company must sit before its trend is
+   * read as approaching a boundary. The desk's number: outside this, a quarter's
+   * move does not plausibly carry a company across before the next review.
+   */
+  nearBoundaryPct: 15,
+  /**
+   * Which benchmark stands for each segment. INDEX ids, not fund ids — see
+   * SEGMENT_BAND_ADJUSTMENT above and the header of model/benchmarks.js on why
+   * the fund that holds a stock is not the index that decides its segment.
+   *
+   * Kept separate from SEGMENT_BAND_ADJUSTMENT deliberately: one floats a rupee
+   * band, the other differences two returns, and a future change to either must
+   * not silently move the other.
+   */
+  benchmarkForSegment: { standard: 'inda', smallcap: 'smin', outside: 'smin' },
+};
+
+/**
  * The market-cap buckets the screener's size filter offers.
  *
  * ---------------------------------------------------------------------------
