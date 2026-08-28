@@ -324,20 +324,63 @@ async function main() {
     process.exit(1);
   }
 
+  // ---- MERGE, DO NOT REPLACE ------------------------------------------
+  //
+  // THE PRE-OPEN LIST IS A SESSION ROSTER, NOT A UNIVERSE, and treating it as a
+  // universe froze this file for nine days.
+  //
+  // Only symbols that actually participated in a given day's pre-open call
+  // appear in it, and the SME segment in particular swings hard: it was 53 rows
+  // when this project was built and 24 on 28 Aug 2026, so the union moved 261 ->
+  // 234. The old shrink guard read that as a partial read, refused to write, and
+  // exited 1 — every single day, permanently, while the workflow's warning
+  // blamed a throttle that had not happened. The scrape was fine; the guard was
+  // wrong about what it was guarding.
+  //
+  // A symbol missing from today's roster did NOT trade in today's pre-open. That
+  // is "no reading today", not "this company is gone" — the same distinction
+  // prices already make with `staleDays` (CLAUDE.md §2.10). So today's readings
+  // are merged OVER the stored ones and each company keeps the session
+  // timestamp of the reading it actually carries.
   const previous = previousSnapshot();
-  if (previous && Number.isFinite(previous.companyCount) && previous.companyCount > companies.length) {
+  const mergedBySymbol = new Map();
+  let carriedForward = 0;
+
+  if (previous?.companies) {
+    for (const company of previous.companies) {
+      // Never restamp: a carried reading keeps the session it was struck in.
+      mergedBySymbol.set(company.symbol, { ...company, carriedForward: true });
+    }
+  }
+  for (const company of companies) {
+    mergedBySymbol.set(company.symbol, { ...company, sessionTimestamp, carriedForward: false });
+  }
+  for (const company of mergedBySymbol.values()) if (company.carriedForward) carriedForward += 1;
+
+  const merged = [...mergedBySymbol.values()].sort((a, b) => a.symbol.localeCompare(b.symbol));
+
+  // The guard that replaces the shrink test. It asks the question the old one
+  // meant to ask — "did this run actually read NSE?" — against TODAY'S fresh
+  // count, which a roster change cannot move. A genuine partial read still
+  // stops the run; a quiet SME day no longer does.
+  const FRESH_FLOOR = 150;
+  if (companies.length < FRESH_FLOOR) {
     if (!allowShrink) {
       process.stderr.write(
-        `\nREFUSING TO WRITE: the existing snapshot has ${num(previous.companyCount)} companies and\n` +
-          `this run collected only ${num(companies.length)}. A partial read must not replace a good file.\n` +
-          `Re-run; pass --allow-shrink only if the universe genuinely shrank.\n\n`,
+        `\nREFUSING TO WRITE: only ${num(companies.length)} symbols were read fresh this run,\n` +
+          `below the floor of ${num(FRESH_FLOOR)}. That is a partial read, not a quiet session.\n` +
+          `Pass --allow-shrink only if NSE genuinely publishes this few now.\n\n`,
       );
       process.exit(1);
     }
-    process.stdout.write(
-      `\n--allow-shrink: overwriting a ${num(previous.companyCount)}-company snapshot with ${num(companies.length)}.\n`,
-    );
+    process.stdout.write(`\n--allow-shrink: writing on only ${num(companies.length)} fresh symbols.\n`);
   }
+
+  process.stdout.write(
+    `\nMerged: ${num(companies.length)} read fresh this session, ` +
+      `${num(carriedForward)} carried forward from an earlier session, ` +
+      `${num(merged.length)} total.\n`,
+  );
 
   const payload = {
     source: 'NSE pre-open market API — nseindia.com/api/market-data-pre-open',
@@ -345,17 +388,23 @@ async function main() {
       'Free-float market cap as published by NSE. NOT computed from promoter holding. ' +
       'Struck at the pre-open indicative equilibrium price (09:00–09:08 IST), not at the close.',
     capturedAt: new Date().toISOString(),
+    // The session THIS run read. Individual companies carry their own, because
+    // a carried-forward reading was struck in an earlier session and saying
+    // otherwise would restamp somebody else's measurement (CLAUDE.md §3.7).
     sessionTimestamp,
     keysRead: keyStats,
-    companyCount: companies.length,
-    companies,
+    companyCount: merged.length,
+    freshThisSession: companies.length,
+    carriedForward,
+    companies: merged,
     failed,
   };
 
   mkdirSync(dirname(OUT_PATH), { recursive: true });
   writeFileSync(OUT_PATH, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   process.stdout.write(
-    `\nWrote ${OUT_PATH.replace(REPO + '/', '')} — ${num(companies.length)} companies, ` +
+    `\nWrote ${OUT_PATH.replace(REPO + '/', '')} — ${num(merged.length)} companies ` +
+      `(${num(companies.length)} fresh, ${num(carriedForward)} carried), ` +
       `session ${sessionTimestamp}, ${failed.length} failed key(s).\n\n`,
   );
 }

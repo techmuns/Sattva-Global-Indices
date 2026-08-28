@@ -93,9 +93,12 @@ jobs:
       - name: Say so when NSE was unreachable
         if: steps.nse.outcome == 'failure'
         run: |
-          echo "::warning title=NSE unreachable::NSE throttled this run. The previous good"\
-               "nse-freefloat.json is unchanged and the build continues on it. This is the"\
-               "designed behaviour, not a silent failure — see weekly-nse-crosscheck.yml."
+          echo "::warning title=NSE step failed::The NSE step did not complete. The previous"\
+               "nse-freefloat.json is unchanged and the build continues on it."\
+               "CHECK THE REASON IN THE STEP LOG BEFORE ASSUMING A THROTTLE: this warning used to"\
+               "say 'NSE throttled this run', and for nine days it was wrong — NSE answered fine"\
+               "and a shrink guard was refusing to write. A warning that names the wrong cause is"\
+               "worse than none, because it stops anyone looking."
 
       # ---- BSE: the primary source. Hard. --------------------------------
       - name: BSE per-scrip free float
