@@ -28,7 +28,7 @@ import { assertBhavcopyShape, parseBhavcopy, assertContinuity } from './lib/bhav
 import { parseRawQuote, quoteNumber, quoteText } from './lib/munshot.mjs';
 import { buildIndex, resolveAll } from './lib/resolve.mjs';
 import { verdictFromRules } from '../public/js/model/assess.js';
-import { seriesToMap, summarise } from '../public/js/model/benchmarks.js';
+import { seriesToMap, summarise, assertSeriesDates } from '../public/js/model/benchmarks.js';
 import { reviewCutoffs, CONVENTION } from '../public/js/model/calendar.js';
 import * as MSCI from '../public/js/config/msci-methodology.mjs';
 import { gimiCutoffs, assessGimi, reviewWindow, METHODOLOGIES, METHODOLOGY_IDS } from '../public/js/model/gimi.js';
@@ -1048,6 +1048,72 @@ async function main() {
     sabotage: (c) => {
       // Convert nothing: hand back the dollar series as though it were rupees.
       c.benchmarks.fx.series = c.benchmarks.fx.series.map((p) => ({ ...p, close: 1 }));
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 33,
+    what: 'every benchmark date label is a trading date — no UTC shift, and the FX series covers the funds',
+    clone: deepClone,
+    run: (c) => {
+      // ⚠ THIS CHECK EXISTS BECAUSE THE BUG IT CATCHES SHIPPED.
+      //
+      // Yahoo stamps a daily bar at the session's opening instant in the
+      // exchange's own timezone. USDINR=X lives on Europe/London and is stamped
+      // at LOCAL MIDNIGHT, so under BST — seven months of every year — its UTC
+      // date is one day early. The committed file carried the signature in
+      // plain sight for a week: Fri 45 and SUN 59 against ~104 for every other
+      // weekday, because Friday's bar was labelled Thursday and Monday's was
+      // labelled Sunday.
+      //
+      // The damage was not the label. It was that 57 of EEM's 502 trading dates
+      // then had no exact FX point, so rateOn walked back and priced them with
+      // the PREVIOUS day's rate — breaking the one promise the whole rupee
+      // conversion rests on, that both halves of each product come from the
+      // same date. Nothing looked wrong. Every return was slightly false.
+      //
+      // The threshold is THE CALENDAR, which nothing in the fetcher can move.
+      const broken = [];
+      const series = [
+        [c.benchmarks.fx.symbol, c.benchmarks.fx.series],
+        ...c.benchmarks.funds.map((f) => [f.symbol, f.series]),
+      ];
+      for (const [symbol, points] of series) {
+        const verdict = assertSeriesDates(points);
+        if (!verdict.ok) broken.push(`${symbol}: ${verdict.problems.join('; ')}`);
+      }
+      empty(broken, 'no series carries a weekend label or an unbalanced weekday tally', (b) => b);
+
+      // The consequence test, not the cause test. Even with clean labels, a
+      // fund date with no exact FX point is priced by a walk-back — legitimate
+      // for a real holiday, and the exact shape a shift hides behind.
+      const fxDates = new Set(c.benchmarks.fx.series.map((p) => p.date));
+      const walked = [];
+      for (const fund of c.benchmarks.funds) {
+        const missing = fund.series.filter((p) => !fxDates.has(p.date));
+        const share = missing.length / fund.series.length;
+        if (share > 0.03) {
+          walked.push(`${fund.symbol}: ${missing.length} of ${fund.series.length} dates need an FX walk-back`
+            + ` — first ${missing.slice(0, 3).map((p) => p.date).join(', ')}`);
+        }
+      }
+      empty(walked, 'each fund\'s dates resolve to an exact FX rate, bar the odd holiday', (w) => w);
+
+      const tally = assertSeriesDates(c.benchmarks.fx.series).tally;
+      const exact = c.benchmarks.funds.map((f) => {
+        const missing = f.series.filter((p) => !fxDates.has(p.date)).length;
+        return `${f.symbol} ${f.series.length - missing}/${f.series.length}`;
+      }).join(' · ');
+      return `FX weekdays ${JSON.stringify(tally)} · exact FX rate on ${exact}`;
+    },
+    sabotage: (c) => {
+      // The bug itself, reproduced: re-label the FX series one day earlier, which
+      // is what reading the bar's UTC date did for seven months of every year.
+      c.benchmarks.fx.series = c.benchmarks.fx.series.map((p) => {
+        const d = new Date(`${p.date}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() - 1);
+        return { ...p, date: d.toISOString().slice(0, 10) };
+      });
     },
   }, ctx);
 

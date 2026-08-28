@@ -42,6 +42,69 @@ export const FUND_BENCHMARKS = [
   },
 ];
 
+const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** `{Mon: n, ...}` for a dated series, so an impossible label is countable. */
+export function weekdayTally(series) {
+  const tally = {};
+  for (const point of series ?? []) {
+    const day = WEEKDAY_NAMES[new Date(`${point.date}T00:00:00Z`).getUTCDay()];
+    tally[day] = (tally[day] ?? 0) + 1;
+  }
+  return tally;
+}
+
+/**
+ * Are these date labels the dates the exchange would recognise?
+ *
+ * ---------------------------------------------------------------------------
+ * ⚠ A UTC DATE LABEL SHIFTS USDINR BACK ONE DAY FOR SEVEN MONTHS OF EVERY YEAR
+ * ---------------------------------------------------------------------------
+ * Yahoo stamps each daily bar at the session's opening instant in the
+ * exchange's OWN timezone. For the NYSE and Cboe funds that is 09:30 New York
+ * = 13:30 UTC, so a UTC date label agrees with the trading date and always
+ * will. USDINR=X is carried on `CCY`, timezone Europe/London, stamped at LOCAL
+ * MIDNIGHT — under GMT that is 00:00 UTC and the two agree, but under BST (late
+ * March to late October, seven months a year) Monday 24 Aug 2026 sits at
+ * 2026-08-23T23:00Z and a UTC label calls it SUNDAY THE 23RD.
+ *
+ * The committed file wore the signature plainly for a week and nobody read it:
+ *
+ *     FX weekday tally   Mon 104  Tue 105  Wed 104  Thu 101  Fri 45  SUN 59
+ *
+ * Fridays are missing because their bars were labelled Thursday, and 59
+ * impossible Sundays appeared because Monday's rate was pushed back a day.
+ *
+ * That breaks the one promise this module rests on — "both halves of each
+ * product come from the same date". 57 of EEM's 502 trading dates had no exact
+ * FX point, so `rateOn` walked back and priced them with the PREVIOUS day's
+ * rate, folding two days of currency into a one-day price move. Every one of
+ * them looked fine.
+ *
+ * THE THRESHOLD HERE IS THE CALENDAR, which no bug in the fetcher can move: no
+ * exchange in this payload trades at a weekend, and across two years of daily
+ * bars the five weekdays must appear in roughly equal numbers. A whole-day
+ * shift cannot satisfy either test, in either direction. 15% tolerates real
+ * holiday clustering — Thanksgiving is always a Thursday, Good Friday always a
+ * Friday — and does not tolerate a day's worth of shift.
+ */
+export function assertSeriesDates(series) {
+  const tally = weekdayTally(series);
+  const problems = [];
+  const weekend = (tally.Sat ?? 0) + (tally.Sun ?? 0);
+  if (weekend > 0) {
+    problems.push(`${weekend} weekend date label(s) — no exchange here trades at a weekend`);
+  }
+  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d) => tally[d] ?? 0);
+  const lo = Math.min(...weekdays);
+  const hi = Math.max(...weekdays);
+  const spread = hi > 0 ? (hi - lo) / hi : 1;
+  if (!(hi > 0) || spread > 0.15) {
+    problems.push(`weekdays span ${(spread * 100).toFixed(1)}% (limit 15%) — ${JSON.stringify(tally)}`);
+  }
+  return { ok: problems.length === 0, problems, tally };
+}
+
 /** `[{date, close}]` -> `Map(date -> close)`. */
 export function seriesToMap(series) {
   const map = new Map();

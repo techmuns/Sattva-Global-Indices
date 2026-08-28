@@ -71,7 +71,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { renderTable, num } from './lib/report.mjs';
-import { FUND_BENCHMARKS, returnBetween, seriesToMap } from '../public/js/model/benchmarks.js';
+import { FUND_BENCHMARKS, returnBetween, seriesToMap, assertSeriesDates } from '../public/js/model/benchmarks.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
@@ -85,6 +85,23 @@ const RANGE = '2y';
 const MIN_POINTS = 200;
 /** A series whose last close is older than this is stale, not a series. */
 const MAX_AGE_DAYS = 10;
+
+/**
+ * The date the EXCHANGE calls this bar, not the date UTC calls it.
+ *
+ * Yahoo stamps each daily bar at the session's opening instant in the exchange's
+ * own timezone, and publishes that timezone's offset as `meta.gmtoffset`. For
+ * the NYSE and Cboe funds the offset changes nothing; for USDINR=X, carried on
+ * Europe/London and stamped at local midnight, it is the difference between the
+ * right date and a date one day early for seven months of every year. See
+ * `assertSeriesDates` in benchmarks.js for what that cost and how it is caught.
+ *
+ * It is one line for every symbol rather than a special case somebody has to
+ * remember USDINR needs.
+ */
+function tradingDate(timestamp, gmtOffset) {
+  return new Date((timestamp + gmtOffset) * 1000).toISOString().slice(0, 10);
+}
 
 const chartUrl = (symbol) =>
   `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`
@@ -112,11 +129,14 @@ async function fetchSeries(symbol) {
 
   const timestamps = result.timestamp ?? [];
   const closes = result.indicators?.quote?.[0]?.close ?? [];
+  // See tradingDate: the offset is the difference between the bar's UTC instant
+  // and the date the exchange itself calls that session.
+  const gmtOffset = Number(result.meta?.gmtoffset ?? 0);
   const series = [];
   for (let i = 0; i < timestamps.length; i += 1) {
     const close = closes[i];
     if (close === null || close === undefined || !(close > 0)) continue;
-    series.push({ date: new Date(timestamps[i] * 1000).toISOString().slice(0, 10), close });
+    series.push({ date: tradingDate(timestamps[i], gmtOffset), close });
   }
 
   return {
@@ -125,6 +145,8 @@ async function fetchSeries(symbol) {
     currency: result.meta?.currency ?? null,
     instrumentType: result.meta?.instrumentType ?? null,
     exchange: result.meta?.fullExchangeName ?? null,
+    timezone: result.meta?.exchangeTimezoneName ?? null,
+    gmtOffset,
     series,
   };
 }
@@ -167,6 +189,29 @@ async function run() {
   }
   check(fx.series.length >= MIN_POINTS, `${FX_SYMBOL} has at least ${MIN_POINTS} usable closes`,
     `${fx.series.length} points`);
+
+  // ---- the date-label guards --------------------------------------------
+  // These exist because the UTC bug they catch shipped, and sat unread in the
+  // committed file for a week. The assertion lives in benchmarks.js so the
+  // fetcher and verify-data run one implementation against one calendar.
+  for (const [symbol, series] of fetched) {
+    const dates = assertSeriesDates(series.series);
+    check(dates.ok, `${symbol}'s date labels are trading dates`,
+      dates.ok ? JSON.stringify(dates.tally) : dates.problems.join('; '));
+  }
+
+  // The FX series must actually cover the days the funds traded. Walking back is
+  // legitimate for a genuine holiday and is how the shift hid: 57 of 502 dates
+  // resolved to the previous day's rate and every one of them looked fine.
+  const fxDates = new Set(fx.series.map((p) => p.date));
+  for (const fund of FUND_BENCHMARKS) {
+    const s = fetched.get(fund.symbol);
+    const missing = s.series.filter((p) => !fxDates.has(p.date));
+    check(missing.length <= s.series.length * 0.03,
+      `${fund.symbol}'s trading dates have an exact FX rate`,
+      `${missing.length} of ${s.series.length} need a walk-back`
+        + (missing.length ? ` — first ${missing.slice(0, 3).map((p) => p.date).join(', ')}` : ''));
+  }
 
   // Freshness is measured against the newest close ACROSS the series, not the
   // clock — a build must not depend on when it happened to run.
@@ -269,16 +314,55 @@ async function run() {
   process.stdout.write(`\n\n  newest close across all series: ${newest}\n`);
   for (const c of checks) process.stdout.write(`  ok    ${c.label}\n`);
 
-  // A writer never replaces a good snapshot with a smaller one.
+  // ---- a writer never replaces a good snapshot with a worse one ----------
+  //
+  // ⚠ COUNTING POINTS IS THE WRONG TEST FOR A ROLLING WINDOW.
+  //
+  // `range=2y` means two years back from TODAY, so the start of every series
+  // walks forward with the calendar. Run a week later and roughly five sessions
+  // fall off the front while five arrive at the back — a net drift of a point or
+  // two in either direction, forever, on perfectly good data. The original guard
+  // compared raw totals, so it went red on exactly that: 1,506 on file against
+  // 1,503 in the run that fixed the FX dates. A guard that must be waived on
+  // good data every week is a guard nobody reads, and this step is about to
+  // become a hard CI step where a false red stops the pipeline.
+  //
+  // What must never shrink is COVERAGE OF A PERIOD, not a count. So the test is
+  // anchored on the previous file — a source this run cannot move — and asks the
+  // only question that matters: of the dates we already held that fall inside
+  // this run's own span, how many came back? Dropping points fails it. Rolling
+  // the window forward does not.
   if (existsSync(OUT_PATH)) {
     const previous = JSON.parse(readFileSync(OUT_PATH, 'utf8'));
-    const wasPoints = (previous.funds ?? []).reduce((sum, f) => sum + (f.points ?? 0), 0);
-    const nowPoints = funds.reduce((sum, f) => sum + f.points, 0);
-    if (nowPoints < wasPoints && !process.argv.includes('--allow-shrink')) {
-      process.stderr.write(
-        `\nRefusing to shrink: ${num(wasPoints)} daily closes on file, ${num(nowPoints)} in this run.\n`
-        + 'Pass --allow-shrink if the history genuinely got shorter.\n\n',
-      );
+    const gaps = [];
+    const previousSeries = [
+      ...(previous.funds ?? []).map((f) => [f.symbol, f.series ?? []]),
+      [previous.fx?.symbol ?? FX_SYMBOL, previous.fx?.series ?? []],
+    ];
+    const nowSeries = new Map([
+      ...funds.map((f) => [f.symbol, f.series]),
+      [payload.fx.symbol, payload.fx.series],
+    ]);
+    for (const [symbol, wasSeries] of previousSeries) {
+      const now = nowSeries.get(symbol);
+      if (!now || now.length === 0) continue;   // a symbol that has been added or removed is not a gap
+      const from = now[0].date;
+      const to = now[now.length - 1].date;
+      const have = new Set(now.map((p) => p.date));
+      const missing = wasSeries
+        .filter((p) => p.date >= from && p.date <= to && !have.has(p.date))
+        .map((p) => p.date);
+      if (missing.length > 0) gaps.push({ symbol, missing });
+
+      const wasLast = wasSeries[wasSeries.length - 1]?.date ?? null;
+      if (wasLast && to < wasLast) gaps.push({ symbol, missing: [`series now ends ${to}, was ${wasLast}`] });
+    }
+    if (gaps.length > 0 && !process.argv.includes('--allow-shrink')) {
+      process.stderr.write('\nRefusing to write — dates we already held did not come back:\n\n');
+      for (const g of gaps) {
+        process.stderr.write(`  ${g.symbol}: ${g.missing.length} missing — ${g.missing.slice(0, 6).join(', ')}\n`);
+      }
+      process.stderr.write('\nPass --allow-shrink only if the history genuinely got shorter.\n\n');
       process.exit(1);
     }
   }
