@@ -20,27 +20,112 @@
  * across two sources or two moments.
  */
 
-/** The three funds, and the ticker whose price stands in for each one's basket. */
+/**
+ * The benchmarks, and the ticker whose price stands in for each one's basket.
+ *
+ * ---------------------------------------------------------------------------
+ * THE FUND THAT HOLDS A STOCK IS NOT THE INDEX THAT DECIDES ITS SEGMENT
+ * ---------------------------------------------------------------------------
+ * These are two different jobs and conflating them was wrong in the same
+ * direction for every large Indian company.
+ *
+ * A FLOW is about the fund that must trade: if a company's weight in EEM
+ * changes, EEM's managers buy or sell, and EEM's AUM sizes the trade. That is
+ * `holds`, and it is the fund from msci-funds.json.
+ *
+ * A SEGMENT MIGRATION is about the index that sorts companies into Standard and
+ * Small Cap. That sorting happens inside MSCI INDIA — an Indian company is
+ * ranked against other Indian companies, never against Taiwanese semiconductors.
+ * That is `standsForSegment`.
+ *
+ * EEM does both jobs badly at once. It holds India's Standard names, so it is
+ * the right fund for their flows. But it is ~11% India, so its return is mostly
+ * a statement about somewhere else. Measured over the year to 19 Aug 2026:
+ *
+ *     EEM                              +45.52%   (in rupees)
+ *     INDA                              +1.26%
+ *     median Standard constituent       +1.82%
+ *
+ * Against EEM, 149 of 164 Standard constituents "underperform" by a median of
+ * 43.7 pp — which would mark essentially every Indian large cap as shrinking
+ * relative to its segment, in the same direction, for a reason that has nothing
+ * to do with India. INDA splits the same 164 into 83 up and 81 down around a
+ * median of +0.6 pp, which is what a segment benchmark is supposed to look like.
+ *
+ * So INDA is on the record as the Standard segment's index. It is not one of the
+ * three funds and holds nothing here — `fundId: null` says so, and anything that
+ * sizes a trade must key on `fundId` rather than iterate this list.
+ *
+ * `indiaWeightPct` is the honest limit on the rupee conversion. Multiplying a
+ * price by USDINR recovers the rupee value of THE WHOLE BASKET; for INDA and
+ * SMIN that basket is Indian, so the result is comparable to an Indian company's
+ * rupee growth. For EEM and EEMS it is a global basket priced in rupees, which
+ * is a currency overlay and not an Indian return — see `comparableInInr`.
+ */
 export const FUND_BENCHMARKS = [
   {
     id: 'eem',
     symbol: 'EEM',
+    fundId: 'eem',
     name: 'iShares MSCI Emerging Markets ETF',
     tracks: 'MSCI Emerging Markets Index',
+    holds: 'the EM ETF\'s India Standard constituents',
+    standsForSegment: null,
+    indiaWeightPct: 11.3,
   },
   {
     id: 'smin',
     symbol: 'SMIN',
+    fundId: 'smin',
     name: 'iShares MSCI India Small-Cap ETF',
     tracks: 'MSCI India Small Cap Index',
+    holds: 'the India Small-Cap ETF\'s constituents',
+    // The one benchmark that is legitimately both: an India-only fund whose
+    // index IS the segment its holdings sit in.
+    standsForSegment: 'smallcap',
+    indiaWeightPct: 100,
   },
   {
     id: 'eems',
     symbol: 'EEMS',
+    fundId: 'eems',
     name: 'iShares MSCI Emerging Markets Small-Cap ETF',
     tracks: 'MSCI Emerging Markets Small Cap Index',
+    holds: 'the EM Small-Cap ETF\'s India constituents',
+    standsForSegment: null,
+    indiaWeightPct: 21.3,
+  },
+  {
+    id: 'inda',
+    symbol: 'INDA',
+    // Holds nothing in this project. It is here to answer "how did the Standard
+    // segment move", which is a question about MSCI India, not about a fund.
+    fundId: null,
+    name: 'iShares MSCI India ETF',
+    tracks: 'MSCI India Index — the Standard segment for India',
+    holds: null,
+    standsForSegment: 'standard',
+    indiaWeightPct: 100,
   },
 ];
+
+/** Look one up by its id. */
+export const benchmarkById = (id) => FUND_BENCHMARKS.find((b) => b.id === id) ?? null;
+
+/**
+ * May this benchmark's rupee return be set beside an Indian company's?
+ *
+ * `price_usd × usdinr` recovers the rupee value of the WHOLE basket. That is a
+ * genuine Indian basket return for INDA and SMIN. For EEM (11.3% India) and
+ * EEMS (21.3%) it is a global basket expressed in rupees — the same number a
+ * currency overlay would produce — and differencing it against an Indian
+ * company's growth compares two different things and calls the answer
+ * outperformance.
+ *
+ * The 50% line is the desk's, and it is not a close call: the two benchmarks it
+ * excludes are 11% and 21% India, the two it admits are 100%.
+ */
+export const comparableInInr = (benchmark) => (benchmark?.indiaWeightPct ?? 0) >= 50;
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -201,7 +286,15 @@ export function summarise(fund, fxMap, lastReviewEffectiveDate) {
   const sinceUsd = round(returnSince(series, lastReviewEffectiveDate, null));
 
   return {
-    fundId: fund.fundId,
+    id: fund.id ?? fund.fundId,
+    // Null for a benchmark that holds nothing here. Anything sizing a trade must
+    // key on this; anything asking "how did the segment move" must not.
+    fundId: fund.fundId ?? null,
+    standsForSegment: fund.standsForSegment ?? null,
+    indiaWeightPct: fund.indiaWeightPct ?? null,
+    // Whether the rupee figure below may be set beside an Indian company's
+    // growth at all, or is a global basket wearing a rupee sign.
+    comparableInInr: comparableInInr(fund),
     symbol: fund.symbol,
     name: fund.name,
     lastClose: fund.lastClose,

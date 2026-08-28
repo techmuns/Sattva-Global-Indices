@@ -646,15 +646,18 @@ function main() {
   // model/benchmarks.js for why the dollar figure would be wrong by 9-13 points.
   const lastReview = previousReview(reviewAnchor);
   const fxMap = benchmarks ? seriesToMap(benchmarks.fx?.series ?? []) : null;
-  const benchmarkByFund = {};
+  // Keyed on the BENCHMARK id, not the fund id. INDA holds nothing here and has
+  // fundId null, so a fund-keyed map would silently drop the Standard segment's
+  // index — see the header of benchmarks.js on why those are two different jobs.
+  const benchmarkById = {};
   if (benchmarks) {
     for (const fund of benchmarks.funds ?? []) {
-      benchmarkByFund[fund.fundId] = summarise(fund, fxMap, lastReview?.effectiveDate ?? null);
+      benchmarkById[fund.id ?? fund.fundId] = summarise(fund, fxMap, lastReview?.effectiveDate ?? null);
     }
   }
   const segmentReturns = {};
-  for (const [segment, fundId] of Object.entries(SEGMENT_BAND_ADJUSTMENT.benchmarkForSegment)) {
-    segmentReturns[segment] = benchmarkByFund[fundId]?.sinceLastReview?.inrPct ?? null;
+  for (const [segment, benchmarkId] of Object.entries(SEGMENT_BAND_ADJUSTMENT.benchmarkForSegment)) {
+    segmentReturns[segment] = benchmarkById[benchmarkId]?.sinceLastReview?.inrPct ?? null;
   }
 
   const assessContext = { boundary, ranks, quarantined, keyOf: keyOfCompany, segmentReturns };
@@ -1211,7 +1214,7 @@ function main() {
         benchmarkForSegment: SEGMENT_BAND_ADJUSTMENT.benchmarkForSegment,
         segmentReturnsInrPct: segmentReturns,
       },
-      funds: Object.values(benchmarkByFund),
+      funds: Object.values(benchmarkById),
     } : null,
     prices: {
       tradeDate: prices.tradeDate,

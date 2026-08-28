@@ -106,20 +106,43 @@ jobs:
         run: node scripts/scrape-bse-freefloat.mjs
 
       # ---- how the segments themselves moved ------------------------------
-      # Yahoo, not an exchange, and not on the critical path: without it the
-      # desk's rupee bands simply stand raw and every rule says so. That is a
-      # less precise verdict, not a wrong one, so it must not fail the run.
+      # Yahoo, not an exchange. It stays SOFT on purpose: prices are the thing
+      # that must not go stale, and a Yahoo outage must not stop the exchange
+      # pipeline behind it. Without benchmarks the bands stand raw, the relative
+      # column reads as an absence, and every rule says so — less precise, not
+      # wrong.
+      #
+      # ⚠ BUT A SOFT STEP MUST NOT LIE ABOUT WHY IT FAILED.
+      #
+      # This file went unwritten from 21 Aug to 28 Aug and the run was green every
+      # day, posting "Yahoo did not answer" each time. Yahoo answered fine. The
+      # step was failing on OUR OWN shrink guard, which counted points against a
+      # rolling 2-year window and so went red whenever the window's start walked
+      # forward. continue-on-error swallowed the exit code and the warning
+      # attributed our bug to somebody else's service — which is worse than
+      # silence, because it sends the next reader to look in the wrong place.
+      #
+      # The guard is fixed (it now asks whether the dates we held came back). The
+      # warning now reports what actually happened instead of guessing.
       - name: Fund benchmark closes (soft)
         id: benchmarks
         continue-on-error: true
-        run: node scripts/fetch-fund-benchmarks.mjs
+        # pipefail is load-bearing: without it the step's exit code is tee's, always 0,
+        # and the 'if failure' branch below could never fire.
+        run: |
+          set -o pipefail
+          node scripts/fetch-fund-benchmarks.mjs 2>&1 | tee /tmp/benchmarks.log
 
-      - name: Say so when the benchmarks were unreachable
+      - name: Say what actually stopped the benchmarks
         if: steps.benchmarks.outcome == 'failure'
         run: |
-          echo "::warning title=Benchmarks unreachable::Yahoo did not answer. The previous"\
-               "fund-benchmarks.json is unchanged and the bands are floated by whatever it"\
-               "last recorded. If it is missing entirely the bands stand raw and every rule says so."
+          REASON=$(grep -m1 -E 'Refusing to write|Could not read|REFUSING TO WRITE' /tmp/benchmarks.log \
+                   || echo 'no reason line found — read the step log above')
+          echo "::warning title=Benchmarks not written::${REASON}"
+          echo "::warning title=What this means::fund-benchmarks.json is unchanged, so the bands are"\
+               "floated by whatever it last recorded and the relative-performance column reads as an"\
+               "absence with its own stated reason. The dashboard's freshness registry carries this"\
+               "feed, so the staleness is visible on the sources page rather than invisible."
 
       # ---- prices, then the record ---------------------------------------
       - name: BSE end-of-day prices

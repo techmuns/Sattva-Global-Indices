@@ -28,9 +28,10 @@ import { assertBhavcopyShape, parseBhavcopy, assertContinuity } from './lib/bhav
 import { parseRawQuote, quoteNumber, quoteText } from './lib/munshot.mjs';
 import { buildIndex, resolveAll } from './lib/resolve.mjs';
 import { verdictFromRules } from '../public/js/model/assess.js';
-import { seriesToMap, summarise, assertSeriesDates } from '../public/js/model/benchmarks.js';
+import { seriesToMap, summarise, assertSeriesDates, comparableInInr } from '../public/js/model/benchmarks.js';
 import { reviewCutoffs, CONVENTION } from '../public/js/model/calendar.js';
 import * as MSCI from '../public/js/config/msci-methodology.mjs';
+import { SEGMENT_BAND_ADJUSTMENT } from '../public/js/config/thresholds.mjs';
 import { gimiCutoffs, assessGimi, reviewWindow, METHODOLOGIES, METHODOLOGY_IDS } from '../public/js/model/gimi.js';
 import { METHODOLOGIES as STATE_METHODOLOGIES } from '../public/js/core/state.js';
 import { inrFlow, pct, pp, signedPct, factorPct, count, cr, EM_DASH } from '../public/js/core/format.js';
@@ -1012,7 +1013,29 @@ async function main() {
     clone: deepClone,
     run: (c) => {
       const b = c.benchmarks;
-      ok(b && b.funds?.length === 3, 'all three funds are on the record', `${b?.funds?.length} funds`);
+      // Scoped by ROLE, not by a count. Three of these are funds that hold
+      // something here; INDA holds nothing and is on the record to answer "how
+      // did the Standard segment move". A bare length test would have to be
+      // edited every time a benchmark is added, which is how it stops meaning
+      // anything — so assert the two roles are both covered instead.
+      const holding = b.funds.filter((f) => f.fundId !== null && f.fundId !== undefined);
+      const segmentIndices = b.funds.filter((f) => f.standsForSegment);
+      equal(holding.length, 3, 'the three holding funds are on the record');
+      empty(
+        Object.values(SEGMENT_BAND_ADJUSTMENT.benchmarkForSegment)
+          .filter((id) => !b.funds.some((f) => f.id === id)),
+        'every segment the bands float has a benchmark on the record',
+        (id) => `segment benchmark "${id}" is mapped but absent`,
+      );
+      // The mapping's own correctness: a benchmark may stand for an Indian
+      // segment only if its basket is Indian. EEM is 11.3% India, so its rupee
+      // return is a global basket wearing a rupee sign — measured 44.3 pp from
+      // INDA's over a year, and the OPPOSITE SIGN since the last review.
+      empty(
+        segmentIndices.filter((f) => !comparableInInr(f)),
+        'no segment is measured against a benchmark that is mostly not India',
+        (f) => `${f.symbol} stands for "${f.standsForSegment}" at only ${f.indiaWeightPct}% India`,
+      );
       ok(b.fx?.currency === 'INR', 'the FX series quotes INR per USD', `currency ${b.fx?.currency}`);
       for (const f of b.funds) equal(f.currency, 'USD', `${f.symbol} is quoted in USD`);
 
@@ -1022,7 +1045,7 @@ async function main() {
       const wrong = [];
       for (const fund of b.funds) {
         const summary = summarise(fund, fxMap, b.asOf ? c.companiesFile.benchmarks.lastReview.effectiveDate : null);
-        const stored = c.companiesFile.benchmarks.funds.find((x) => x.fundId === fund.fundId);
+        const stored = c.companiesFile.benchmarks.funds.find((x) => x.id === (fund.id ?? fund.fundId));
         if (!stored) { wrong.push(`${fund.symbol}: not in the record`); continue; }
         if (summary.sinceLastReview.inrPct !== stored.sinceLastReview.inrPct) {
           wrong.push(`${fund.symbol}: re-derived ${summary.sinceLastReview.inrPct}, record says ${stored.sinceLastReview.inrPct}`);

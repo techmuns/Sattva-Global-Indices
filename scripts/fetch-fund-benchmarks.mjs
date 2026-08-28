@@ -243,12 +243,21 @@ async function run() {
   const funds = FUND_BENCHMARKS.map((fund) => {
     const s = fetched.get(fund.symbol);
     return {
-      fundId: fund.id,
+      id: fund.id,
+      // NULL for a benchmark that holds nothing here (INDA). Anything that sizes
+      // a trade must key on this rather than iterate the list — see the header
+      // of benchmarks.js on why the holding fund and the segment index are two
+      // different jobs.
+      fundId: fund.fundId,
+      standsForSegment: fund.standsForSegment,
+      indiaWeightPct: fund.indiaWeightPct,
       symbol: s.symbol,
       name: fund.name,
+      tracks: fund.tracks,
       currency: s.currency,
       instrumentType: s.instrumentType,
       exchange: s.exchange,
+      timezone: s.timezone,
       firstClose: s.series[0]?.date ?? null,
       lastClose: s.series[s.series.length - 1]?.date ?? null,
       points: s.series.length,

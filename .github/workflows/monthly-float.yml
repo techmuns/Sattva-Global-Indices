@@ -52,6 +52,35 @@ jobs:
           MUNS_TOKEN: ${{ secrets.MUNS_TOKEN }}
         run: node scripts/fetch-quote-stats.mjs --concurrency 1 --gap-ms 1200
 
+      # ---- the benchmark series must not fall behind the stats -------------
+      # Every relative reading is a stock leg minus an index leg struck on the
+      # SAME DATE. quote-stats' capture date is one of those anchors, and this
+      # workflow moves it forward once a month. If the benchmark series is not
+      # moved with it, the index leg's required date falls past the end of the
+      # series and every reading goes to no-reading at once — on the monthly run,
+      # silently, for the whole universe.
+      #
+      # It is soft here for the same reason it is soft in the daily refresh: a
+      # Yahoo outage must not strand a month's float scrape that has already run.
+      - name: Fund benchmark closes (soft)
+        id: benchmarks
+        continue-on-error: true
+        # pipefail is load-bearing: without it the step's exit code is tee's, always 0,
+        # and the 'if failure' branch below could never fire.
+        run: |
+          set -o pipefail
+          node scripts/fetch-fund-benchmarks.mjs 2>&1 | tee /tmp/benchmarks.log
+
+      - name: Say what actually stopped the benchmarks
+        if: steps.benchmarks.outcome == 'failure'
+        run: |
+          REASON=$(grep -m1 -E 'Refusing to write|Could not read|REFUSING TO WRITE' /tmp/benchmarks.log \
+                   || echo 'no reason line found — read the step log above')
+          echo "::warning title=Benchmarks not written::${REASON}"
+          echo "::warning title=What this means::the benchmark series now trails quote-stats' capture"\
+               "date, so relative readings anchored on it will report a stated absence until the next"\
+               "successful fetch."
+
       - name: Rebuild the record
         run: node scripts/build-companies.mjs
 

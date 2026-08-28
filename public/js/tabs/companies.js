@@ -528,12 +528,20 @@ function buildStats(scopeRows) {
       const b = data.benchmarks();
       if (!b || !b.funds?.length) return [];
       const since = b.lastReview?.label ?? 'the last review';
+      // Each row says what its benchmark is FOR. Four returns listed side by side
+      // with nothing distinguishing them would present EEM's mostly-not-India
+      // move and INDA's Standard-segment move as two values of one thing — the
+      // confusion that put the wrong one in the band adjustment to begin with.
+      const SEGMENT_LABEL = { standard: 'Standard segment', smallcap: 'Small Cap segment' };
       const line = (f) => {
         const r = f.sinceLastReview?.inrPct;
         if (r === null || r === undefined) return '';
         const tone = r >= 0 ? 'text-emerald-700' : 'text-rose-700';
+        const role = f.standsForSegment
+          ? `<span class="text-[10px] font-medium text-indigo-700">${escapeHtml(SEGMENT_LABEL[f.standsForSegment] ?? f.standsForSegment)}</span>`
+          : `<span class="text-[10px] text-slate-400" title="${escapeHtml(`${f.symbol} is ${f.indiaWeightPct}% India, so its return is mostly about somewhere else. It sizes this fund's flows; it does not stand for an Indian segment.`)}">holdings only · ${escapeHtml(String(f.indiaWeightPct ?? '—'))}% India</span>`;
         return '<div class="flex items-baseline justify-between gap-3 text-xs">'
-          + `<span class="font-semibold text-slate-700">${escapeHtml(f.symbol)}</span>`
+          + `<span class="flex items-baseline gap-1.5"><span class="font-semibold text-slate-700">${escapeHtml(f.symbol)}</span>${role}</span>`
           + `<span class="tabular-nums ${tone}">${escapeHtml(signedPct(r, 2))} <span class="text-slate-400">in ₹</span></span></div>`;
       };
       const smin = b.funds.find((f) => f.fundId === 'smin');

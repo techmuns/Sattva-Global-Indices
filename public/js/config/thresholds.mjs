@@ -119,12 +119,30 @@ export const SEGMENT_BAND_ADJUSTMENT = {
     + 'universe at each review and does not publish them; this floats a fixed rupee band by a '
     + 'measured segment move, using an ETF as a proxy for the index it tracks.',
   /**
-   * Which fund's basket stands in for each segment.
+   * Which benchmark's basket stands in for each segment.
+   *
+   * ⚠ THESE ARE INDEX IDS, NOT FUND IDS, AND THE DIFFERENCE IS THE WHOLE POINT.
+   *
+   * `standard` was `eem` and that was a category error. EEM is the fund that
+   * HOLDS India's Standard names, so it is right for their flows — but it is
+   * ~11% India, so its return is mostly a statement about somewhere else, while
+   * Standard/Small Cap migration is decided by ranking Indian companies inside
+   * MSCI India. Measured since the last review (2026-05-29) with the corrected
+   * FX dates, the two disagree in SIGN:
+   *
+   *     EEM   -2.077%   ->  the segment shrank,  bands float DOWN
+   *     INDA  +1.341%   ->  the segment grew,    bands float UP
+   *
+   * Both clear minMovePct, so both were live — the old mapping was floating
+   * every Standard constituent's band the wrong way. Over a year the gap is
+   * 44.3 pp, and against EEM 149 of 164 Standard constituents "underperform" by
+   * a median of 43.7 pp: wrong in the same direction for every company, which
+   * is the failure a segment benchmark exists to prevent.
    *
    * `outside` uses the India small-cap fund because a company entering the index
    * enters MSCI India Small Cap, so that is the bar it has to clear.
    */
-  benchmarkForSegment: { standard: 'eem', smallcap: 'smin', outside: 'smin' },
+  benchmarkForSegment: { standard: 'inda', smallcap: 'smin', outside: 'smin' },
   /**
    * Below this the adjustment is recorded but not applied. A segment that moved
    * a fraction of a percent since the last review cannot meaningfully have moved
