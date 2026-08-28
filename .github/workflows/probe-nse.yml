@@ -1,0 +1,53 @@
+# Is NSE's block on `quote-equity` about the machine, or about the network?
+#
+# CLAUDE.md §3.7 records that /api/quote-equity?section=trade_info — the only
+# NSE surface carrying free-float AND full market cap for every listed company —
+# answers 403 from a server, and that headers and cookies do not change it. That
+# was measured from one container on one network.
+#
+# NSE's edge is IP-reputation driven, so the network is the obvious variable and
+# a GitHub Actions runner is a different one. This workflow runs the same matrix
+# from a runner and prints the egress IP beside the results, so the reading can
+# be attributed to a network rather than to a machine.
+#
+# IT WRITES NOTHING AND COMMITS NOTHING. `contents: read` is the whole
+# permission it needs, and a probe that could write is a probe that could be
+# mistaken for a refresh job.
+name: Probe NSE reachability
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: probe-nse
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No package.json and no dependencies — Node is used bare.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Probe NSE from this runner
+        # NOT `continue-on-error` and not `|| true`: a 403 is a RESULT here, not
+        # a failure, and the script exits 0 whatever it measures. If this step
+        # goes red, the probe itself broke and that needs to be visible.
+        run: node scripts/probe-nse-reach.mjs
+
+      # A second run, ten minutes later, from the same runner. NSE throttles the
+      # same machine seconds apart (§3.7), so a single 403 cannot distinguish
+      # "blocked" from "throttled right now" — and that distinction decides
+      # whether a daily job is viable at all.
+      - name: Wait, then probe again to separate a block from a throttle
+        run: |
+          echo "Sleeping 600s so the second reading is not inside the first one's rate window."
+          sleep 600
+          node scripts/probe-nse-reach.mjs
