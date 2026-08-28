@@ -75,12 +75,45 @@ function curlText(url) {
 }
 
 /** Most recent weekday, in IST — the exchange's own calendar day. */
+/**
+ * The most recent date BSE could plausibly have PUBLISHED a bhavcopy for.
+ *
+ * ---------------------------------------------------------------------------
+ * THE BUG THIS FIXES, AND IT COST SIX RED RUNS
+ * ---------------------------------------------------------------------------
+ * The old version converted to IST and stepped off weekends, which is right as
+ * far as it goes — and it only knew the IST *date*, never the IST *time*. The
+ * scheduled run on 27 Aug 2026 started at 23:50 UTC, which is 05:20 IST on the
+ * 28th: a Friday, so the function returned 2026-08-28 and the job asked BSE for
+ * a bhavcopy of a session that had not opened yet. BSE answered with its
+ * single-page-app shell, the shape assertion refused to write, and the job went
+ * red for a reason that had nothing to do with the data.
+ *
+ * A GitHub Actions schedule is best-effort and can be delayed by hours, so
+ * "what time is it in IST" is not a detail the caller can be assumed to control.
+ *
+ * PUBLICATION_HOUR_IST is deliberately later than the 15:30 close: BSE takes a
+ * while to publish, and asking early costs a whole day's refresh while asking
+ * late costs nothing at all — the previous session's file is the last close,
+ * which is exactly what the dashboard claims to show.
+ */
+const PUBLICATION_HOUR_IST = 18;
+
 function latestTradeDate(now = new Date()) {
   const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);
+  // Before BSE has published, the newest available session is the PREVIOUS one.
+  if (ist.getUTCHours() < PUBLICATION_HOUR_IST) ist.setUTCDate(ist.getUTCDate() - 1);
   const day = ist.getUTCDay();
   if (day === 0) ist.setUTCDate(ist.getUTCDate() - 2);
   else if (day === 6) ist.setUTCDate(ist.getUTCDate() - 1);
   return ist.toISOString().slice(0, 10);
+}
+
+/** One calendar day earlier, skipping back over weekends. YYYY-MM-DD. */
+function previousTradingDay(date) {
+  const d = new Date(`${date}T00:00:00Z`);
+  do { d.setUTCDate(d.getUTCDate() - 1); } while (d.getUTCDay() === 0 || d.getUTCDay() === 6);
+  return d.toISOString().slice(0, 10);
 }
 
 const daysBetween = (a, b) =>
@@ -105,25 +138,72 @@ async function main() {
 
   let text;
   let contentType = 'text/csv';
+  let resolvedDate = tradeDate;
+
   if (fromFile) {
     process.stdout.write(`  reading ${fromFile} (offline)\n`);
     text = readFileSync(fromFile, 'utf8');
   } else {
-    const url = bhavcopyUrl(tradeDate);
-    process.stdout.write(`  GET ${url}\n`);
-    const response = await curlText(url);
-    if (!response.ok) {
-      process.stderr.write(`\nCould not fetch the bhavcopy: ${response.reason}\n` +
-        'This is an outage, not a day with no prices. Nothing written.\n\n');
-      process.exit(1);
+    // ---- WALK BACK OVER SESSIONS THAT DO NOT EXIST -----------------------
+    //
+    // India has a lot of trading holidays and no published-as-data calendar we
+    // carry, so "the last weekday" is regularly not a session. On such a day BSE
+    // answers its single-page-app shell, the shape assertion refuses — correctly
+    // — and the whole refresh goes red for a market that was simply shut.
+    //
+    // Walking back is honest because the FILE CARRIES ITS OWN DATE: whatever
+    // lands is stamped with the session it belongs to and the dashboard shows
+    // that date. Serving Thursday's close on a Friday holiday is not a stale
+    // number pretending to be today's, it is the last close, which is exactly
+    // what the header claims.
+    //
+    // Only when the caller did not name a date. An explicit --date is a
+    // question about THAT day and must fail loudly rather than answer about
+    // another one.
+    const explicit = argOf('--date', null) !== null;
+    const maxStepBack = explicit ? 0 : 6;
+    let attempt = 0;
+    let candidate = tradeDate;
+
+    for (;;) {
+      const url = bhavcopyUrl(candidate);
+      process.stdout.write(`  GET ${url}\n`);
+      const response = await curlText(url);
+      if (!response.ok) {
+        process.stderr.write(`\nCould not fetch the bhavcopy: ${response.reason}\n` +
+          'This is an outage, not a day with no prices. Nothing written.\n\n');
+        process.exit(1);
+      }
+      const probe = assertBhavcopyShape(response.text, { expectDate: candidate, contentType: response.contentType });
+      // "Not a CSV at all" means the session does not exist. Anything else — a
+      // CSV whose own TradDt disagrees, missing columns — is a real fault and
+      // must not be walked past.
+      const sessionMissing = !probe.ok && probe.problems.some((p) => /not CSV|HTML/i.test(p));
+
+      if (probe.ok || !sessionMissing || attempt >= maxStepBack) {
+        text = response.text;
+        contentType = response.contentType;
+        resolvedDate = candidate;
+        process.stdout.write(`  ${num(Math.round(text.length / 1024))} KB, content-type ${contentType}\n`);
+        break;
+      }
+
+      attempt += 1;
+      const back = previousTradingDay(candidate);
+      process.stdout.write(
+        `  ${candidate} has no bhavcopy — a holiday, or BSE has not published yet. `
+        + `Stepping back to ${back} (${attempt} of ${maxStepBack}).\n`,
+      );
+      candidate = back;
     }
-    text = response.text;
-    contentType = response.contentType;
-    process.stdout.write(`  ${num(Math.round(text.length / 1024))} KB, content-type ${contentType}\n`);
+  }
+
+  if (resolvedDate !== tradeDate) {
+    process.stdout.write(`\n  Resolved to ${resolvedDate}: ${tradeDate} was not a trading session.\n`);
   }
 
   // ---- shape: a 200 is not a contract ------------------------------------
-  const shape = assertBhavcopyShape(text, { expectDate: tradeDate, contentType });
+  const shape = assertBhavcopyShape(text, { expectDate: resolvedDate, contentType });
   checks.assert(shape.ok, 'the response IS a bhavcopy for the requested date', shape.problems.join('; '));
   if (!shape.ok) {
     process.stderr.write('\nREFUSING TO WRITE — the response did not pass the shape assertion:\n');
@@ -163,7 +243,7 @@ async function main() {
   // scheduled run after a manual build on the same day, fails on a file that is
   // perfectly good. The job then refuses to write, which is safe but wrong, and
   // a daily schedule turns it from a curiosity into a job that is red most days.
-  const sameDay = previous?.tradeDate === tradeDate;
+  const sameDay = previous?.tradeDate === shape.tradeDate;
   if (sameDay) {
     process.stdout.write(
       `  continuity: the stored file is already ${previous.tradeDate}, the same day as this one,\n`
@@ -182,21 +262,81 @@ async function main() {
       : { compared: 0, failures: [], skipped: 0, against: null,
           skippedReason: 'same trade date as the stored file, and the stored file had no continuity record either' };
   } else if (previous?.prices) {
-    const previousClose = new Map(
-      Object.entries(previous.prices)
-        .filter(([, p]) => p.close !== null && p.staleDays === 0)
-        .map(([code, p]) => [code, p.close]),
-    );
-    continuity = { ...assertContinuity(rows, previousClose), against: previous.tradeDate };
-    process.stdout.write(
-      `  continuity vs ${previous.tradeDate}: compared ${num(continuity.compared)}, ` +
-      `failures ${num(continuity.failures.length)}, no counterpart ${num(continuity.skipped)}\n`,
-    );
-    checks.assert(
-      continuity.failures.length === 0,
-      "today's PrvsClsgPric equals yesterday's ClsPric for every common scrip",
-      continuity.failures.slice(0, 6).map((f) => `${f.symbol ?? f.scripCode}: ${f.todayPrevClose} vs ${f.yesterdayClose}`).join(' | '),
-    );
+    // ---- IS THE STORED FILE THE IMMEDIATELY PRECEDING SESSION? -----------
+    //
+    // THE SECOND BUG, AND THE ONE THAT MADE THE FIRST PERMANENT.
+    //
+    // Continuity means "today's PrvsClsgPric equals YESTERDAY's ClsPric". It is
+    // a sharp tripwire across ADJACENT sessions and it is meaningless across a
+    // gap: if the stored file is 21 Aug and this one is 26 Aug, today's
+    // previous-close is 25 Aug's close and comparing it to 21 Aug's fails for
+    // essentially every scrip that moved.
+    //
+    // So a single missed day poisoned every day after it. The record froze at
+    // 21 Aug, and each subsequent run compared a non-adjacent pair, failed,
+    // refused to write, and left the record frozen for the next run to fail on
+    // in exactly the same way. Six consecutive red runs, and the guard that
+    // exists to prevent a stale dashboard was the thing keeping it stale.
+    //
+    // Across a gap the honest move is to SKIP the check and say so, not to
+    // report a gap in our own record as corruption in BSE's data. Nothing is
+    // weakened: `assertBhavcopyShape` still requires the file's own TradDt to be
+    // the date requested, which is what catches a wrong or stale file. What is
+    // lost is one day of row-level evidence, and that loss is recorded rather
+    // than papered over.
+    const expectedPrevious = previousTradingDay(shape.tradeDate);
+    const adjacent = previous.tradeDate === expectedPrevious;
+
+    if (!adjacent) {
+      const gap = daysBetween(previous.tradeDate, shape.tradeDate);
+      // A NEGATIVE gap is a deliberate backfill — someone passed --date for an
+      // older session. It is not a hole in the record and must not read like
+      // one, so it is described rather than reported as "-1 days apart".
+      const relation = gap < 0
+        ? `this run is re-fetching an OLDER session (the stored file is ${Math.abs(gap)} calendar days newer)`
+        : `${gap} calendar days apart`;
+      process.stdout.write(
+        `  continuity: the stored file is ${previous.tradeDate} and this one is ${shape.tradeDate}, `
+        + `${relation}.\n`
+        + `              The previous TRADING day is ${expectedPrevious}, so these two files are NOT\n`
+        + "              adjacent and today's PrvsClsgPric cannot equal the stored ClsPric. Skipped:\n"
+        + '              comparing non-adjacent sessions would report a gap in OUR record as a fault\n'
+        + "              in BSE's data, and refusing to write on it is what kept the gap open.\n",
+      );
+      continuity = {
+        compared: 0,
+        failures: [],
+        skipped: 0,
+        against: previous.tradeDate,
+        skippedReason: `the stored file is ${previous.tradeDate}; the session before ${shape.tradeDate} is `
+          + `${expectedPrevious}, so the two files are not adjacent and continuity cannot hold across them`,
+        gapDays: gap,
+      };
+      // Loud, because a skipped tripwire must never look like a passed one.
+      process.stdout.write(
+        `\n  ::warning:: continuity was NOT checked on this run — `
+        + (gap < 0
+          ? `this is a backfill of ${shape.tradeDate} over a stored ${previous.tradeDate}`
+          : `the record had a ${gap}-day gap (${previous.tradeDate} to ${shape.tradeDate})`)
+        + '. It is checked again from the next run onward.\n\n',
+      );
+    } else {
+      const previousClose = new Map(
+        Object.entries(previous.prices)
+          .filter(([, p]) => p.close !== null && p.staleDays === 0)
+          .map(([code, p]) => [code, p.close]),
+      );
+      continuity = { ...assertContinuity(rows, previousClose), against: previous.tradeDate };
+      process.stdout.write(
+        `  continuity vs ${previous.tradeDate}: compared ${num(continuity.compared)}, ` +
+        `failures ${num(continuity.failures.length)}, no counterpart ${num(continuity.skipped)}\n`,
+      );
+      checks.assert(
+        continuity.failures.length === 0,
+        "today's PrvsClsgPric equals yesterday's ClsPric for every common scrip",
+        continuity.failures.slice(0, 6).map((f) => `${f.symbol ?? f.scripCode}: ${f.todayPrevClose} vs ${f.yesterdayClose}`).join(' | '),
+      );
+    }
   } else {
     process.stdout.write('  continuity: no previous prices.json — first run, nothing to compare against\n');
   }

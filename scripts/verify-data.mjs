@@ -677,11 +677,36 @@ async function main() {
       empty(result.failures, 'a file whose TradDt is today can still carry a row copied from yesterday',
         (f) => `${f.scripCode}: prev ${f.expected} vs stated ${f.actual}`);
 
-      // And the committed price file must carry its own continuity evidence.
+      // And the committed price file must carry its own continuity evidence —
+      // OR a stated reason why the comparison could not be made.
+      //
+      // The distinction is the whole point. `compared: 0` with no explanation is
+      // a file claiming nothing was ever verified, and that must fail. But there
+      // are two legitimate ways to reach zero, and both name themselves:
+      //
+      //   sameDay      — the run re-fetched the trade date already on file, so
+      //                  there is no previous day to compare against.
+      //   a gap        — the stored file is not the immediately preceding
+      //                  session, so continuity CANNOT hold across the pair.
+      //
+      // Requiring `compared > 0` unconditionally is what turned a single missed
+      // day into six consecutive red runs: the fetch skipped the check honestly,
+      // and this assertion then blocked the commit that would have closed the
+      // gap. A guard that cannot distinguish "not checked, and here is why" from
+      // "not checked, silently" forces the pipeline to stay broken.
       const recorded = c.prices.continuity;
-      ok(recorded && recorded.compared > 0, 'prices.json must record its continuity comparison', JSON.stringify(recorded));
+      ok(recorded, 'prices.json must carry a continuity block', JSON.stringify(recorded));
+      const explained = typeof recorded.skippedReason === 'string' && recorded.skippedReason.length > 0;
+      const carried = typeof recorded.carriedForwardFrom === 'string';
+      ok(recorded.compared > 0 || explained || carried,
+        'prices.json must record its continuity comparison, or say in words why it could not be made',
+        JSON.stringify(recorded));
       equal(recorded.failures.length, 0, 'the committed price file must have passed continuity');
-      return `fixture ${result.compared} compared / ${result.failures.length} failed · committed ${recorded.compared} compared against ${recorded.against}`;
+
+      const committed = recorded.compared > 0
+        ? `committed ${recorded.compared} compared against ${recorded.against}`
+        : `committed: not compared — ${recorded.skippedReason ?? `carried forward from ${recorded.carriedForwardFrom}`}`;
+      return `fixture ${result.compared} compared / ${result.failures.length} failed · ${committed}`;
     },
     sabotage: (c) => {
       c.fn.assertContinuity = (rows, prevClose) => {
