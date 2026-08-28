@@ -12,9 +12,27 @@
 # So float, master, universe and prices all live in daily-refresh.yml now, and
 # NSE additionally gets a patient weekly retry in weekly-nse-crosscheck.yml.
 #
-# What is left here is the one genuinely monthly input: Munshot's average daily
-# volume and split history. It is a nice-to-have, it is somebody else's rate-
-# limited service, and nothing on the screen depends on it being fresh.
+# WHAT IS LEFT HERE — three inputs whose right cadence is genuinely monthly:
+#
+#   1. Munshot's average daily volume. A nice-to-have on somebody else's rate-
+#      limited service; nothing on the screen depends on it being fresh, and it
+#      is SOFT for that reason.
+#
+#   2. BSE's corporate-action history. Bonuses and splits are announced weeks
+#      ahead and a month's lag cannot miss one that has already gone ex. HARD:
+#      a price series measured against stale action data reads a 1:1 bonus as a
+#      50% collapse, which is a confident wrong number rather than an absence.
+#
+#   3. The per-stock closes across the two most recent CLOSED MSCI price
+#      windows. Those windows change four times a year, so monthly is already
+#      three times more often than it can matter — the step is idempotent and
+#      simply picks up a new window the first run after one closes.
+#
+# The benchmark fetch was added here too. It is soft, but it must run: this job
+# moves quote-stats' capture date forward, and every relative reading is a stock
+# leg and an index leg struck on the SAME date. Leave the benchmark series
+# behind and the index leg falls past the end of its own series, taking every
+# reading in the universe to no-reading at once, silently, on a monthly run.
 name: Monthly statistics refresh
 
 on:
@@ -81,6 +99,25 @@ jobs:
                "date, so relative readings anchored on it will report a stated absence until the next"\
                "successful fetch."
 
+      # ---- corporate actions, then the price windows ----------------------
+      # ORDER MATTERS: the price history refuses to write without an actions
+      # file beside it, because a raw close series with no action data reads a
+      # 1:1 bonus as a 50% collapse. See CLAUDE.md 3.8.1.
+      #
+      # Both are HARD steps. A soft one here would leave the relative-performance
+      # column measuring a window against stale action data, which is the one
+      # combination that produces a confident wrong number rather than a stated
+      # absence.
+      - name: BSE corporate actions
+        run: node scripts/fetch-corporate-actions.mjs
+
+      # Idempotent by design: it always measures the two most recent CLOSED
+      # review windows, so running it monthly re-confirms the same pair until a
+      # new window closes and then picks it up with no change here. The next one
+      # closes 30 Oct 2026.
+      - name: Per-stock price history across the review windows
+        run: node scripts/fetch-price-history.mjs
+
       - name: Rebuild the record
         run: node scripts/build-companies.mjs
 
@@ -96,7 +133,7 @@ jobs:
           git config user.name  "sattva-bot"
           git config user.email "tech@muns.io"
           git add public/data
-          git commit -m "Monthly quote statistics refresh"
+          git commit -m "Monthly refresh: quote statistics, corporate actions, review-window prices"
 
           # REBASE AND RETRY, because a bare `git push` loses the whole run.
           #
