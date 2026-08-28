@@ -53,16 +53,16 @@ export function mountShell(container, { modelControl }) {
     el('div', { 'data-view-host': '' }),
   ]);
 
-  const footer = el('footer', { class: 'mx-auto max-w-[1400px] px-6 pb-10' }, [
-    el(
-      'p',
-      { class: 'text-[11px] leading-relaxed text-slate-400' },
-      'Figures on this screen are either published by BlackRock, NSE or BSE, or derived by us from those ' +
-        'published figures with the formula stated beside the number. Nothing here is a forecast yet.',
-    ),
-  ]);
-
-  container.append(header, main, footer);
+  // THE BLANKET FOOTER DISCLOSURE IS GONE (28 Aug 2026), and deliberately not
+  // replaced. It said "nothing here is a forecast yet", which stopped being true
+  // the moment the screener started printing verdicts, and it restated in
+  // general terms what every figure already carries specifically: a source chip
+  // on the row, the deriving formula beside the number, the rule table and
+  // provenance section in the drill, the oldest input on the header pill, and
+  // every feed with its as-of in the sources modal. A standing paragraph that
+  // duplicates per-number provenance teaches readers to skip the paragraph, not
+  // to trust the numbers.
+  container.append(header, main);
   return {
     header,
     host: $('[data-view-host]', main),
