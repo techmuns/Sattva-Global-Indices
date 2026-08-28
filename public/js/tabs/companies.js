@@ -1885,6 +1885,42 @@ export function renderCompanies(host, { onStatusChange } = {}) {
     else closeDrill();
   });
 
+  /**
+   * Which symbols a live tick should spend its budget on.
+   *
+   * ---------------------------------------------------------------------------
+   * THE BUDGET IS ONE WAVE, SO THE ORDER IS THE WHOLE DECISION
+   * ---------------------------------------------------------------------------
+   * The Worker answers one wave of symbols per request and says what it left
+   * out. Asking for the full 1,218-name book took 169 seconds and delivered
+   * nothing, because the browser gave up at 25 — see the header of
+   * data/quotes.js. So the question is no longer "how many" but "which".
+   *
+   * In priority order:
+   *   1. the watchlist — a reader has said in as many words that these matter;
+   *   2. the open drill — the one company being read right now;
+   *   3. the top of the table AS CURRENTLY SORTED AND FILTERED, which is what a
+   *      reader is actually looking at.
+   *
+   * Row order comes from the DOM rather than from a re-run of the table's own
+   * filter and sort. Re-deriving it here would be a second implementation of
+   * that logic, free to drift from the one the reader can see — and the whole
+   * point is to quote what is on screen.
+   */
+  const liveSymbolPriority = () => {
+    const bySymbol = [];
+    const push = (key) => {
+      const company = data.byIsin(key);
+      if (company?.nseSymbol) bySymbol.push(company.nseSymbol);
+    };
+    for (const key of state.watchlist()) push(key);
+    const open = getParam('company');
+    if (open) push(open);
+    for (const node of document.querySelectorAll('tbody tr[data-key]')) push(node.dataset.key);
+    return bySymbol;
+  };
+  quotes.setQuotePriority(liveSymbolPriority);
+
   // A methodology switch rebuilds the whole view: every verdict, every rule
   // and every flow can change. The reader's search, sort and filters are
   // carried across deliberately — the comparison is only useful if the two

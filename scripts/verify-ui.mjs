@@ -1397,8 +1397,15 @@ async function main() {
         const bogus = 'ZZQXNOTREAL';
         const first = await quotes.fetchQuotes([...symbols, bogus]);
         const second = await quotes.fetchQuotes([...symbols, bogus]);
+        // THE CONTROL: the same real symbols with NO bogus one, on its own cold
+        // key. Without it "one bad ticker must not take the others down" cannot
+        // be told apart from "the upstream resolved little today" — and on
+        // 28 Aug 2026 it was not, so a degraded upstream failed a check about
+        // our own batching.
+        const control = await quotes.fetchQuotes(symbols);
         return {
           symbols,
+          control: { ok: control.ok, resolved: Object.keys(control.quotes ?? {}).length },
           first: {
             ok: first.ok,
             cache: first.cacheState,
@@ -1429,10 +1436,26 @@ async function main() {
         ok(failedSymbols.includes('ZZQXNOTREAL'),
           'a ticker that cannot resolve must land in failed[], never be dropped or zeroed',
           `failed[] = ${JSON.stringify(result.first.failed)}`);
-        ok(result.first.resolved >= result.symbols.length - 1,
-          'one bad ticker must not take the others down with it',
-          `${result.first.resolved} of ${result.symbols.length} real symbols resolved`);
-        return `live → hit · ${result.first.resolved} resolved, ZZQXNOTREAL in failed[] alongside them`;
+        // ⚠ MEASURED AGAINST THE CONTROL, NOT AGAINST A TARGET COUNT.
+        //
+        // This asserted `resolved >= symbols.length - 1`, which is a claim about
+        // the UPSTREAM'S HEALTH wearing the label of a claim about our batching.
+        // It failed on 28 Aug 2026 at 1 of 6 while the Worker was behaving
+        // perfectly — the upstream was resolving roughly one symbol in eight
+        // that afternoon. A check that cannot tell its own subject from the
+        // weather is not a check.
+        //
+        // The poisoning failure mode is TOTAL: a chunk rejected because of one
+        // bad symbol returns nothing at all. So the sharp, noise-tolerant test
+        // is that the bogus symbol cannot take the batch from "some" to "none".
+        if (result.control.resolved > 0) {
+          ok(result.first.resolved > 0,
+            'one bad ticker must not take the others down with it',
+            `with the bogus symbol ${result.first.resolved} resolved, without it ${result.control.resolved} — `
+            + 'a collapse to zero alongside a non-zero control is the poisoning this guards against');
+        }
+        return `live → hit · ${result.first.resolved} resolved with the bogus symbol, `
+          + `${result.control.resolved} without it · ZZQXNOTREAL in failed[] alongside them`;
       }
 
       // ── The upstream is refusing everything. THIS IS THE DOCUMENTED TRAP:

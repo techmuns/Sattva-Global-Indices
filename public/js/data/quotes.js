@@ -74,6 +74,61 @@ export function eligibleSymbols() {
   return companies.all().map((c) => c.nseSymbol).filter(Boolean);
 }
 
+/**
+ * What the SCREEN currently cares about, newest registration wins.
+ *
+ * The tab registers a function returning the symbols a reader can actually see
+ * — the rendered rows, the watchlist, the open drill. quotes.js deliberately
+ * does not know how a table works; it only knows that some symbols matter more
+ * than others right now.
+ */
+let prioritySymbols = null;
+export function setQuotePriority(fn) { prioritySymbols = typeof fn === 'function' ? fn : null; }
+
+/**
+ * The symbols to ask for on this tick, most-wanted first.
+ *
+ * ---------------------------------------------------------------------------
+ * ⚠ ASKING FOR THE WHOLE BOOK IS WHAT BROKE LIVE QUOTES ON 28 AUG 2026
+ * ---------------------------------------------------------------------------
+ * This used to hand the poller all 1,218 eligible symbols. Measured against a
+ * real Worker that day:
+ *
+ *     1,218 symbols -> 25 chunks -> 9 waves x the upstream's 20 s timeout
+ *     = 169 s to answer, against this file's 25 s budget
+ *
+ * So every poll aborted, and the abort was reported as `upstream`. The header
+ * read "Live quotes unavailable (upstream)" while the Worker was, in fact,
+ * still working — and would have returned 35 live quotes if anyone had waited.
+ *
+ * The Worker now answers one wave and says what it left out, so the cap is
+ * enforced on its side whatever we send. What is decided HERE is the ORDER, and
+ * that is the half that matters: a trim must drop the rows nobody is looking at.
+ * A reader watching 60 rows gets all 60 quoted; the tail of a 1,218-row book was
+ * never on screen and never worth a round trip.
+ */
+export function symbolsToRequest() {
+  const eligible = eligibleSymbols();
+  if (!prioritySymbols) return eligible;
+  let wanted = [];
+  try {
+    wanted = prioritySymbols() ?? [];
+  } catch {
+    // A broken provider must degrade to "ask for everything in record order",
+    // never to "ask for nothing" — silence would look exactly like a market
+    // that had stopped moving.
+    wanted = [];
+  }
+  const seen = new Set();
+  const ordered = [];
+  for (const symbol of [...wanted, ...eligible]) {
+    if (typeof symbol !== 'string' || !symbol || seen.has(symbol)) continue;
+    seen.add(symbol);
+    ordered.push(symbol);
+  }
+  return ordered;
+}
+
 export function onQuotes(handler) {
   listeners.add(handler);
   return () => listeners.delete(handler);
@@ -140,8 +195,18 @@ export async function fetchQuotes(symbols) {
     const aborted = error?.name === 'AbortError';
     return {
       ok: false,
-      reason: aborted ? 'upstream' : 'unreachable',
-      detail: aborted ? `no answer within ${REQUEST_TIMEOUT_MS} ms` : String(error?.message ?? error),
+      // ⚠ AN ABORT IS OUR OWN BUDGET RUNNING OUT, NOT THE UPSTREAM SAYING NO.
+      //
+      // This said `upstream`, and the pill prints the reason verbatim — so on
+      // 28 Aug 2026 a reader saw "Live quotes unavailable (upstream)" for a
+      // failure that was entirely ours: we had asked for 169 seconds of work
+      // inside a 25-second window. Naming somebody else's service for our own
+      // arithmetic is the same class of error as reporting a blocked scrape as
+      // zero rows, and it sends the next reader to look in the wrong place.
+      reason: aborted ? 'timeout' : 'unreachable',
+      detail: aborted
+        ? `our own ${REQUEST_TIMEOUT_MS} ms budget ran out for ${symbols.length} symbol(s) — this is our limit, not the upstream's`
+        : String(error?.message ?? error),
     };
   } finally {
     clearTimeout(timer);
@@ -189,7 +254,7 @@ export function startLive({ intervalMs = 30000 } = {}) {
     // Outside market hours there is no live price, only the last one. Not an
     // error state — simply nothing to ask for.
     shouldPoll: () => isMarketOpen() && eligibleSymbols().length > 0,
-    fetcher: () => fetchQuotes(eligibleSymbols()),
+    fetcher: () => fetchQuotes(symbolsToRequest()),
   });
 
   poller.subscribe((event) => {

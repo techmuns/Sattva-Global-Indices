@@ -68,6 +68,29 @@ function statusFor(source, now) {
  * Their other dashboard learned this the expensive way: a chip that says "just
  * now" regardless teaches readers to ignore it.
  */
+/**
+ * What each failure reason MEANS, in a reader's words.
+ *
+ * ⚠ THE PILL PRINTS THIS AND A READER ACTS ON IT. The bare reason code used to
+ * go straight to screen, so on 28 Aug 2026 the header read "Live quotes
+ * unavailable (upstream)" for a failure that was entirely ours — the browser
+ * had asked for 169 seconds of work inside its own 25-second budget and given
+ * up. Naming somebody else's service for our own arithmetic sends the next
+ * reader to look in the wrong place, so every reason now says whose limit it is.
+ */
+export const LIVE_FAILURE_LABEL = {
+  timeout: 'our own request budget ran out',
+  'upstream-down': 'the quote service is returning gateway errors',
+  upstream: 'the quote service answered but resolved nothing',
+  unreachable: 'the quote service could not be reached',
+  unauthorised: 'the quote service rejected our credentials',
+  'no-token': 'this deployment has no upstream token configured',
+  'no-worker': 'this deployment serves static files only',
+  'bad-request': 'the quote request was malformed',
+};
+
+export const liveFailureLabel = (reason) => LIVE_FAILURE_LABEL[reason] ?? reason;
+
 export function headerStatus(now = new Date()) {
   const { oldest } = freshness();
   const cov = coverage();
@@ -108,7 +131,7 @@ export function headerStatus(now = new Date()) {
       // label already says Last close · BSE, and the pill is one line of 10px
       // text that has to survive a 390px viewport. The oldest input is the
       // fact that has nowhere else to live.
-      detail: withOldest(`Live quotes unavailable (${failure.reason})`),
+      detail: withOldest(`Live quotes unavailable — ${liveFailureLabel(failure.reason)}`),
       tone: 'caution',
     };
   }
@@ -141,7 +164,7 @@ export function openSourcesModal(now = new Date()) {
           ? ''
           : `<div class="mt-1 text-[11px] text-slate-500">${
               quotes.lastLiveError()
-                ? `Unavailable — ${escapeHtml(quotes.lastLiveError().reason)}${quotes.lastLiveError().remedy ? `. ${escapeHtml(quotes.lastLiveError().remedy)}` : ''}`
+                ? `Unavailable — ${escapeHtml(liveFailureLabel(quotes.lastLiveError().reason))}${quotes.lastLiveError().detail ? `. ${escapeHtml(quotes.lastLiveError().detail)}` : ''}${quotes.lastLiveError().remedy ? `. ${escapeHtml(quotes.lastLiveError().remedy)}` : ''}`
                 : quotes.isLive()
                   ? `${escapeHtml(num(quotes.liveCount()))} rows currently on a live price`
                   : quotes.isMarketOpen()
