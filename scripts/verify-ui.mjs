@@ -973,6 +973,83 @@ async function main() {
   }, ctx);
 
   await suite.check({
+    id: 43,
+    what: 'the relative column claims a direction only where the reading is robust, and every absence states its reason',
+    run: async (c) => {
+      // ⚠ THIS IS THE HONESTY TEST FOR THE NEW COLUMN, AND IT IS ABOUT COLOUR.
+      //
+      // MSCI prices on one of ten business days and does not publish which, so
+      // for 31.4% of companies the SIGN of this number depends on the day. A
+      // green or red cell asserts a direction. So the assertion under test is
+      // that tone follows ROBUSTNESS, not sign: an unstable reading must render
+      // in the neutral tone however positive or negative it looks.
+      const m = await c.page.evaluate(() => {
+        const heads = [...document.querySelectorAll('thead th')].map((h) => h.textContent.trim());
+        const index = heads.findIndex((h) => /vs segment/.test(h));
+        if (index < 0) return { index };
+        const rows = [...document.querySelectorAll('tbody tr')];
+        let toned = 0;
+        let neutralUnstable = 0;
+        let tonedUnstable = 0;
+        let missingWithReason = 0;
+        let missingWithout = 0;
+        let readings = 0;
+        for (const row of rows) {
+          const cell = row.querySelectorAll('td')[index];
+          if (!cell) continue;
+          const text = cell.innerText.trim();
+          // An em dash is an absence; it must carry a title saying WHICH kind.
+          if (text.startsWith('\u2014')) {
+            const titled = cell.querySelector('[title]') ?? (cell.getAttribute('title') ? cell : null);
+            const title = titled?.getAttribute('title') ?? '';
+            if (title.trim().length > 12) missingWithReason += 1; else missingWithout += 1;
+            continue;
+          }
+          readings += 1;
+          // The unstable marker the column renders next to a non-robust figure.
+          const unstable = text.includes('\u00b1');
+          const coloured = [...cell.querySelectorAll('span')]
+            .some((sp) => /text-(emerald|rose)-700/.test(sp.className));
+          if (coloured) toned += 1;
+          if (unstable && coloured) tonedUnstable += 1;
+          if (unstable && !coloured) neutralUnstable += 1;
+        }
+        return { index, rows: rows.length, readings, toned, tonedUnstable, neutralUnstable, missingWithReason, missingWithout };
+      });
+
+      ok(m.index >= 0, 'the "vs segment %" column is on the table', `column index ${m.index}`);
+      ok(m.readings > 0, 'the column carries readings to judge', `${m.readings} readings rendered`);
+      // The load-bearing one.
+      equal(m.tonedUnstable, 0,
+        'no reading whose direction depends on the day MSCI priced on is rendered in a directional colour');
+      ok(m.neutralUnstable > 0,
+        'unstable readings actually exist here, or the check above passed vacuously',
+        `${m.neutralUnstable} unstable readings rendered neutral`);
+      ok(m.toned > 0, 'robust readings ARE coloured, so the tone means something', `${m.toned} coloured`);
+      equal(m.missingWithout, 0, 'every em dash in this column carries a title saying which kind of absence it is');
+      return `${m.readings} readings · ${m.toned} coloured (robust only) · ${m.neutralUnstable} neutral because the day decides the sign`
+        + ` · ${m.missingWithReason} absences, all with a stated reason`;
+    },
+    // Colour every reading by sign regardless of robustness — the change a
+    // future author makes when the grey cells look "unfinished".
+    sabotage: persistent(`(() => {
+      const fix = () => {
+        for (const cell of document.querySelectorAll('tbody td')) {
+          if (!cell.innerText.includes('\u00b1')) continue;
+          for (const sp of cell.querySelectorAll('span')) {
+            if (/^[+-]/.test(sp.textContent.trim())) {
+              sp.className = sp.className.replace(/text-slate-500/, sp.textContent.trim().startsWith('+') ? 'text-emerald-700' : 'text-rose-700');
+            }
+          }
+        }
+      };
+      fix();
+      new MutationObserver(fix).observe(document.body, { childList: true, subtree: true });
+    })()`),
+    restore: restoreByReload,
+  }, ctx);
+
+  await suite.check({
     id: 34,
     what: 'a model switch does not block the main thread past 400 ms',
     run: async (c) => {

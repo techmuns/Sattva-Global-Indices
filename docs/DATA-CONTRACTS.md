@@ -575,6 +575,160 @@ company is **quarantined** and its verdict becomes `unknown`.
 
 ---
 
+## `public/data/price-history.json`
+
+| | |
+| --- | --- |
+| **Produced by** | `node scripts/fetch-price-history.mjs` |
+| **Cadence** | once per review, when a new price window closes |
+| **Why** | The desk's question is review-to-review, and the repo held one trading day of prices. |
+
+Each scrip's raw close on every business day of the two most recent **closed** MSCI price windows —
+20 sessions, 4,772 scrips. `dates[]` is the union of both windows in order; `scrips[code].closes[]`
+is index-aligned to it, with `null` for a session the scrip did not trade. `firstSeen` separates
+that from *not yet listed*, which index-aligned nulls cannot tell apart on their own.
+
+**Closes are unadjusted.** They are BSE's own published figures carried through unchanged, so an
+adjusted price — a number no exchange published — never enters the record. Adjustment happens in
+`relative.js`, from `corporate-actions.json`, with the factor and the formula on the surface.
+
+**The continuity check inside this script is an INTEGRITY check, not an action detector.** BSE
+carries `PrvsClsgPric` unadjusted, so a bonus passes it cleanly — see below.
+
+---
+
+## `public/data/corporate-actions.json`
+
+| | |
+| --- | --- |
+| **Produced by** | `node scripts/fetch-corporate-actions.mjs` |
+| **Endpoint** | `api.bseindia.com/BseIndiaAPI/api/DefaultData/w?scripcode=N`, one request per scrip |
+| **Cadence** | monthly, and before any review-window measurement |
+| **Why** | A raw close across a bonus issue is a collapse that never happened. |
+
+LICI closed at 829.90 on 27 May 2026 and at 411.45 on the 29th. It went ex-bonus 1:1; nothing was
+lost. Read as a raw series that is −50.4%, and it sorts, ranks and corroborates a migration-down
+verdict perfectly happily. Seven such events fall inside the May→August 2026 quarter alone.
+
+> ### ⚠ BSE does NOT adjust `PrvsClsgPric` across an action
+>
+> The obvious detector infers actions from the bhavcopy itself: if the exchange adjusts the previous
+> close across an action, a disagreement with the prior session's raw close *is* the action — free,
+> for every scrip. **BSE does not adjust it.** LICI's `PrvsClsgPric` on its own ex-date is 829.90,
+> exactly the raw close of the session before. Continuity holds across a bonus and the event is
+> invisible to it.
+>
+> That detector found **0 actions across 303,018 comparisons** in a quarter known to contain seven,
+> and only a positive control — *finding nothing means you are broken* — stopped it being written.
+>
+> Nor is it rescuable from prices alone: with `PrvsClsgPric` raw, a 1:1 bonus and a genuine 50%
+> crash are the same two numbers.
+
+`Ex_date` and `Purpose` are BSE's own strings, verbatim. `priceFactor` is **ours** — the number a
+price is *divided* by across the ex-date, i.e. how many shares one share became — and `factorRule`
+names the rule that produced it so it can be checked rather than trusted:
+
+| BSE's words | `kind` | `priceFactor` |
+| --- | --- | --- |
+| `Bonus issue a:b` | `bonus` | `(a + b) / b` |
+| `Stock  Split From Rs.X/- to Rs.Y/-` (note the double space) | `split` | `X / Y` |
+| `Consolidation From Rs.X/- to Rs.Y/-` | `consolidation` | `X / Y`, below 1 |
+| `Right Issue of…`, `Spin Off`, `Scheme of Arrangement`, `Consolidation of Shares`, `Sub Division of…` | `rights` / `demerger` / … | **`null`** — the price moves and BSE publishes no ratio |
+| `Dividend…`, `Buy Back of Shares`, `Income Distribution…`, `E.G.M.` | *not carried* | not a mechanical price event |
+
+A purpose naming something structural without the numbers is `priceFactor: null`, **never `1.0`** —
+a factor of 1 asserts the action does not move the price, which is a claim; `null` says we did not
+read it, which is the truth. Dividends are excluded because the index leg is also a price return
+with distributions stripped, so adjusting one leg and not the other would put them on different
+conventions.
+
+**A purpose we have never seen fails the run.** A new wording could be a bonus we fail to match, and
+it would pass through as a clean return. That guard caught four wordings a 300-scrip vocabulary
+probe had missed, one of them `Consolidation of Shares`.
+
+Coverage: **1,237 of 1,237** scrips, 0 failed, 643 with at least one action. It supersedes
+`quote-stats`'s `lastSplitFactor` on every axis — that reached 749 companies, stored only the most
+recent event, and called LICI a "2:1 split" rather than a 1:1 bonus. Cross-checked on all seven of
+the quarter's events, the two agree exactly.
+
+---
+
+## `relativePerformance` on `companies[]`
+
+| | |
+| --- | --- |
+| **Produced by** | `public/js/model/relative.js`, called from `build-companies.mjs` |
+| **Tier** | 2 — derived by us from tier-1 closes and tier-1 published actions |
+
+How a company moved against its segment, from one MSCI price window to the next. Computed in the
+build and stored, because it is a historical window that no live price can move.
+
+```
+stockPct     = (meanTo - meanFrom / adjustmentFactor) / (meanFrom / adjustmentFactor) x 100
+indexPct     = (indexMeanTo - indexMeanFrom) / indexMeanFrom x 100      // in RUPEES
+relativePct  = ((1 + stockPct/100) / (1 + indexPct/100) - 1) x 100      // GEOMETRIC
+```
+
+**Geometric, not an arithmetic point difference.** WELCORP against SMIN is a 115.2 pp difference and
+a +110.0% outperformance; a reader who reconstructs from the two legs on screen finds neither
+matches the other.
+
+**The benchmark is INDA for Standard and SMIN for Small Cap** — the index that decides the segment,
+not the fund that holds the stock. Only a benchmark whose basket is actually Indian may be
+differenced against an Indian company; `comparableInInr` in `benchmarks.js` is the gate.
+
+### The day-choice envelope
+
+MSCI prices on *one of the last 10 business days* and does not publish which, so the same quarter has
+100 `(from-day, to-day)` pairs it could have meant. Measured across all 1,177 companies with a
+reading:
+
+| | |
+| --- | --- |
+| envelope width | p10 **8.30** · median **14.73** · p75 **21.03** · p90 **29.16** · max **133.15** pp |
+| entirely one side of zero | **807 of 1,177** (68.6%) |
+
+For **31.4%** of companies the *sign* depends on the day. `envelope` carries the full span,
+`widthPp` its width, and `robust` is true only when the whole span clears
+`RELATIVE_PERFORMANCE.bandPct` — which is set **at the measured median**, because a threshold
+smaller than its own measurement's uncertainty produces state changes that are noise wearing a
+threshold's face. 198 of 1,177 readings are robust.
+
+**A direction is claimed only where the reading is robust**, and the column's colour follows
+robustness rather than sign. `verify-ui` check 43 sabotages exactly that.
+
+### The states
+
+| `state` | Meaning | Count |
+| --- | --- | --- |
+| `measured` | both windows complete, no action in the quarter | 1,168 |
+| `adjusted` | an action fell **between** the windows; the earlier window is divided by BSE's factor | 9 |
+| `incomplete-window` | the scrip did not trade on every day of a window | 39 |
+| `no-price-history` | no BSE scrip code, or absent from the archived bhavcopies | 39 |
+| `action-inside-window` | an action fell **inside** a window, so its ten-day mean straddles two share bases | 5 |
+| `unquantifiable-action` | a rights issue or demerger moved the price by an amount BSE does not publish | 3 |
+
+`action-inside-window` is a genuinely unfixable case, and it is measurable: JLHL's action fell on
+24 July, inside the August window, and the naive adjustment disagrees with an independent
+split-adjusted source by **195 pp**. Against a no-action baseline of p50 2.18 pp and p90 10.18 pp
+across 38 companies, that is not a tolerance question.
+
+### What it may NOT do
+
+**It never changes a verdict**, and `verify-data` check 37 sweeps it from −200 to +200 pp asserting
+the verdict multiset does not move. A migration verdict turns on a rank by free-float market cap, and
+free float is `floatFactor x shares x price` — so today's rank **already contains** every past price
+move. Re-reading the trend against that rank double-counts.
+
+`trendSignal()` is the one role that does not. Today's rank is a *point forecast* of the rank in
+MSCI's next price window, which has not happened, so a robust trend is evidence about which way that
+forecast moves. It marks a company within `nearBoundaryPct` of the observed rank cutoff whose robust
+trend points **across** a boundary its rank has not crossed — additively, beside the verdict pill,
+never inside it. On the committed record it fires on two companies (HFCL, Kalyan Jewellers), both
+currently reading `stable`.
+
+---
+
 ## The route to a real probability
 
 The requirement asked for a probability of inclusion or exclusion, and this build does not provide

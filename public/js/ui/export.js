@@ -80,6 +80,19 @@ export function provenanceBanner(freshness, { scopeLabel, filterLabel } = {}) {
         'to its weight, so a price move changes both by the same proportion and forces no trade. Drift is never multiplied by AUM, and this file ' +
         'contains no rupee flow figure.',
     ],
+    [
+      'Relative performance is a MEASUREMENT beside the verdict, not an input to it.',
+      'The "vs segment" columns compare a company\'s ten-day mean close across MSCI\'s price window against the same ten days of its '
+        + 'segment benchmark in rupees, compared geometrically as (1 + stock) / (1 + index) - 1 — NOT the arithmetic difference of the two. '
+        + 'The benchmark is INDA for Standard and SMIN for Small Cap, because the fund that HOLDS a stock is not the index that decides its '
+        + 'segment: EEM is about 11% India and its return is mostly a statement about somewhere else. It is the ETF, not the index. '
+        + 'MSCI prices on one of the ten business days and does not publish which, so the "across all ten days" columns give the full span '
+        + 'of what the answer could have been — measured across the universe that span is 14.7 pp wide at the median and crosses zero for '
+        + '31.4% of companies. A direction is claimed ONLY where the whole span clears the desk\'s band, and the "direction robust" column '
+        + 'says so per row. Closes are unadjusted BSE figures; where a corporate action fell between the windows the earlier window is '
+        + 'divided by the factor BSE published, and the action and factor travel in their own columns. An empty cell is a STATED reason, '
+        + 'carried in the "no reading because" column — never a zero, and never comparable with a real reading.',
+    ],
     [`Rows in this file: ${scopeLabel ?? 'as filtered on screen'}.`, filterLabel ?? ''],
   ];
 }

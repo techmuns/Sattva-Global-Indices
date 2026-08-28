@@ -95,6 +95,14 @@ export const disagreement = () => requireLoaded().floatFactorDisagreement ?? {};
 export const benchmarks = () => requireLoaded().benchmarks ?? null;
 
 /**
+ * The two review windows the relative-performance reading is measured across,
+ * plus the band and the attribution. Null when the price history or the
+ * corporate-action history is absent — in which case every reading is a stated
+ * absence rather than some readings and some silence.
+ */
+export const relativeWindow = () => requireLoaded().relativePerformance ?? null;
+
+/**
  * The three as-of dates, each labelled, plus which one governs.
  *
  * THEY ARE NOT COLLAPSED INTO ONE "UPDATED" TIME. They are three independent

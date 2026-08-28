@@ -339,6 +339,51 @@ company.
 
 ---
 
+### 2.12.1 A trend is not independent evidence about a rank
+
+**Read this alongside 2.11; the two failures are the same shape at different window lengths.**
+
+A migration verdict turns on a **rank by free-float market cap**, and free float is
+`floatFactor × sharesOutstanding × price`. Today's rank therefore *already contains* every past price
+move — that is how the company reached it. Measuring the same price channel over a longer window and
+setting the answer beside the verdict as corroboration counts one piece of evidence twice, and the
+near-total agreement that results looks like confirmation when it is arithmetic.
+
+So relative performance **never moves a verdict**, and `verify-data` check 37 sweeps it from −200 to
++200 pp asserting the verdict multiset does not move at any point.
+
+There is exactly one role that does not double-count, and it is the one the desk actually wants.
+Today's rank is a **point forecast** of the rank in MSCI's *next* price window, which has not
+happened. A trend that holds whichever day MSCI prices on is evidence about which way that forecast
+moves. `trendSignal()` marks a company sitting within `nearBoundaryPct` of the observed cutoff whose
+robust trend points **across** a boundary its rank has not crossed — beside the verdict pill, never
+inside it, so the label continues to describe what it claims to describe.
+
+### 2.12.2 MSCI does not say which of the ten days it priced on, and the answer moves
+
+The price cut-off is *one of the last 10 business days of the month before the review month*. MSCI
+does not publish which. That is not a footnote: the same quarter has **100** `(from-day, to-day)`
+pairs it could have meant, and they do not agree. Measured across all 1,177 companies with a reading:
+
+| | |
+| --- | --- |
+| envelope width | p10 **8.30** · median **14.73** · p75 **21.03** · p90 **29.16** · max **133.15** pp |
+| entirely one side of zero | **807 of 1,177** (68.6%) |
+
+For **31.4% of companies the sign of the answer depends on the day you pick.** Therefore:
+
+- the point estimate is the **mean of all ten days** at each end — no single day is privileged;
+- the full span is carried as a first-class field beside it, never as a footnote;
+- **a direction is claimed only where the whole span clears the band**, and the screen's colour
+  follows *robustness*, not sign — an unstable reading renders neutral however large it looks;
+- **no threshold may be set below the median span.** A band of 5 or 10 pp — both were proposed — is
+  inside the noise of its own input, and a threshold smaller than its measurement's uncertainty
+  produces state changes that are noise wearing a threshold's face.
+
+The consequence is a gate that admits few rows: 198 of 1,177 readings are robust, 2 of 37 migration
+rows. **That is a finding about how noisy a ten-undisclosed-day window is, not a calibration failure
+to be tuned away.** Report the fire rate; never loosen the band to make a column look populated.
+
 ### 2.13 A verdict is a label on a rule, and there is no probability
 
 The requirement asks for a probability of inclusion or exclusion. **We do not print one, and the
@@ -996,6 +1041,75 @@ else's free service and this job runs monthly — there is no reason to lean on 
 > exists downstream. A crore value in a rupee field is a ten-million-fold error that looks like a
 > formatting bug.
 
+### 3.8.1 BSE does NOT adjust `PrvsClsgPric` across a corporate action
+
+LICI closed at **829.90** on 27 May 2026 and at **411.45** on the 29th. Nothing was lost: it went
+ex-bonus 1:1. Read as a raw price series that is −50.4%, and it sorts, ranks and corroborates a
+migration-down verdict perfectly happily. Seven such events fall inside the May→August 2026 quarter
+alone (LICI, TRENT, ANANDRATHI, ZFCVINDIA, CUB, BRIGADE, JLHL).
+
+> ### ⚠ The obvious detector is backwards, and it fails silently
+>
+> It is tempting to infer actions from the bhavcopy itself: *if the exchange adjusts the previous
+> close across an action, a disagreement with the prior session's raw close **is** the action* —
+> free, for every scrip, with no extra feed.
+>
+> **BSE carries `PrvsClsgPric` unadjusted.** LICI's `PrvsClsgPric` on its own ex-date is 829.90,
+> exactly the raw close of the session before. Continuity therefore *holds* across a bonus and the
+> event is invisible to it. That detector found **0 actions across 303,018 comparisons** in a
+> quarter known to contain seven, and only a positive control — *a detector that finds nothing is
+> indistinguishable from a broken one* — stopped it being written.
+>
+> Nor is it rescuable from prices alone: with `PrvsClsgPric` raw, a 1:1 bonus and a genuine 50%
+> crash are the same two numbers. A ratio-near-a-simple-fraction heuristic would flag real crashes
+> and miss small bonuses.
+
+Actions come from BSE's own published history —
+`api.bseindia.com/BseIndiaAPI/api/DefaultData/w?scripcode=N`, one request per scrip, ~4 minutes for
+the universe. It answers for **1,237 of 1,237** scrips against `quote-stats`'s 749, returns **every**
+event rather than the most recent one, and uses the right noun: LICI is a **1:1 bonus**, not the
+"2:1 split" `quote-stats` calls it. The two agree exactly on all seven of the quarter's events.
+
+`priceFactor` is **ours** — the number a price is *divided* by across the ex-date — and a purpose
+naming something structural without a published ratio (`Right Issue of Equity Shares`, `Spin Off`,
+`Consolidation of Shares`) is `null`, **never `1.0`**. A factor of 1 asserts the action does not move
+the price, which is a claim; `null` says we did not read it. **A purpose we have never seen fails the
+run**, because a new wording could be a bonus we fail to match and it would pass through as a clean
+return — that guard caught four wordings a 300-scrip vocabulary probe had missed.
+
+### 3.8.2 Yahoo stamps a bar in the exchange's timezone, not in UTC
+
+`meta.gmtoffset` is the difference and it is not decorative. USDINR=X is carried on `CCY`, timezone
+Europe/London, stamped at **local midnight** — so under BST, seven months of every year, Monday
+24 Aug 2026 sits at `2026-08-23T23:00Z` and a UTC date label calls it **Sunday the 23rd**. The NYSE
+and Cboe funds are stamped at 09:30 local = 13:30 UTC and are unaffected, which is exactly why the
+bug hid.
+
+The committed file wore the signature in plain sight for a week:
+
+```
+FX weekday tally   Mon 104  Tue 105  Wed 104  Thu 101  Fri 45  SUN 59
+```
+
+The label was not the damage. **57 of EEM's 502 trading dates then had no exact FX point**, so
+`rateOn` walked back and priced them with the *previous* day's rate — breaking the one promise the
+rupee conversion rests on, that both halves of each product come from the same date. Nothing looked
+wrong; every return was slightly false. Corrected, EEMS's since-last-review return moved from
+−4.141% to −1.654%.
+
+`assertSeriesDates` in `benchmarks.js` catches it, and **its threshold is the calendar** — no
+exchange here trades at a weekend, and across two years of daily bars the five weekdays must appear
+in roughly equal numbers. A whole-day shift cannot satisfy either test in either direction.
+
+> ### ⚠ Counting points is the wrong shrink guard for a rolling window
+>
+> `range=2y` means two years back from *today*, so the start of every series walks forward and the
+> count drifts a point either way forever on good data. The original guard compared raw totals and
+> went red at 1,506 against 1,503 on the very run that fixed the FX. **A guard waived weekly is a
+> guard nobody reads.** It now asks the only question that matters — *of the dates we already held
+> inside this run's own span, how many came back* — anchored on the previous file, which the run
+> cannot move. It caught precisely the 59 phantom Sundays and nothing else.
+
 ### 3.9 Identity is ISIN, never a ticker
 
 A ticker is a label: two exchanges spell it differently, a fund vendor invents its own codes, and
@@ -1099,6 +1213,9 @@ scripts/
   scrape-bse-freefloat.mjs         per-scrip BSE float → public/data/bse-freefloat.json
   fetch-bhavcopy.mjs               BSE EOD prices → public/data/prices.json
   fetch-quote-stats.mjs            monthly ADV / splits → public/data/quote-stats.json
+  fetch-fund-benchmarks.mjs        Yahoo daily closes → public/data/fund-benchmarks.json
+  fetch-price-history.mjs          two MSCI price windows → public/data/price-history.json
+  fetch-corporate-actions.mjs      BSE's own action history → public/data/corporate-actions.json
   build-companies.mjs              everything → public/data/companies.json
   verify-data.mjs                  21 data assertions; no browser, no network
   verify-ui.mjs                    21 interface assertions; the served site
@@ -1125,11 +1242,14 @@ public/
   data/prices.json                 generated — the committed EOD price floor
   data/quote-stats.json            generated — monthly ADV, splits
   data/share-reconciliation.json   generated — share-count outliers and quarantines
+  data/price-history.json          generated — every close in the two MSCI price windows
+  data/corporate-actions.json      generated — BSE's published bonuses, splits, rights
   data/companies.json              generated — the record the interface reads
   js/model/thresholds.js           desk bands + the observed boundary, both labelled
   js/model/segments.js             constituent → segment; disjointness re-checked
   js/model/assess.js               the rules engine → verdict + rulesFired
   js/model/flows.js                price a trade-implying verdict, and only those
+  js/model/relative.js             review-window relative performance + the trend signal
   js/model/calendar.js             review dates (assumed, configurable)
   js/core/live.js                  visibility-aware poller
   js/data/quotes.js                live overlay; memory only, never written back
@@ -1162,10 +1282,12 @@ node scripts/fetch-bse-master.mjs      # 1 request, ~1.7 MB
 node scripts/fetch-nse-universe.mjs    # 2 requests, the ISIN bridge
 node scripts/scrape-nse-freefloat.mjs  # 4 requests, ~250 symbols - THROTTLES, see below
 node scripts/scrape-bse-freefloat.mjs  # ~3,600 requests, ~12 min at concurrency 8
-node scripts/fetch-fund-benchmarks.mjs # 4 requests, 2y of daily closes + USDINR
+node scripts/fetch-fund-benchmarks.mjs # 5 requests, 2y of daily closes + USDINR
 node scripts/fetch-bhavcopy.mjs        # 1 request, the whole market's closes
 node scripts/fetch-quote-stats.mjs     # monthly ADV/splits; --concurrency 1 --gap-ms 1200
 node scripts/reconcile-shares.mjs      # share-count outliers -> quarantine list
+node scripts/fetch-corporate-actions.mjs  # ~1,240 requests, ~4 min - BEFORE price history
+node scripts/fetch-price-history.mjs   # 20 requests, both MSCI price windows
 node scripts/build-companies.mjs       # no network; joins everything
 node scripts/verify-data.mjs           # the data assertions; run before committing
 

@@ -179,10 +179,16 @@ export const SEGMENT_BAND_ADJUSTMENT = {
  *
  * The band alone is not the gate. A reading may only act when its WHOLE envelope
  * clears the band, so acting typically needs roughly 15 + half a width, or about
- * 22 pp. Measured consequence: of 37 migration rows, 2 clear it; of the 32
- * companies within `nearBoundaryPct` of the rank cutoff, 3 do. Those figures are
- * reported on the surface rather than used to argue the band down — a gate that
- * admits almost nobody is a finding, not a calibration failure.
+ * 22 pp.
+ *
+ * MEASURED CONSEQUENCE, against the observed rank cutoff the model actually uses
+ * (Godrej Properties, ₹27,917 Cr): 198 of 1,177 readings are robust; of the 37
+ * migration rows, 2; of the 42 companies within `nearBoundaryPct` of the cutoff,
+ * 4 are robust and 2 point across a boundary their rank has not crossed.
+ *
+ * Those figures are reported on the surface rather than used to argue the band
+ * down. A gate that admits almost nobody is a finding about how noisy a
+ * ten-undisclosed-day window is, not a calibration failure to be tuned away.
  */
 export const RELATIVE_PERFORMANCE = {
   enabled: true,

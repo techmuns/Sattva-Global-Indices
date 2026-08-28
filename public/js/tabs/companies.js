@@ -17,13 +17,14 @@ import { segmentedToggle } from '../ui/components.js';
 import { sectionHead, statStrip, scoreTable, openDrill, closeDrill } from '../ui/screener.js';
 import { sourceChip, fundChip, missing } from '../ui/visual.js';
 import { exportCsv } from '../ui/export.js';
-import { REVIEW_THRESHOLDS, crore, toCrore, MARKET_CAP_FILTER_BANDS, MARKET_CAP_FILTER_ATTRIBUTION } from '../config/thresholds.mjs';
+import { REVIEW_THRESHOLDS, crore, toCrore, MARKET_CAP_FILTER_BANDS, MARKET_CAP_FILTER_ATTRIBUTION, RELATIVE_PERFORMANCE } from '../config/thresholds.mjs';
 import { observedBoundary, rankByFreeFloat, THRESHOLD_SOURCE } from '../model/thresholds.js';
 import { segmentOf, segmentFloatTotals, SEGMENTS } from '../model/segments.js';
 import { assess, VERDICTS, DISCLOSURE, TRADE_IMPLYING } from '../model/assess.js';
 import { estimateFlows } from '../model/flows.js';
 import { nextReview, reviewCutoffs } from '../model/calendar.js';
 import { gimiCutoffs, assessGimi, reviewWindow, METHODOLOGIES, GIMI_DISCLOSURE, CUTOFF_DISCLOSURE } from '../model/gimi.js';
+import { trendSignal, WINDOW_STATES } from '../model/relative.js';
 
 const FUND_ORDER = ['eem', 'smin', 'eems'];
 
@@ -145,18 +146,33 @@ export function rebuildModel() {
   const window = reviewWindow(data.freshness().feeds.find((f) => f.id === 'bhavcopy')?.raw ?? null);
   const gimiContext = { cutoffs, quarantined, keyOf: data.keyOf, window };
 
+  // The trend signal is computed HERE, not in the build, because it compares a
+  // stored historical reading against the LIVE rank cutoff — and the cutoff
+  // moves when a live price moves. The reading itself does not: it is a window
+  // that closed on 31 July and no quote can change it.
+  const trendSignals = new Map();
+
   for (const company of live) {
     const key = data.keyOf(company);
     const assessment = assess(company, context);
     assessments.set(key, assessment);
     gimiAssessments.set(key, assessGimi(company, gimiContext));
+    const cutoff = boundary?.rankCutoffInr ?? null;
+    const distanceToCutoffPct = cutoff > 0 && company.freeFloatMcapInr != null
+      ? ((company.freeFloatMcapInr - cutoff) / cutoff) * 100
+      : null;
+    trendSignals.set(key, trendSignal(company.relativePerformance, {
+      verdict: assessment.verdict,
+      segment: assessment.segment,
+      distanceToCutoffPct,
+    }));
     // Flows follow the ACTIVE methodology's verdict, which is why they are
     // rebuilt when the toggle moves rather than cached against one model.
     flows.set(key, estimateFlows(company, assessment, flowContext));
   }
 
   modelState = {
-    boundary, ranks, floatTotals, assessments, gimiAssessments, flows,
+    boundary, ranks, floatTotals, assessments, gimiAssessments, flows, trendSignals,
     cutoffs, window, builtAt: new Date(),
   };
   return modelState;
@@ -212,6 +228,9 @@ export function assessmentFor(company, methodology = state.getMethodology()) {
   if (methodology === 'gimi') return modelState?.gimiAssessments.get(key) ?? null;
   return modelState?.assessments.get(key) ?? company.assessment ?? null;
 }
+
+/** The trend signal for a company, against the boundary as it currently stands. */
+export const trendFor = (company) => modelState?.trendSignals.get(data.keyOf(company)) ?? null;
 
 /** The same company under the OTHER methodology, for side-by-side comparison. */
 export const otherAssessmentFor = (company) =>
@@ -1082,6 +1101,78 @@ function assessmentSectionHtml(company) {
   return html;
 }
 
+/**
+ * The relative-performance section: the window, both legs, the envelope and the
+ * one thing this reading is NOT allowed to do.
+ */
+function relativeSectionHtml(company) {
+  const rel = company.relativePerformance;
+  const window = data.relativeWindow();
+  if (!window) {
+    return '<p class="rounded-xl bg-slate-50/70 p-3 text-xs leading-relaxed text-slate-600">'
+      + 'No price history or corporate-action history is on the record, so no window return can be '
+      + 'measured for any company. Run <code>fetch-price-history.mjs</code> and '
+      + '<code>fetch-corporate-actions.mjs</code>.</p>';
+  }
+  const windowLine =
+    `<p class="mb-2 text-[11px] leading-relaxed text-slate-600">Measured from the <strong>${escapeHtml(window.from.review)}</strong> `
+    + `price window (${escapeHtml(window.from.from)} to ${escapeHtml(window.from.to)}, ${window.from.sessions} sessions) `
+    + `to the <strong>${escapeHtml(window.to.review)}</strong> window (${escapeHtml(window.to.from)} to ${escapeHtml(window.to.to)}, `
+    + `${window.to.sessions} sessions). ${escapeHtml(window.windowNote)} — so the figure below is the mean of all ten days `
+    + 'at each end, and no single day is privileged.</p>';
+
+  if (!rel || rel.relativePct === null) {
+    // A NAMED absence in its own words, never a blank or a zero — 2.3 and 2.4.
+    return windowLine
+      + '<div class="rounded-xl bg-amber-50/70 p-3">'
+      + `<p class="text-xs font-semibold text-amber-900">${escapeHtml(rel?.label ?? 'no reading')}</p>`
+      + `<p class="mt-1 text-xs leading-relaxed text-amber-800">${escapeHtml(rel?.reason ?? 'No relative-performance reading is on the record for this company.')}</p>`
+      + '</div>';
+  }
+
+  const tone = !rel.robust ? 'text-slate-700' : rel.relativePct > 0 ? 'text-emerald-700' : 'text-rose-700';
+  const signal = trendFor(company);
+
+  return (
+    windowLine
+    + '<dl class="rounded-xl bg-slate-50/70 p-3">'
+    + drillRow('This company', escapeHtml(signedPct(rel.stockPct, 2)),
+      { title: 'Ten-day mean close at each end, from the BSE bhavcopy archive' + (rel.adjustmentFactor ? ', with the earlier window divided by the corporate-action factor below' : '') })
+    + drillRow(`${escapeHtml(rel.benchmarkSymbol)} in rupees`, escapeHtml(signedPct(rel.indexPct, 2)),
+      { title: `${rel.benchmarkName} — the ETF, not the index. Struck on the SAME ten dates, converted at each date's own FX rate.` })
+    + drillRow('Relative', `<span class="${tone} font-semibold">${escapeHtml(signedPct(rel.relativePct, 2))}</span>`,
+      { title: '(1 + stock) / (1 + index) - 1 — a compounded ratio, not the arithmetic difference of the two returns above' })
+    + drillRow('Across all ten possible days',
+      escapeHtml(`${signedPct(rel.envelope[0], 1)} to ${signedPct(rel.envelope[1], 1)}`),
+      { title: `MSCI prices on one of the ten business days and does not publish which, so there are 100 (from-day, to-day) pairs it could have meant. This reading spans ${rel.widthPp.toFixed(1)} pp across them.` })
+    + drillRow('Direction holds whichever day?',
+      rel.robust
+        ? '<span class="font-semibold text-emerald-700">yes</span>'
+        : '<span class="font-semibold text-slate-500">no — not robust</span>',
+      { title: `The whole span must clear the desk's ${RELATIVE_PERFORMANCE.bandPct} pp band. Measured across the universe, the median span is 14.7 pp wide and 31.4% of companies have a span that crosses zero.` })
+    + (rel.adjustmentFactor
+      ? drillRow('Adjusted for',
+        escapeHtml(`${rel.actionsApplied.map((a) => `${a.purpose} on ${a.exDate}`).join('; ')} — earlier window ÷ ${rel.adjustmentFactor}`),
+        { title: "BSE's own published corporate action. The raw closes are unadjusted; this is our arithmetic on them, and both ends now sit on the same number of shares." })
+      : '')
+    + '</dl>'
+    + (signal
+      ? `<div class="mt-2 rounded-xl ${signal.kind === 'disagrees' ? 'bg-amber-50/70' : 'bg-sky-50/70'} p-3">`
+        + `<p class="text-xs font-semibold ${signal.kind === 'disagrees' ? 'text-amber-900' : 'text-sky-900'}">${escapeHtml(signal.label)}</p>`
+        + `<p class="mt-1 text-xs leading-relaxed ${signal.kind === 'disagrees' ? 'text-amber-800' : 'text-sky-800'}">${escapeHtml(signal.detail)}</p></div>`
+      : '')
+    + '<p class="mt-2 rounded-xl bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">'
+    + '<strong>This does not decide the verdict above, and it is not independent of it.</strong> '
+    + 'A migration verdict turns on a rank by free-float market cap, and free float is the float factor '
+    + 'times the share count times the price — so today\'s rank already contains every past price move. '
+    + 'That is how the company reached it. What this reading adds is about the FUTURE: today\'s rank is a '
+    + 'forecast of the rank in MSCI\'s next price window, and a trend that holds whichever day MSCI prices '
+    + 'on is evidence about which way that forecast moves.</p>'
+    + '<p class="mt-1 rounded-xl bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">'
+    + `<strong>Whose reading this is:</strong> ${escapeHtml(window.attribution)}</p>`
+  );
+}
+
 function driftSectionHtml(company) {
   const drift = company.passiveDrift;
   if (!drift || Object.keys(drift).length === 0) {
@@ -1210,6 +1301,7 @@ function openCompanyDrill(key, { onClose } = {}) {
       drillSection('Assessment', assessmentSectionHtml(company)) +
       drillSection('Free float', floatSectionHtml(company)) +
       drillSection('Index participation', fundsSectionHtml(company)) +
+      drillSection('Against its segment — review window to review window', relativeSectionHtml(company)) +
       drillSection('Weight drift — no trade required', driftSectionHtml(company)) +
       drillSection('Flow primitives — inputs, not results', flowPrimitivesSectionHtml(company)) +
       drillSection('Provenance', provenanceSectionHtml(company)),
@@ -1293,11 +1385,25 @@ export function renderCompanies(host, { onStatusChange } = {}) {
           const assessment = assessmentFor(row);
           if (!assessment) return missing('not yet assessed');
           const quarantine = row.shareCountQuarantine;
-          return verdictPill(assessment.verdict, {
+          const pill = verdictPill(assessment.verdict, {
             title: quarantine
               ? `Unknown: ${quarantine.reason}`
               : `${VERDICTS[assessment.verdict]?.detail ?? ''} ${DISCLOSURE}`,
           });
+          // The trend signal sits BESIDE the verdict and never inside it. It
+          // fires only where the reading says something the size rule does not:
+          // a company closing on a boundary its rank has not crossed, or a
+          // migration whose trend runs the other way. On rows where the two
+          // agree it stays silent — a marker that fires on most rows teaches
+          // readers to ignore it.
+          const signal = trendFor(row);
+          if (!signal) return pill;
+          const tone = signal.kind === 'disagrees'
+            ? 'bg-amber-50 text-amber-800 ring-amber-200'
+            : 'bg-sky-50 text-sky-800 ring-sky-200';
+          return `${pill}<span class="ml-1 inline-flex items-center rounded px-1 py-px text-[10px] font-medium ring-1 ${tone}" `
+            + `title="${escapeHtml(`${signal.label}. ${signal.detail}`)}">`
+            + `${escapeHtml(signal.kind === 'disagrees' ? 'trend ↔' : signal.kind === 'approaching-up' ? 'closing ↑' : 'closing ↓')}</span>`;
         },
       },
       // There is deliberately no "Distance" column here. It was removed on
@@ -1373,6 +1479,51 @@ export function renderCompanies(host, { onStatusChange } = {}) {
           }
           const tone = view.dayChangePct > 0 ? 'text-emerald-700' : view.dayChangePct < 0 ? 'text-rose-700' : 'text-slate-500';
           return `<span class="${tone} font-semibold">${escapeHtml(dayChange(view.dayChangePct))}</span>`;
+        },
+      },
+      {
+        // ⚠ THIS COLUMN IS EVIDENCE, NOT A VERDICT INPUT. See the header of
+        // model/relative.js: a migration verdict turns on a rank by free-float
+        // market cap, and today's rank already contains every past price move.
+        //
+        // The tone is applied ONLY when the reading is robust — when the whole
+        // day-choice envelope sits one side of the band. For 31.4% of companies
+        // the SIGN of this number depends on which of MSCI's ten undisclosed
+        // price days you pick, and colouring an unstable reading green or red
+        // would state a direction the measurement does not support.
+        label: 'vs segment %',
+        align: 'right',
+        html: true,
+        sortValue: (row) => row.relativePerformance?.relativePct ?? null,
+        get: (row) => {
+          const rel = row.relativePerformance;
+          if (!rel) return missing('no relative-performance reading on the record');
+          if (rel.relativePct === null) {
+            // The state's OWN words, not a generic absence — 2.4.
+            return missing(`${rel.label ?? rel.state}: ${rel.reason ?? ''}`.trim());
+          }
+          const window = data.relativeWindow();
+          const title =
+            `${signedPct(rel.stockPct, 2)} against ${rel.benchmarkSymbol}'s ${signedPct(rel.indexPct, 2)} in rupees`
+            + `, compared geometrically: (1 + stock) / (1 + index) - 1.`
+            + ` Ten-day window means, ${window ? `${window.from.from}..${window.from.to} to ${window.to.from}..${window.to.to}` : ''}.`
+            + ` MSCI prices on one of those ten days and does not say which, so across all 100 pairs`
+            + ` this reading spans ${signedPct(rel.envelope[0], 1)} to ${signedPct(rel.envelope[1], 1)}`
+            + ` — ${rel.widthPp.toFixed(1)} pp wide.`
+            + (rel.robust
+              ? ` The whole span clears the desk's ${RELATIVE_PERFORMANCE.bandPct} pp band, so the direction holds whichever day MSCI used.`
+              : ` That span does NOT clear the desk's ${RELATIVE_PERFORMANCE.bandPct} pp band, so no direction is claimed.`)
+            + (rel.adjustmentFactor
+              ? ` Adjusted for ${rel.actionsApplied.map((a) => `${a.purpose} on ${a.exDate}`).join('; ')} — the earlier window is divided by ${rel.adjustmentFactor}.`
+              : '');
+          const tone = !rel.robust
+            ? 'text-slate-500'
+            : rel.relativePct > 0 ? 'text-emerald-700' : 'text-rose-700';
+          return `<span class="inline-flex items-center justify-end gap-1" title="${escapeHtml(title)}">`
+            + `<span class="${tone} font-semibold">${escapeHtml(signedPct(rel.relativePct, 1))}</span>`
+            + (rel.robust ? '' : '<span class="text-[10px] text-slate-400" title="the day MSCI priced on decides the sign">±</span>')
+            + (rel.adjustmentFactor ? '<span class="text-[10px] text-amber-600" title="adjusted for a corporate action">adj</span>' : '')
+            + '</span>';
         },
       },
       {
@@ -1615,6 +1766,28 @@ export function renderCompanies(host, { onStatusChange } = {}) {
               return rule ? (THRESHOLD_SOURCE[rule.thresholdSource]?.label ?? rule.thresholdSource) : '';
             } },
             { label: 'Rules fired', value: (r) => (assessmentFor(r)?.rulesFired ?? []).map((x) => `${x.label}: ${x.result}`).join(' | ') },
+            // 2.7: the reading is useless in a sheet without its window, its
+            // benchmark, its span and its reason for being absent. Every one of
+            // those is a column, because a workbook leaves with no chrome.
+            { label: 'vs segment % (geometric, this company against its benchmark)',
+              value: (r) => r.relativePerformance?.relativePct ?? '' },
+            { label: 'vs segment: this company %', value: (r) => r.relativePerformance?.stockPct ?? '' },
+            { label: 'vs segment: benchmark', value: (r) => r.relativePerformance?.benchmarkSymbol ?? '' },
+            { label: 'vs segment: benchmark % in rupees', value: (r) => r.relativePerformance?.indexPct ?? '' },
+            { label: 'vs segment: across all ten possible days, low %',
+              value: (r) => r.relativePerformance?.envelope?.[0] ?? '' },
+            { label: 'vs segment: across all ten possible days, high %',
+              value: (r) => r.relativePerformance?.envelope?.[1] ?? '' },
+            { label: 'vs segment: direction holds whichever day MSCI priced on',
+              value: (r) => (r.relativePerformance?.relativePct == null ? '' : (r.relativePerformance.robust ? 'yes' : 'no')) },
+            { label: 'vs segment: adjusted for a corporate action',
+              value: (r) => (r.relativePerformance?.actionsApplied ?? [])
+                .map((a) => `${a.purpose} on ${a.exDate} (price ÷ ${a.priceFactor})`).join('; ') },
+            { label: 'vs segment: no reading because',
+              value: (r) => (r.relativePerformance && r.relativePerformance.relativePct === null
+                ? `${r.relativePerformance.label}: ${r.relativePerformance.reason}` : '') },
+            { label: 'Trend signal (modelled, does not change the verdict)',
+              value: (r) => { const t = trendFor(r); return t ? `${t.label} — ${t.detail}` : ''; } },
             { label: 'Share count quarantined', value: (r) => (r.shareCountQuarantine ? 'yes' : '') },
             ...FUND_ORDER.map((id) => ({
               label: `${data.fundCoverage(id)?.shortName ?? id} estimated flow INR Cr (modelled)`,
