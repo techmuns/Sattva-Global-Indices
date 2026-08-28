@@ -37,6 +37,9 @@ import { renderTable } from './lib/report.mjs';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
   + '(KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const SENTINEL = '\n__PROBE_STATUS__';
+/** Declared here, not beside its function: TARGETS calls lastWeekdayCompact()
+ *  at module evaluation, so a later `const` is in the temporal dead zone. */
+const PUBLICATION_HOUR_IST = 18;
 const JAR = '/tmp/nse-probe-cookies.txt';
 
 /** One GET, with the retry invocation §3.7 proves is required. Never throws. */
@@ -134,11 +137,27 @@ const TARGETS = [
   },
 ];
 
-/** YYYYMMDD for the most recent weekday, which is what the bhavcopy is named by. */
+/**
+ * YYYYMMDD for the most recent session an exchange could have PUBLISHED for.
+ *
+ * THE FIRST VERSION OF THIS FUNCTION WAS WRONG, IN THE SAME WAY AND ON THE SAME
+ * DAY AS THE ONE IN fetch-bhavcopy.mjs. It read the UTC weekday and never the
+ * IST clock, so the 02:26 UTC run — 07:58 IST — asked for that Friday's files
+ * before that Friday had traded. NSE answered 404 and the probe reported it as
+ * "archives host: 404", which reads as a finding about NSE and was a finding
+ * about this function.
+ *
+ * A probe that misattributes its own bug to the thing it is probing is worse
+ * than no probe, because the wrong conclusion arrives wearing evidence.
+ *
+ * Same fix and same reasoning as fetch-bhavcopy.mjs: before the publication hour
+ * in IST, the newest available session is the previous one.
+ */
 function lastWeekdayCompact() {
-  const d = new Date();
-  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10).replace(/-/g, '');
+  const ist = new Date(Date.now() + 5.5 * 3600 * 1000);
+  if (ist.getUTCHours() < PUBLICATION_HOUR_IST) ist.setUTCDate(ist.getUTCDate() - 1);
+  while (ist.getUTCDay() === 0 || ist.getUTCDay() === 6) ist.setUTCDate(ist.getUTCDate() - 1);
+  return ist.toISOString().slice(0, 10).replace(/-/g, '');
 }
 /** DDMMYYYY for the same day. */
 function lastWeekdayDMY() {
