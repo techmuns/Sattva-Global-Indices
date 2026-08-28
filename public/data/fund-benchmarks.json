@@ -3,7 +3,7 @@
   "note": "The ETF, not the index. An ETF carries tracking error and trades at a premium or discount to NAV, so this is a close PROXY for the index it tracks, never the index itself. MSCI index levels are licensed and this project has no entitlement to them.",
   "returnBasis": "PRICE return, dividends not reinvested — a free-float market cap moves with price, not with a distribution paid out in cash.",
   "currencyNote": "Funds quote in USD. A rupee return is price_usd × usdinr on each date, both halves from the same date. Measured 20 Aug 2026, ignoring this would have put SMIN's 1-year move at -3.62% instead of +5.44% — the wrong sign.",
-  "capturedAt": "2026-08-28T08:03:07.370Z",
+  "capturedAt": "2026-08-28T23:47:03.181Z",
   "asOf": "2026-08-28",
   "range": "2y",
   "fx": {
@@ -12,7 +12,7 @@
     "meaning": "INR per USD",
     "firstClose": "2024-08-28",
     "lastClose": "2026-08-28",
-    "points": 518,
+    "points": 519,
     "series": [
       {
         "date": "2024-08-28",
@@ -2084,7 +2084,11 @@
       },
       {
         "date": "2026-08-28",
-        "close": 95.37000274658203
+        "close": 95.47039794921875
+      },
+      {
+        "date": "2026-08-28",
+        "close": 95.36000061035156
       }
     ]
   },
@@ -2101,14 +2105,10 @@
       "instrumentType": "ETF",
       "exchange": "NYSEArca",
       "timezone": "America/New_York",
-      "firstClose": "2024-08-28",
-      "lastClose": "2026-08-27",
+      "firstClose": "2024-08-29",
+      "lastClose": "2026-08-28",
       "points": 501,
       "series": [
-        {
-          "date": "2024-08-28",
-          "close": 43.2599983215332
-        },
         {
           "date": "2024-08-29",
           "close": 43.279998779296875
@@ -4108,6 +4108,10 @@
         {
           "date": "2026-08-27",
           "close": 67.61000061035156
+        },
+        {
+          "date": "2026-08-28",
+          "close": 67.13999938964844
         }
       ]
     },
@@ -4123,14 +4127,10 @@
       "instrumentType": "ETF",
       "exchange": "Cboe US",
       "timezone": "America/New_York",
-      "firstClose": "2024-08-28",
-      "lastClose": "2026-08-27",
+      "firstClose": "2024-08-29",
+      "lastClose": "2026-08-28",
       "points": 501,
       "series": [
-        {
-          "date": "2024-08-28",
-          "close": 83.73999786376953
-        },
         {
           "date": "2024-08-29",
           "close": 83.22000122070312
@@ -6130,6 +6130,10 @@
         {
           "date": "2026-08-27",
           "close": 71.91999816894531
+        },
+        {
+          "date": "2026-08-28",
+          "close": 71.80750274658203
         }
       ]
     },
@@ -6145,14 +6149,10 @@
       "instrumentType": "ETF",
       "exchange": "NYSEArca",
       "timezone": "America/New_York",
-      "firstClose": "2024-08-28",
-      "lastClose": "2026-08-27",
+      "firstClose": "2024-08-29",
+      "lastClose": "2026-08-28",
       "points": 501,
       "series": [
-        {
-          "date": "2024-08-28",
-          "close": 61.7599983215332
-        },
         {
           "date": "2024-08-29",
           "close": 61.650001525878906
@@ -8152,6 +8152,10 @@
         {
           "date": "2026-08-27",
           "close": 76.91000366210938
+        },
+        {
+          "date": "2026-08-28",
+          "close": 76.5199966430664
         }
       ]
     },
@@ -8167,14 +8171,10 @@
       "instrumentType": "ETF",
       "exchange": "Cboe US",
       "timezone": "America/New_York",
-      "firstClose": "2024-08-28",
-      "lastClose": "2026-08-27",
+      "firstClose": "2024-08-29",
+      "lastClose": "2026-08-28",
       "points": 501,
       "series": [
-        {
-          "date": "2024-08-28",
-          "close": 57.150001525878906
-        },
         {
           "date": "2024-08-29",
           "close": 57.27000045776367
@@ -10174,6 +10174,10 @@
         {
           "date": "2026-08-27",
           "close": 49.529998779296875
+        },
+        {
+          "date": "2026-08-28",
+          "close": 49.560001373291016
         }
       ]
     }
