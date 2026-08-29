@@ -1,7 +1,7 @@
 {
   "source": "iShares holdings + NSE pre-open free float + BSE free float + niftyindices ISIN map",
   "note": "floatFactor is dimensionless and price-independent. NSE wins wherever it publishes a reading because MSCI follows NSE; BSE fills gaps only. The two are never averaged, and where both exist both are kept so the disagreement stays inspectable. Every monetary field is RUPEES. A null in funds{} means NOT HELD by that fund — it is not a zero weight.",
-  "builtAt": "2026-08-28T23:47:04.832Z",
+  "builtAt": "2026-08-29T10:51:37.948Z",
   "asOf": {
     "isharesHoldings": "2026-08-17",
     "nseSession": "28-Aug-2026 09:07:08",
@@ -10,7 +10,7 @@
     "quoteStatsCapturedAt": "2026-08-19T14:10:29.769Z",
     "benchmarksAsOf": "2026-08-28",
     "bseScripMasterCapturedAt": "2026-08-28T23:35:54.321Z",
-    "nseUniverseCapturedAt": "2026-08-28T23:35:56.194Z"
+    "nseUniverseCapturedAt": "2026-08-29T10:51:33.324Z"
   },
   "thresholds": {
     "scrapeUniverseMinFullMcapInr": 20000000000,
