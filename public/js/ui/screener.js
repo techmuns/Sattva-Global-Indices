@@ -606,8 +606,9 @@ export function scoreTable(config) {
   }
 
   /**
-   * A typed min–max range: two boxes, the unit stated between them, and an
-   * en dash so the pair reads as the range it is.
+   * A typed min–max range: TWO SEPARATE BOXES with the dash between them, and
+   * the unit stated on the outside so the whole reads as ₹3,000–8,000 Cr — the
+   * way this desk writes a range down, and the way `describe()` says it back.
    *
    * It replaced a five-option dropdown on 31 Aug 2026. A dropdown can only
    * offer boundaries somebody chose in advance, and the ones on offer were an
@@ -624,30 +625,37 @@ export function scoreTable(config) {
    * because a bare pair of numbers beside a market-cap column is exactly the
    * kind of thing a reader supplies their own unit for — and being out by a
    * factor of ten million is this project's signature failure (CLAUDE.md §3.8).
+   *
+   * Each end gets its OWN box, carrying the same chrome as the selects beside
+   * it, so the two are visibly two fields and the dash between them is a
+   * separator rather than something inside a single field. The invalid ring
+   * therefore lands on the inputs rather than on a wrapper: both are marked,
+   * because the parser rejects the RANGE and either end may be what broke it —
+   * reddening one box would name a culprit we have not identified.
    */
   function rangeControlHtml(filter) {
     const value = view.filters[filter.id] ?? {};
+    // The same chrome the selects in this toolbar carry — radius, ring, shadow
+    // and height — so the range does not read as a different KIND of control
+    // from the filters either side of it.
     const box = (side, placeholder) =>
       `<input data-range-${side} type="text" inputmode="decimal" autocomplete="off" spellcheck="false" ` +
       `value="${escapeHtml(value[side] ?? '')}" placeholder="${escapeHtml(placeholder)}" ` +
       `aria-label="${escapeHtml(`${filter.label} ${side === 'min' ? 'minimum' : 'maximum'}${filter.unitSuffix ? `, in ${filter.unitPrefix ?? ''}${filter.unitSuffix}` : ''}`)}" ` +
-      // The min box is right-aligned and the max box left-aligned, so the two
-      // figures sit against the dash and the control reads as one range rather
-      // than as two unrelated boxes.
-      `class="w-[4.25rem] ${side === 'min' ? 'text-right' : 'text-left'} border-0 bg-transparent p-0 text-xs ` +
-      'font-semibold tabular-nums text-slate-800 placeholder:font-normal placeholder:text-slate-400 ' +
-      'focus:outline-none focus:ring-0">';
+      // Right-aligned, like every numeric column in the table below it.
+      'class="w-[4.75rem] rounded-xl border-0 bg-white py-2 px-2.5 text-right text-xs font-semibold tabular-nums ' +
+      'text-slate-800 shadow-sm ring-1 ring-slate-200 placeholder:font-normal placeholder:text-slate-400 ' +
+      'focus:outline-none focus:ring-2 focus:ring-indigo-500">';
 
     return (
       '<div class="flex items-center gap-2 text-[11px] font-semibold text-slate-500">' +
         `<span class="whitespace-nowrap">${escapeHtml(filter.label)}</span>` +
         `<span data-range="${escapeHtml(filter.id)}" ` +
         `${filter.hint ? `title="${escapeHtml(filter.hint)}" ` : ''}` +
-        'class="inline-flex items-center gap-1.5 rounded-xl bg-white py-1.5 px-2.5 shadow-sm ring-1 ring-slate-200 ' +
-        'focus-within:ring-2 focus-within:ring-indigo-500">' +
+        'class="inline-flex items-center gap-1.5">' +
           (filter.unitPrefix ? `<span aria-hidden="true" class="text-slate-400">${escapeHtml(filter.unitPrefix)}</span>` : '') +
           box('min', filter.placeholders?.min ?? 'min') +
-          '<span aria-hidden="true" class="text-slate-400">–</span>' +
+          '<span aria-hidden="true" class="px-0.5 text-slate-400">–</span>' +
           box('max', filter.placeholders?.max ?? 'max') +
           (filter.unitSuffix ? `<span aria-hidden="true" class="text-slate-400">${escapeHtml(filter.unitSuffix)}</span>` : '') +
           '<button type="button" data-range-clear hidden aria-label="Clear the range" title="Clear the range" ' +
@@ -977,12 +985,15 @@ export function scoreTable(config) {
       const clear = wrap?.querySelector('[data-range-clear]');
       const failed = Boolean(entry.parsed.error);
 
-      for (const input of inputs) input.setAttribute('aria-invalid', failed ? 'true' : 'false');
-      if (wrap) {
-        wrap.classList.toggle('ring-rose-400', failed);
-        wrap.classList.toggle('ring-2', failed);
-        wrap.classList.toggle('ring-slate-200', !failed);
-        wrap.classList.toggle('ring-1', !failed);
+      // BOTH boxes, not one. The parser rejects the range as a whole and either
+      // end may be what broke it, so reddening a single box would point at a
+      // culprit nobody identified.
+      for (const input of inputs) {
+        input.setAttribute('aria-invalid', failed ? 'true' : 'false');
+        input.classList.toggle('ring-rose-400', failed);
+        input.classList.toggle('ring-2', failed);
+        input.classList.toggle('ring-slate-200', !failed);
+        input.classList.toggle('ring-1', !failed);
       }
       if (clear) clear.hidden = entry.parsed.empty;
 
