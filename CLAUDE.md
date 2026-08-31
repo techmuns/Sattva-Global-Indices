@@ -749,6 +749,53 @@ inclusion forecast is *about*, so defaulting to "held" made the product's own su
 reader had to opt into. `state.SCOPE` is now the constant `'all'`, and the header carries the model
 toggle in the space the scope toggle used to occupy.
 
+### 2.28 A figure the reader types is an input, and it gets the same suspicion as a feed
+
+The market-cap filter became a typed min–max range on 31 Aug 2026 — `₹ [min] – [max] Cr` — because
+five fixed bands could answer "roughly how big" and could not answer "show me ₹3,000 to ₹8,000 Cr",
+which is the question when a company is being weighed against a cut-off.
+
+It moves a parsing problem out of the pipeline and into the interface, where it is **harder**. A
+feed that arrives malformed has an upstream file to check the answer against; an entry has nobody
+but the person who typed it, and they will read whatever comes back as the answer to what they
+asked. Two traps, both of which arrived on the way in:
+
+> ### ⚠ `parseFloat` is banned on the way IN as well as on the way out
+>
+> `parseFloat("3,000")` is `3`. Not an error, not `NaN` — a plausible small number that filters,
+> sorts and ranks perfectly happily, and fills the screen with confident, well-formatted, entirely
+> wrong companies. It is §3.8's trap wearing a different hat, and it is worse here because the
+> reader typed the input themselves and has every reason to trust the output.
+>
+> `public/js/core/range.js` validates the whole string before it converts anything, and it is
+> unit-free: it reads numbers, and the caller owns what they mean. Assertion 38 pins the parse table
+> with no browser at all, and `--prove` swaps in the naive reader to show the check catches it.
+
+> ### ⚠ A conversion can manufacture a zero from a null
+>
+> `toCrore(null)` is `null / 1e7`, which is **`0`** — a real, finite zero that passes every
+> `Number.isFinite` guard downstream. Converting before checking for a missing value therefore hands
+> every unmeasured company to the filter as though it were worth nothing, and a range starting at 0
+> lists all 26 of them beside companies whose size is known (§2.3, by a route that does not look like
+> §2.3 at all).
+>
+> **The missing check comes before the conversion.** Assertion 44 caught this on its first run,
+> which is the argument for writing the check before believing the code.
+
+The rest is §2.3 and §2.4 applied to a control rather than to a number:
+
+- **Both ends are included**, and the status line says so rather than leaving it to be discovered.
+  The old bands were half-open because they had to tile a universe with no gaps and no overlaps; a
+  typed range has no such duty.
+- **A blank end is an open end, never a zero.**
+- **An entry that cannot be read hides nothing**, and says what was wrong and that the range is not
+  in force — an unreadable entry silently filtered to an empty table would report a typo as a
+  finding about the companies. A minimum above a maximum is the same state, and it is **not**
+  quietly swapped: correcting what somebody typed changes the question they asked without telling
+  them.
+- **What the entry was read as is on screen**, in the reader's sight line, and the same sentence
+  travels into row 1 of any export — including when it says the range could not be read.
+
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
 ### 3.1 The iShares `.xls` files are not `.xls` files
@@ -1217,8 +1264,8 @@ scripts/
   fetch-price-history.mjs          two MSCI price windows → public/data/price-history.json
   fetch-corporate-actions.mjs      BSE's own action history → public/data/corporate-actions.json
   build-companies.mjs              everything → public/data/companies.json
-  verify-data.mjs                  21 data assertions; no browser, no network
-  verify-ui.mjs                    21 interface assertions; the served site
+  verify-data.mjs                  38 data assertions; no browser, no network
+  verify-ui.mjs                    24 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
@@ -1252,6 +1299,7 @@ public/
   js/model/relative.js             review-window relative performance + the trend signal
   js/model/calendar.js             review dates (assumed, configurable)
   js/core/live.js                  visibility-aware poller
+  js/core/range.js                 a typed min–max range, validated before it is converted
   js/data/quotes.js                live overlay; memory only, never written back
 worker/
   index.js                         static assets + POST /api/quotes
@@ -1293,9 +1341,9 @@ node scripts/verify-data.mjs           # the data assertions; run before committ
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 21 assertions; no browser, no network
+node scripts/verify-data.mjs           # 38 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 21 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 24 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 

@@ -61,6 +61,30 @@ async function loadPlaywright() {
   return null;
 }
 
+/* ── the naive range parser, for --prove ───────────────────────────────────
+ * Assertion 44 has to be able to fail, and the way it would fail in real life
+ * is that somebody reads a typed figure the easy way. This is that version,
+ * served over the top of the real module when the suite is proving itself: it
+ * reads a grouped figure as its first digits and treats anything it cannot
+ * read as no filter at all, silently. Both are what the check exists to catch.
+ */
+const RANGE_MODULE_GLOB = '**/js/core/range.js';
+const NAIVE_RANGE_MODULE = `
+export function parseRange(value) {
+  const min = parseFloat(value?.min ?? 0);
+  const max = parseFloat(value?.max ?? 0);
+  const lo = Number.isFinite(min) ? min : null;
+  const hi = Number.isFinite(max) ? max : null;
+  return { min: lo, max: hi, active: lo !== null || hi !== null, empty: lo === null && hi === null, error: null };
+}
+export function withinRange(value, range) {
+  if (value === null || value === undefined) return false;
+  if (range.min !== null && value < range.min) return false;
+  if (range.max !== null && value > range.max) return false;
+  return true;
+}
+`;
+
 /* ── console-error classification ──────────────────────────────────────────
  * BY URL, NEVER BY MESSAGE TEXT. Matching on words would swallow a real error
  * that happened to mention a font, and would keep swallowing it silently. The
@@ -248,6 +272,29 @@ async function main() {
       window.__set = async (select, value) => {
         select.value = value;
         select.dispatchEvent(new Event('change', { bubbles: true }));
+        return filled();
+      };
+      /**
+       * Type into a min–max range control, the way a person does.
+       *
+       * Typing is debounced in the interface, so this waits for the VIEW to
+       * have taken the entry before it waits for the fill — the same shape as
+       * `__settleSearch`, and for the same reason: a wait on the rows alone
+       * would sail through the window before the keystroke was consumed and
+       * measure the previous filter.
+       */
+      window.__setRange = async (id, min, max) => {
+        const wrap = document.querySelector(`[data-range="${id}"]`);
+        if (!wrap) throw new Error(`no range control "${id}"`);
+        const boxes = { min: wrap.querySelector('[data-range-min]'), max: wrap.querySelector('[data-range-max]') };
+        boxes.min.value = min;
+        boxes.max.value = max;
+        boxes.min.dispatchEvent(new Event('input', { bubbles: true }));
+        for (let i = 0; i < 600; i += 1) {
+          const held = window.__sattva.view.table()?.view.filters[id];
+          if (held && held.min === min && held.max === max) break;
+          await frame();
+        }
         return filled();
       };
       /** Wait for a condition, by frame. Still never a duration. */
@@ -471,7 +518,7 @@ async function main() {
 
   await suite.check({
     id: 26,
-    what: 'search matches name, symbol and ISIN; every filter narrows; two filters AND rather than replace',
+    what: 'search matches name, symbol and ISIN; every filter narrows — the typed range included; two filters AND rather than replace',
     run: async (c) => {
       const searchResults = await c.page.evaluate(async () => {
         const input = document.querySelector('[data-search]');
@@ -496,33 +543,61 @@ async function main() {
       equal(searchResults.nonsense, 0, 'a nonsense search must match nothing');
 
       const filters = await c.page.evaluate(async () => {
-        const selects = [...document.querySelectorAll('select[data-filter]')];
+        // EVERY CONTROL IN THE TOOLBAR, not every <select>. The market-cap
+        // filter became a typed range on 31 Aug 2026, and an enumeration that
+        // only ever looked for a <select> would have gone on reporting a tick
+        // while quietly covering one filter fewer.
+        const controls = [
+          ...[...document.querySelectorAll('select[data-filter]')].map((select) => ({
+            id: select.dataset.filter,
+            value: [...select.options].find((o) => o.value !== '')?.value,
+            apply: (v) => window.__set(select, v ?? ''),
+            clear: () => window.__set(select, ''),
+          })),
+          ...[...document.querySelectorAll('[data-range]')].map((wrap) => ({
+            id: wrap.dataset.range,
+            // A minimum well inside the universe, so a range that narrows
+            // nothing is a failure rather than a coincidence.
+            value: { min: '10,000', max: '' },
+            apply: (v) => window.__setRange(wrap.dataset.range, v.min, v.max),
+            clear: () => window.__setRange(wrap.dataset.range, '', ''),
+          })),
+        ].filter((control) => control.value !== undefined);
+
         const total = window.__sattva.rows().length;
         const results = [];
-        const set = window.__set;
         // each filter alone
-        for (const select of selects) {
-          const option = [...select.options].find((o) => o.value !== '');
-          if (!option) continue;
-          await set(select, option.value);
+        for (const control of controls) {
+          await control.apply(control.value);
           results.push({
-            id: select.dataset.filter,
-            value: option.value,
+            id: control.id,
+            value: typeof control.value === 'string' ? control.value : `${control.value.min}–${control.value.max}`,
             n: window.__sattva.rows().length,
             keys: window.__sattva.rows().map((r) => window.__sattva.data.keyOf(r)),
           });
-          await set(select, '');
+          await control.clear();
         }
-        // two together
-        const [a, b] = results;
-        const selA = selects.find((s) => s.dataset.filter === a.id);
-        const selB = selects.find((s) => s.dataset.filter === b.id);
-        await set(selA, a.value);
-        await set(selB, b.value);
+
+        // Two together, and one of them is the range — the AND has to hold
+        // across the two KINDS of filter, which is where a rewrite of the
+        // resolution step would break it.
+        const a = controls.find((control) => typeof control.value !== 'string') ?? controls[0];
+        const b = controls.find((control) => control.id !== a.id
+          && results.find((r) => r.id === control.id)?.n > 0);
+        await a.apply(a.value);
+        await b.apply(b.value);
         const combined = window.__sattva.rows().map((r) => window.__sattva.data.keyOf(r));
-        await set(selA, '');
-        await set(selB, '');
-        return { total, results, combined, a: a.id, b: b.id };
+        await a.clear();
+        await b.clear();
+        return {
+          total,
+          results,
+          combined,
+          a: a.id,
+          b: b.id,
+          keysA: results.find((r) => r.id === a.id).keys,
+          keysB: results.find((r) => r.id === b.id).keys,
+        };
       });
 
       ok(filters.results.length >= 4, 'every filter must be exercised', `${filters.results.length} filters found`);
@@ -530,8 +605,7 @@ async function main() {
         ok(r.n < filters.total, `filter "${r.id}=${r.value}" must narrow the view`, `${r.n} of ${filters.total}`);
       }
       // AND, not replace: the combined set is exactly the intersection.
-      const [a, b] = filters.results;
-      const expected = a.keys.filter((k) => b.keys.includes(k)).sort();
+      const expected = filters.keysA.filter((k) => filters.keysB.includes(k)).sort();
       const actual = [...filters.combined].sort();
       equal(JSON.stringify(actual), JSON.stringify(expected),
         `${filters.a} AND ${filters.b} must intersect (${expected.length} rows), not replace one another`);
@@ -549,6 +623,140 @@ async function main() {
       });
     },
     restore: restoreByReload,
+  }, ctx);
+
+  await suite.check({
+    id: 44,
+    what: 'a typed market-cap range reads grouped digits, includes both ends, and NAMES an entry it cannot read instead of emptying the table',
+    run: async (c) => {
+      const m = await c.page.evaluate(async () => {
+        const toCr = (rupees) => rupees / 1e7;
+        const all = window.__sattva.data.all();
+        const keyOf = window.__sattva.data.keyOf;
+        const shownKeys = () => new Set(window.__sattva.rows().map(keyOf));
+        const status = () => {
+          const node = document.querySelector('[data-filter-status]');
+          return { text: node?.textContent ?? '', hidden: node?.hidden ?? true, rose: /text-rose/.test(node?.className ?? '') };
+        };
+        const invalid = () => [...document.querySelectorAll('[data-range="mcap"] input')]
+          .map((input) => input.getAttribute('aria-invalid'));
+
+        const total = window.__sattva.rows().length;
+
+        // 1. GROUPED DIGITS. "3,000" is three thousand. Read the way parseFloat
+        //    reads it, it is 3 — and the screen fills with a confident,
+        //    well-formatted table of entirely the wrong companies.
+        await window.__setRange('mcap', '3,000', '8,000');
+        const grouped = {
+          rows: window.__sattva.rows().length,
+          expected: all.filter((x) => x.fullMcapInr != null
+            && toCr(x.fullMcapInr) >= 3000 && toCr(x.fullMcapInr) <= 8000).length,
+          status: status(),
+        };
+
+        // 2. BOTH ENDS INCLUDED, measured on the two companies that ARE the
+        //    ends. A half-open range would drop the top one silently.
+        const sized = all.filter((x) => x.fullMcapInr != null).sort((a, b) => a.fullMcapInr - b.fullMcapInr);
+        const low = sized[Math.floor(sized.length * 0.25)];
+        const high = sized[Math.floor(sized.length * 0.75)];
+        const lowText = String(toCr(low.fullMcapInr));
+        const highText = String(toCr(high.fullMcapInr));
+        await window.__setRange('mcap', lowText, highText);
+        const seen = shownKeys();
+        const ends = {
+          lowText,
+          highText,
+          low: seen.has(keyOf(low)),
+          high: seen.has(keyOf(high)),
+          rows: seen.size,
+          expected: sized.filter((x) => toCr(x.fullMcapInr) >= Number(lowText)
+            && toCr(x.fullMcapInr) <= Number(highText)).length,
+        };
+
+        // 3. AN UNREADABLE ENTRY IS A NAMED STATE. Nothing hidden, the reason
+        //    on screen, the boxes marked invalid.
+        await window.__setRange('mcap', 'abc', '');
+        const unreadable = { rows: window.__sattva.rows().length, status: status(), invalid: invalid() };
+
+        // 4. AND SO IS A REVERSED ONE. It is the case that would otherwise
+        //    empty the table with no explanation at all.
+        await window.__setRange('mcap', '8000', '3000');
+        const reversed = { rows: window.__sattva.rows().length, status: status() };
+
+        // 5. NO READING IS NOT A SIZE. A company we have not measured belongs
+        //    to no range in either direction — it is not small and not large.
+        const noReading = all.filter((x) => x.fullMcapInr == null);
+        await window.__setRange('mcap', '0', '');
+        const everything = shownKeys();
+        const missing = {
+          rows: everything.size,
+          noReading: noReading.length,
+          shown: noReading.filter((x) => everything.has(keyOf(x))).length,
+        };
+
+        await window.__setRange('mcap', '', '');
+        const cleared = { rows: window.__sattva.rows().length, status: status() };
+        return { total, grouped, ends, unreadable, reversed, missing, cleared };
+      });
+
+      ok(/^\d/.test(m.ends.lowText) && /^\d/.test(m.ends.highText),
+        'the endpoint figures must be plain decimals for this to test what it claims',
+        `${m.ends.lowText} / ${m.ends.highText}`);
+
+      equal(m.grouped.rows, m.grouped.expected,
+        `"3,000"–"8,000" must be read as three thousand to eight thousand — ${m.grouped.expected} companies, not ${m.grouped.rows}`);
+      ok(m.grouped.rows > 0 && m.grouped.rows < m.total, 'and it must narrow the view', `${m.grouped.rows} of ${m.total}`);
+      ok(/3,000/.test(m.grouped.status.text) && /8,000/.test(m.grouped.status.text),
+        'the status line must say what the entry was read as', `reads "${m.grouped.status.text}"`);
+      ok(/inclusive/i.test(m.grouped.status.text),
+        'and it must say the ends are included, rather than leaving it to be discovered',
+        `reads "${m.grouped.status.text}"`);
+
+      equal(m.ends.rows, m.ends.expected, 'a range must match exactly the companies inside it');
+      ok(m.ends.low, 'the company sitting exactly on the minimum must be included');
+      ok(m.ends.high, 'the company sitting exactly on the maximum must be included');
+
+      equal(m.unreadable.rows, m.total, 'an entry that cannot be read must hide NOTHING');
+      equal(m.unreadable.status.hidden, false, 'and it must say so on screen');
+      ok(/not a number/i.test(m.unreadable.status.text) && /NOT applied/i.test(m.unreadable.status.text),
+        'the message must name the failure and say the filter is not in force',
+        `reads "${m.unreadable.status.text}"`);
+      ok(m.unreadable.status.rose, 'a broken entry must not read like a working one');
+      equal(JSON.stringify(m.unreadable.invalid), JSON.stringify(['true', 'true']),
+        'both boxes must be marked aria-invalid');
+
+      equal(m.reversed.rows, m.total, 'a reversed range must hide nothing either');
+      ok(/minimum is above the maximum/i.test(m.reversed.status.text),
+        'a reversed range must be named rather than shown as an empty table',
+        `reads "${m.reversed.status.text}"`);
+
+      equal(m.missing.shown, 0, 'a company with no market-cap reading must match no range');
+      equal(m.missing.rows, m.total - m.missing.noReading,
+        'an open-ended range must show every company that HAS a reading, and only those');
+
+      equal(m.cleared.rows, m.total, 'clearing the range must restore every row');
+      equal(m.cleared.status.hidden, true, 'and the status line must go away with it');
+
+      return `3,000–8,000 → ${m.grouped.rows} of ${m.total} · ends ${m.ends.lowText}/${m.ends.highText} both included `
+        + `· "abc" hides nothing and says why · reversed named · ${m.missing.noReading} unmeasured companies in no range`;
+    },
+    sabotage: async (c) => {
+      // SERVE THE NAIVE PARSER IN PLACE OF THE REAL ONE. It is the version this
+      // check exists to keep out: parseFloat reads "3,000" as 3 without
+      // erroring, and it turns an unreadable entry into no filter at all with
+      // nothing said. Sabotaging the module rather than the DOM proves the
+      // check covers the parse, not just the markup around it.
+      await c.page.route(RANGE_MODULE_GLOB, (route) => route.fulfill({
+        contentType: 'application/javascript',
+        body: NAIVE_RANGE_MODULE,
+      }));
+      await c.load();
+    },
+    restore: async (c) => {
+      await c.page.unroute(RANGE_MODULE_GLOB);
+      c.sabotageHook = null;
+      await c.load();
+    },
   }, ctx);
 
   await suite.check({

@@ -114,27 +114,56 @@ codebase for cross-fund weight aggregation.
 
 **Filters**, four, and they **AND** rather than replace: Fund · Market cap · Verdict · Watchlist.
 Assertion 26 exercises each one alone and then asserts that two together produce exactly the
-intersection.
+intersection. It enumerates *controls*, not `<select>` elements — the market-cap filter stopped being
+a dropdown on 31 Aug 2026, and an enumeration that only looked for selects would have gone on
+reporting a tick while covering one filter fewer.
 
-Two of them changed on 25 Aug 2026 and the reasoning is worth keeping.
+**Float source was removed** (25 Aug 2026). It offered NSE / BSE / no reading, and the same fact is
+on every row already — the source chip in the float column, and the drill panel, which names the rule
+that chose between the two exchanges and keeps both factors. A filter is worth a slot in the toolbar
+when it answers a question the columns cannot.
 
-**Float source was removed.** It offered NSE / BSE / no reading, and the same fact is on every row
-already — the source chip in the float column, and the drill panel, which names the rule that chose
-between the two exchanges and keeps both factors. A filter is worth a slot in the toolbar when it
-answers a question the columns cannot.
+**Size band became Market cap** (25 Aug 2026). It used to slice *free float* at the desk's own review
+cut-offs (₹2,000 / ₹2,400 / ₹3,500 / ₹4,000 Cr), which put four of its five boundaries inside a
+₹2,000 Cr window and made it useless for navigating a universe that spans four orders of magnitude.
+It moved to **full market cap**, sliced into five wide, round ranges.
 
-**Size band became Market cap.** It used to slice *free float* at the desk's own review cut-offs
-(₹2,000 / ₹2,400 / ₹3,500 / ₹4,000 Cr), which put four of its five boundaries inside a ₹2,000 Cr
-window and made it useless for navigating a universe that spans four orders of magnitude. It now
-slices **full market cap** into five wide, round ranges — `< ₹10,000`, `₹10,000–30,000`,
-`₹30,000–70,000`, `₹70,000–2,00,000`, `≥ ₹2,00,000 Cr` — which between them cover every company that
-has a reading.
-The boundaries live in `MARKET_CAP_FILTER_BANDS` in `public/js/config/thresholds.mjs`, beside the
-review thresholds but explicitly *not* of them: no rule reads them and they decide nothing.
+**And then the dropdown became a typed range** (31 Aug 2026): two boxes, `₹ [min] – [max] Cr`. Five
+fixed bands could answer "roughly how big" and could not answer "show me ₹3,000 to ₹8,000 Cr", which
+is the question when a company is being weighed against a cut-off. There are no boundaries left for
+this project to have chosen, which is the point — and it moves a parsing problem into the interface,
+so the entry owes the reader four things:
 
-A company with **no** market-cap reading matches no band in either direction, and the note under the
-filters says how many that is — derived, not typed. Putting it in the bottom bucket would report an
-absence as a fact.
+- **The unit.** The comparison happens in **₹ crore**, the unit on the boxes and on the column. The
+  record is converted to meet the entry; the entry is never converted to meet the record. A factor of
+  ten million between what was asked and what was answered is this project's signature failure.
+- **The grouping.** `"3,000"` is three thousand. Read the way `parseFloat` reads it, it is **3** — no
+  error, no `NaN`, just a plausible small number and a screen full of confident, well-formatted,
+  entirely wrong companies. `public/js/core/range.js` validates the whole string before it converts
+  anything, and assertion 38 (data, no browser) pins the parse table with `--prove` swapping in the
+  naive reader.
+- **Both ends included.** A person who types 3,000–8,000 means both. The old bands were half-open
+  because they had to tile a universe with no gaps; a typed range has no such duty, and the status
+  line under the toolbar says "inclusive at both ends" rather than leaving it to be discovered.
+- **A named failure.** An entry that cannot be read, or a minimum above the maximum, hides
+  **nothing**: every row stays listed, the boxes go rose and `aria-invalid`, and the status line says
+  what was wrong and that the range is not in force. Silently filtering to nothing would put an empty
+  table in front of a reader who would reasonably conclude no company is that size (§2.4).
+
+The status line is also where a reader checks what their typing was read *as* — `Market cap
+₹3,000–8,000 Cr, inclusive at both ends` — and the same sentence travels into row 1 of the CSV,
+including when it says the range could not be read. The export used to serialise the raw view as
+`band=mcap-30k-70k`, which names an internal id and carries no unit; a typed range would have
+serialised as `[object Object]`.
+
+Either box also accepts the whole range (`3,000–8,000`, `3000 to 8000`), Excel's comparison operators
+(`>3000`, `<8000`) and `3000+`. A blank end is an **open** end and never a zero.
+
+A company with **no** market-cap reading matches no range in either direction, and the note under the
+filters says how many that is — derived, not typed. Note *how* that is done: the missing check comes
+**before** the conversion, because `toCrore(null)` is `null / 1e7`, which is `0` — a real, finite
+zero that lands every unmeasured company in any range starting at 0. Assertion 44 caught exactly that
+on its first run, before the code was believed.
 
 The **Fund** filter's `held by none` became `held by all`, and the note under it discloses what that
 currently matches. The answer is zero and it is structural, not a data gap: the EM ETF tracks the

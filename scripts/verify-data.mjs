@@ -37,6 +37,7 @@ import { SEGMENT_BAND_ADJUSTMENT } from '../public/js/config/thresholds.mjs';
 import { gimiCutoffs, assessGimi, reviewWindow, METHODOLOGIES, METHODOLOGY_IDS } from '../public/js/model/gimi.js';
 import { METHODOLOGIES as STATE_METHODOLOGIES } from '../public/js/core/state.js';
 import { inrFlow, pct, pp, signedPct, factorPct, count, cr, EM_DASH } from '../public/js/core/format.js';
+import { parseRange, withinRange } from '../public/js/core/range.js';
 import { feedRegistry } from '../public/js/data/companies.js';
 import { relativeOf, windowMean, WINDOW_STATES } from '../public/js/model/relative.js';
 import { RELATIVE_PERFORMANCE } from '../public/js/config/thresholds.mjs';
@@ -151,7 +152,7 @@ function loadContext() {
     reconciliation: readJson('public/data/share-reconciliation.json'),
     sources: loadSources(),
     // Injected so a check can be broken by swapping the thing it verifies.
-    fn: { assertBhavcopyShape, assertContinuity, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count },
+    fn: { assertBhavcopyShape, assertContinuity, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count, parseRange, withinRange },
     fixtures: {
       spaShell: readText('scripts/fixtures/bhavcopy-spa-shell.html'),
       bhavToday: readText('scripts/fixtures/bhavcopy-sample-20260819.csv'),
@@ -305,6 +306,99 @@ async function main() {
     },
     sabotage: (c) => {
       c.sources.push({ path: 'scripts/lib/SABOTAGE.mjs', text: 'const mcap = parseFloat(row.MktCapFull);\n' });
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 38,
+    what: 'a typed range is validated before it is converted — "3,000" is three thousand, and what cannot be read is NAMED',
+    clone: deepClone,
+    run: (c) => {
+      const { parseRange: parse, withinRange: within } = c.fn;
+      const wrong = [];
+      const check = (min, max, expected) => {
+        const got = parse({ min, max });
+        const same = got.min === expected.min && got.max === expected.max
+          && got.active === Boolean(expected.active) && Boolean(got.error) === Boolean(expected.error);
+        if (!same) {
+          wrong.push(`{min:"${min}", max:"${max}"} → ${JSON.stringify({ min: got.min, max: got.max, active: got.active, error: got.error })}`
+            + ` — expected ${JSON.stringify(expected)}`);
+        }
+      };
+
+      // GROUPED DIGITS, both habits. This is the whole reason the module
+      // exists: read the easy way, "3,000" is 3, and the answer is a table of
+      // entirely the wrong companies with nothing on screen to say so.
+      check('3,000', '8,000', { min: 3000, max: 8000, active: true });
+      check('1,00,000', '2,00,000', { min: 100000, max: 200000, active: true });
+      check('100,000', '200,000', { min: 100000, max: 200000, active: true });
+      check('3500.5', '', { min: 3500.5, max: null, active: true });
+
+      // The whole range typed into one box, which is how a person writes one
+      // down — with the unit attached, because they were reading it off a
+      // column headed ₹ Cr.
+      check('3,000–8,000', '', { min: 3000, max: 8000, active: true });
+      check('₹3,000 to ₹8,000 Cr', '', { min: 3000, max: 8000, active: true });
+      check('3000..8000', '', { min: 3000, max: 8000, active: true });
+
+      // One open end. A blank is an open end and NEVER a zero.
+      check('', '', { min: null, max: null, active: false });
+      check('3000', '', { min: 3000, max: null, active: true });
+      check('', '8000', { min: null, max: 8000, active: true });
+      check('>3000', '', { min: 3000, max: null, active: true });
+      check('<8000', '', { min: null, max: 8000, active: true });
+      check('3000+', '', { min: 3000, max: null, active: true });
+      check('0', '', { min: 0, max: null, active: true });
+
+      // EVERY REJECTION IS NAMED AND FILTERS NOTHING. `active: false` with an
+      // error is the state that leaves all the rows on screen and says why;
+      // anything that came back active here would be a guess, and anything
+      // that came back silent would be an empty table reading as a finding.
+      for (const [min, max] of [['abc', ''], ['3,,000', ''], ['3000,', ''], ['1.5.5', ''],
+        ['3000-8000-9000', ''], ['..', ''], ['>', ''], ['8000', '3000'], ['3000-8000', '9000']]) {
+        const got = parse({ min, max });
+        if (got.active || !got.error) {
+          wrong.push(`{min:"${min}", max:"${max}"} → active=${got.active} error=${got.error} — a rejection must be named and must not filter`);
+        }
+      }
+
+      // BOTH ENDS INCLUDED, and a missing value in NO range in either
+      // direction — it is not small, it is unmeasured (CLAUDE.md §2.3).
+      const band = { min: 3000, max: 8000 };
+      const containment = [
+        [3000, true], [8000, true], [5000, true], [2999.99, false], [8000.01, false],
+        [null, false], [undefined, false], [NaN, false],
+      ];
+      for (const [value, expected] of containment) {
+        if (within(value, band) !== expected) wrong.push(`withinRange(${String(value)}, 3000–8000) must be ${expected}`);
+      }
+      // An open end is open, and a zero bound still excludes a missing value.
+      if (!within(1e9, { min: 3000, max: null })) wrong.push('an open maximum must include a very large value');
+      if (!within(1, { min: null, max: 8000 })) wrong.push('an open minimum must include a very small value');
+      if (within(null, { min: 0, max: null })) wrong.push('a missing value must not fall into a range starting at zero');
+      if (!within(0, { min: 0, max: null })) wrong.push('a genuine zero is a fact and must fall into a range starting at zero');
+
+      empty(wrong, 'a typed figure read wrongly is a confident answer to a question nobody asked', (x) => x);
+      return `${containment.length} containment cases + 23 parse cases · "3,000" → ${parse({ min: '3,000', max: '' }).min}`
+        + ` · "abc" → ${parse({ min: 'abc', max: '' }).error}`;
+    },
+    sabotage: (c) => {
+      // The naive reader, which stops at the first character that is not part
+      // of a number and keeps whatever it had — "3,000" becomes 3 — and treats
+      // anything it cannot read as no filter at all, silently. That IS what
+      // parseFloat does; it is written out longhand here because assertion 5
+      // bans the call itself from every source file in this repo, this one
+      // included, and the two checks are meant to interlock rather than
+      // exempt each other.
+      c.fn.parseRange = (value) => {
+        const read = (text) => {
+          const head = String(text ?? '').match(/^\d+(\.\d+)?/);
+          return head ? Number(head[0]) : null;
+        };
+        const min = read(value?.min);
+        const max = read(value?.max);
+        return { min, max, active: min !== null || max !== null, empty: min === null && max === null, error: null };
+      };
     },
   }, ctx);
 
