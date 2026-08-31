@@ -10,9 +10,7 @@
 import { $, el } from './core/dom.js';
 import * as data from './data/companies.js';
 import * as state from './core/state.js';
-import { start as startRouter, getParam, setParams } from './core/router.js';
-import { segmentedToggle } from './ui/components.js';
-import { METHODOLOGIES, METHODOLOGY_IDS } from './model/gimi.js';
+import { start as startRouter } from './core/router.js';
 import { mountShell } from './ui/shell.js';
 import { renderCompanies } from './tabs/companies.js';
 import * as quotes from './data/quotes.js';
@@ -54,43 +52,12 @@ async function main() {
     return;
   }
 
-  // The URL wins over stored state on first load, so a shared link opens the
-  // methodology it was shared in.
-  const urlMethodology = getParam('model');
-  if (urlMethodology && state.METHODOLOGIES.includes(urlMethodology)) state.setMethodology(urlMethodology);
-
-  /**
-   * The methodology toggle — the one control in the header.
-   *
-   * It replaced the Held/All scope toggle on 26 Aug 2026. The screener now
-   * always shows the whole universe, and the choice worth putting in front of
-   * a reader is WHICH MODEL produced the verdicts, not which subset of rows.
-   *
-   * Labels are the short forms the desk uses out loud, so the toggle reads the
-   * way the request was phrased; the full names and their attributions live on
-   * the hint and in the model banner.
-   */
-  const buildMethodologyControl = () =>
-    segmentedToggle({
-      ariaLabel: 'Model',
-      value: state.getMethodology(),
-      onChange: (value) => state.setMethodology(value),
-      options: METHODOLOGY_IDS.map((id) => ({
-        value: id,
-        label: METHODOLOGIES[id].short,
-        hint: `${METHODOLOGIES[id].label} — ${METHODOLOGIES[id].what}`,
-      })),
-    });
-
+  // THE MODEL TOGGLE IS GONE (31 Aug 2026), and with it the `?model=` parameter
+  // it wrote. One methodology renders, so a link cannot be shared "in" a model
+  // and a stored preference cannot disagree with the screen. The header is left
+  // carrying one control: the status pill.
   app.replaceChildren();
-  const shell = mountShell(app, { modelControl: buildMethodologyControl() });
-
-  // Repaint the toggle itself so the active segment follows the state, whether
-  // the change came from the toggle, the URL or another tab.
-  state.on('methodology', () => {
-    shell.modelSlot.replaceChildren(buildMethodologyControl());
-    setParams({ model: state.getMethodology() });
-  });
+  const shell = mountShell(app);
 
   // The header pill re-renders on every tick, because what it claims — live or
   // last close — is derived from whether a byte actually arrived.
@@ -106,7 +73,6 @@ async function main() {
   refreshStatus();
 
   startRouter();
-  setParams({ model: state.getMethodology() });
 
   // Expose a small surface for the verification harness. Read-only; it drives
   // nothing the interface does not already do for a human.

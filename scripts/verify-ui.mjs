@@ -356,7 +356,6 @@ async function main() {
     run: async (c) => {
       const shell = await c.page.evaluate(() => ({
         header: Boolean(document.querySelector('[data-status-slot]')),
-        model: Boolean(document.querySelector('[data-model-slot]')),
         table: Boolean(document.querySelector('[data-score-table]')),
         toolbar: Boolean(document.querySelector('[data-toolbar]')),
       }));
@@ -446,70 +445,77 @@ async function main() {
 
   await suite.check({
     id: 25,
-    what: 'the model toggle changes verdicts on the same rows, and the whole universe is shown by default',
+    what: 'the whole universe is shown, the shipped model is named on every row, and NO model switch is offered',
     run: async (c) => {
-      // THE SCOPE TOGGLE IS GONE (26 Aug 2026) and this check went with it. The
-      // screener now always shows every company, so there is no subset to
-      // switch to; what a reader switches instead is the MODEL, and the thing
-      // worth asserting is that doing so changes verdicts while leaving the row
-      // set alone. A toggle that changed the rows too would make the two models
-      // incomparable, which is the only reason both ship.
-      const before = await c.page.evaluate(() => ({
+      // THE MODEL TOGGLE IS GONE (31 Aug 2026) and this check changed with it,
+      // the way it had already changed when the Held/All scope toggle went.
+      // What it asserted — that switching the model moved verdicts without
+      // moving rows — cannot be asserted through an interface that offers no
+      // switch. Two things replace it, and both are properties of the shipped
+      // screen rather than of a control:
+      //
+      //   the row set is still the WHOLE universe (the scope half, unchanged);
+      //   and the second model has not gone with the toggle — the drill panel
+      //   still names its verdict per company, which is where the comparison
+      //   moved. A drill that stopped saying so would leave the screen quietly
+      //   presenting one methodology as the only one there is.
+      const shell = await c.page.evaluate(() => ({
         n: window.__sattva.rows().length,
         all: window.__sattva.data.all().length,
-        model: document.querySelector('[data-model-banner]')?.dataset.modelBanner ?? null,
-        verdicts: window.__sattva.verdictTally(),
+        model: window.__sattva.state.METHODOLOGY,
+        methodologies: window.__sattva.state.METHODOLOGIES,
+        toggles: document.querySelectorAll('[data-model-slot], [data-model-banner]').length,
         heading: document.body.innerText,
       }));
 
-      equal(before.n, before.all, 'every company in the record must be shown by default — there is no held/all scope any more');
-      equal(before.model, 'freefloat', 'the free-float model is the default, so the shipped view is unchanged');
-      const denominator = new RegExp(`of\\s+${before.all.toLocaleString('en-IN')}`);
-      ok(denominator.test(before.heading), 'the count must print its denominator', `no "of ${before.all}" found`);
+      equal(shell.n, shell.all, 'every company in the record must be shown — there is no scope and no model subset');
+      equal(shell.model, 'freefloat', 'the free-float model is the one that renders');
+      equal(shell.toggles, 0, 'no model toggle and no model banner may be on the page');
+      ok(shell.methodologies.length > 1,
+        'the second methodology must still exist — the drill compares against it',
+        JSON.stringify(shell.methodologies));
+      const denominator = new RegExp(`of\\s+${shell.all.toLocaleString('en-IN')}`);
+      ok(denominator.test(shell.heading), 'the count must print its denominator', `no "of ${shell.all}" found`);
 
-      await c.page.evaluate(() => {
-        const button = [...document.querySelectorAll('[data-model-slot] button')]
-          .find((b) => /full/i.test(b.textContent));
-        button.click();
+      // The comparison itself, on a row: the drill must name the other model's
+      // verdict and say whether the two agree.
+      const drill = await c.page.evaluate(async () => {
+        const disagreeing = window.__sattva.data.all().find((company) => {
+          const a = window.__sattva.view.assessmentFor(company)?.verdict;
+          const b = window.__sattva.view.otherAssessmentFor(company)?.verdict;
+          return a && b && a !== b;
+        });
+        if (!disagreeing) return { found: false };
+        window.__sattva.view.openCompany(window.__sattva.data.keyOf(disagreeing));
+        await window.__until(() => document.querySelector('[data-drill-body]')?.innerText, 'the drill opening');
+        const text = document.querySelector('[data-drill-body]').innerText;
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        return {
+          found: true,
+          name: disagreeing.name,
+          saysDisagrees: /other model disagrees/i.test(text),
+          namesToggle: /toggle/i.test(text),
+        };
       });
-      await c.settle();
+      ok(drill.found, 'the two models must disagree about at least one company, or there is nothing to compare');
+      ok(drill.saysDisagrees, 'the drill must name the other model\'s verdict where the two differ', drill.name);
+      // A pointer to a control that no longer exists is worse than no pointer.
+      ok(!drill.namesToggle, 'nothing may tell the reader to switch a toggle that is gone', drill.name);
 
-      const after = await c.page.evaluate(() => ({
-        n: window.__sattva.rows().length,
-        model: document.querySelector('[data-model-banner]')?.dataset.modelBanner ?? null,
-        verdicts: window.__sattva.verdictTally(),
-      }));
-
-      equal(after.model, 'gimi', 'the toggle must actually switch the model in force');
-      equal(after.n, before.n, 'switching the model must NOT change which rows are shown — the comparison depends on it');
-      ok(JSON.stringify(after.verdicts) !== JSON.stringify(before.verdicts),
-        'switching the model must change the verdicts, or the second model is decoration',
-        `${JSON.stringify(before.verdicts)} vs ${JSON.stringify(after.verdicts)}`);
-
-      // back to where we were
-      await c.page.evaluate(() => {
-        const button = [...document.querySelectorAll('[data-model-slot] button')]
-          .find((b) => /^freefloatmarketcap$/i.test(b.textContent.trim()));
-        button.click();
-      });
-      await c.settle();
-      return `${before.n} of ${before.all} rows under both models · verdicts move `
-        + `${JSON.stringify(before.verdicts)} → ${JSON.stringify(after.verdicts)}`;
+      return `${shell.n} of ${shell.all} rows · model "${shell.model}" of ${shell.methodologies.length} that exist `
+        + `· 0 toggles on the page · drill names the other model on ${drill.name}`;
     },
     sabotage: persistent(`(() => {
-      // The toggle stops changing anything: the second model returns the first
-      // model's verdicts. The row set still matches, the banner still flips,
-      // and only the tally gives it away — which is why the tally is asserted.
-      const patch = () => {
-        const s = window.__sattva;
-        if (!s || s.__sabotaged) return;
-        s.__sabotaged = true;
-        const real = s.verdictTally;
-        let first = null;
-        s.verdictTally = () => { first = first ?? real(); return first; };
+      // Put the toggle back — as far as this check is concerned, a stray model
+      // control on the page is exactly the regression it exists to catch.
+      const add = () => {
+        if (document.querySelector('[data-model-slot]')) return;
+        const slot = document.createElement('div');
+        slot.setAttribute('data-model-slot', '');
+        document.body.append(slot);
       };
-      patch();
-      new MutationObserver(patch).observe(document.body, { childList: true, subtree: true });
+      add();
+      new MutationObserver(add).observe(document.body, { childList: true, subtree: true });
     })()`),
     restore: restoreByReload,
   }, ctx);
@@ -1731,12 +1737,25 @@ async function main() {
 
   await suite.check({
     id: 34,
-    what: 'a model switch does not block the main thread past 400 ms',
+    what: 'a full rebuild does not block the main thread past 400 ms',
     run: async (c) => {
-      // Was a SCOPE switch until 26 Aug 2026. The model switch replaced it and
-      // is strictly the heavier operation — it rebuilds every verdict, every
-      // rule and every flow for all rows rather than re-filtering them — so the
-      // budget is the one worth defending.
+      // A SCOPE switch until 26 Aug 2026 and a MODEL switch until 31 Aug. Both
+      // controls are gone, so the check drives `build()` directly — the same
+      // function both of them called, rebuilding every verdict, rule, flow and
+      // relative reading for all 1,265 rows and re-rendering the table. The
+      // budget is the one that was set for exactly this work.
+      //
+      // ⚠ IT IS NOT POINTED AT A BASELINE SWITCH, and the reason is a finding
+      // rather than a convenience. That switch runs this same rebuild PLUS the
+      // relative recompute against a freshly fetched file, and measured warm on
+      // this record it blocks for 242, 424, 242 and 252 ms across four
+      // switches — straddling the budget — and 884 ms once with the rest of the
+      // suite running beside it. The 1.2 MB fetch is not the cost: parsing it
+      // measures 8 ms. So a baseline switch does NOT fit in 400 ms, and the
+      // honest thing is to say so here rather than raise the number until it
+      // passes. Pointing the check at it would make the suite red on a loaded
+      // machine for a reason it cannot attribute — a guard waived weekly is a
+      // guard nobody reads (3.8.2).
       const worst = await c.page.evaluate(async () => {
         // Measure the longest gap between animation frames while the switch
         // runs. Wall-clock duration would count time the browser spent idle;
@@ -1754,22 +1773,25 @@ async function main() {
         // Not a table wait: this IS the measurement window. The check is about
         // how long a frame is blocked, so it deliberately observes for a fixed
         // span rather than stopping the moment the table settles.
-        const buttons = [...document.querySelectorAll('[data-model-slot] button')];
-        buttons.find((b) => /full/i.test(b.textContent)).click();
+        window.__sattva.view.rebuild();
         await new Promise((r) => setTimeout(r, 900));
-        buttons.find((b) => /^freefloatmarketcap$/i.test(b.textContent.trim())).click();
+        window.__sattva.view.rebuild();
         await new Promise((r) => setTimeout(r, 900));
         running = false;
         return longest;
       });
       await c.settle();
-      ok(worst < 400, 'a model switch must not freeze the interface', `longest frame gap ${worst.toFixed(0)} ms`);
-      return `longest frame gap across two model switches: ${worst.toFixed(0)} ms`;
+      ok(worst < 400, 'a rebuild must not freeze the interface', `longest frame gap ${worst.toFixed(0)} ms`);
+      return `longest frame gap across two full rebuilds: ${worst.toFixed(0)} ms`;
     },
     sabotage: async (c) => {
       await c.page.evaluate(() => {
-        const button = [...document.querySelectorAll('[data-model-slot] button')].find((b) => /full/i.test(b.textContent));
-        button.addEventListener('click', () => { const t = Date.now(); while (Date.now() - t < 600) { /* block */ } }, { once: true });
+        const real = window.__sattva.view.rebuild;
+        window.__sattva.view.rebuild = () => {
+          const t = Date.now();
+          while (Date.now() - t < 600) { /* block the main thread, which is the whole point */ }
+          return real();
+        };
       });
     },
     restore: restoreByReload,

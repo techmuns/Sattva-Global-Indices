@@ -766,18 +766,30 @@ the current book and wrong for history.
 carries three sources — `desk`, `observed`, `msci` — and assertion 29 fails if an MSCI rule block
 loses its page citation or if the buffer geometry is made symmetric.
 
-### 2.26 Two methodologies ship side by side, and neither is presented as the truth
+### 2.26 Two methodologies are computed; ONE renders, and the other is never hidden
 
 §2.25 names three gaps between this model and MSCI's rules. They are **implemented**, in
-`public/js/model/gimi.js`, behind a toggle at the top of the screener:
+`public/js/model/gimi.js`:
 
-| Toggle | Model | What decides a verdict |
+| Model | What decides a verdict | Where it appears |
 | --- | --- | --- |
-| `freefloatmarketcap` | the shipped one, `assess.js` | free-float market cap vs the desk's rupee bands |
-| `freefloat+fullmarketcap` | `gimi.js` | MSCI's procedure: rank by full mcap, count free float to the coverage target, test free float separately, with MSCI's buffers |
+| `freefloatmarketcap`, `assess.js` | free-float market cap vs the desk's rupee bands | **the screen** — every row, every column, every export |
+| `freefloat+fullmarketcap`, `gimi.js` | MSCI's procedure: rank by full mcap, count free float to the coverage target, test free float separately, with MSCI's buffers | **the drill panel of each row**, and verify-data 30–32 |
 
-Both ship because the desk's model is already useful and the client accepts it. The honest way to
-argue for a better one is to **show the difference**, not assert it. Measured on the committed
+> **The toggle is gone (31 Aug 2026), and the second model is not.** Both were switchable at the top
+> of the screener until the desk asked for one view. What went is the *control* and the banner that
+> counted disagreements across the universe; what stayed is the comparison itself, moved to where it
+> belongs to a single company. `state.METHODOLOGY` is the constant `'freefloat'`, the same shape
+> §2.27 gave `state.SCOPE`.
+>
+> **A count above a table is the weaker form of this disclosure anyway.** "252 of 1,265 verdicts are
+> method-dependent" tells a reader that some row on this screen is fragile; the drill tells them
+> whether *this* one is, names the other model's verdict beside it, and says which size number the
+> disagreement turns on. Assertion 25 fails if the drill stops saying so, and fails if a model
+> control reappears.
+
+Both are computed because the desk's model is already useful and the client accepts it. The honest
+way to argue for a better one is to **show the difference**, not assert it. Measured on the committed
 record: **249 of 1,254 verdicts differ**, **432 companies move more than 100 ranks** depending on
 which size measure ranks them, **168** sit sheltered by the lower buffer and **166** are held back by
 the entry buffer.
@@ -795,9 +807,11 @@ Rules that bind both:
   structure is MSCI's; the number is ours. `CUTOFF_DISCLOSURE` states this on every surface showing a
   cutoff, and the derived IMI cutoff (₹3,338 Cr) landing inside MSCI's own published reference range
   (₹2,952–6,789 Cr) is corroboration, not proof.
-- **The toggle changes verdicts, never rows.** Both models see the same universe or the comparison is
-  meaningless. Assertion 25 asserts it and is proved by making the second model return the first's
-  verdicts.
+- **Both models see the same universe** or the comparison is meaningless — no row is assessed by one
+  and not the other. verify-data 32 asserts they disagree about real companies rather than being a
+  relabelling of each other, and is proved by making the second return the first's verdicts.
+- **The second model prices nothing.** Flow estimates follow the shipped verdict only: a rupee figure
+  derived from a verdict the screen does not show is a number nobody could trace back to a row.
 - **Every rule carries the UNIT of its own numbers** — `inr`, `rank` or `factor`. Rendering MSCI's
   FIF floor of 0.15 as "₹0 Cr" is not a rounding artefact, it is a different number.
 - **A distance is paired with the rule it was measured against**, named by the model, never "the last
@@ -811,8 +825,12 @@ Rules that bind both:
 
 Held-versus-all was removed on 26 Aug 2026. A candidate no fund holds yet is precisely what an
 inclusion forecast is *about*, so defaulting to "held" made the product's own subject something a
-reader had to opt into. `state.SCOPE` is now the constant `'all'`, and the header carries the model
-toggle in the space the scope toggle used to occupy.
+reader had to opt into. `state.SCOPE` is now the constant `'all'`.
+
+The model toggle took its place in the header and then went the same way on 31 Aug 2026 (§2.26), so
+**the header now carries one control: the status pill.** Twice now a toggle has been removed rather
+than defaulted, and the reason is the same both times — a screen that asks a reader to choose before
+it will answer has made its own subject optional.
 
 ### 2.28 A figure the reader types is an input, and it gets the same suspicion as a feed
 
@@ -941,6 +959,32 @@ survived on the first `--prove` run**, and both reasons generalise:
   `getComputedStyle(el).display` to find a lone atomic box; with Tailwind unreachable an
   `inline-flex` wrapper computes to plain `inline` and the check saw nothing wrong. It now tests the
   class contract as well, so it holds in both environments.
+
+### 2.29 A standing paragraph is not provenance, and a control is not a caption
+
+Three blocks of explanatory chrome have now been removed from above the table, and the argument was
+the same every time:
+
+| Removed | What it said | Where that lives now |
+| --- | --- | --- |
+| the blanket footer disclosure (28 Aug 2026) | "nothing here is a forecast yet" | every figure's own source chip, formula, rule table and as-of |
+| the model banner (31 Aug 2026) | which model is in force, what it does differently, how many rows disagree | the drill panel of each row, per company (§2.26) |
+| the baseline card (31 Aug 2026) | what the relative columns measure, from when, and how many rows carry a reading | each of the three cells, the drill, and row 1 of the export |
+
+**A standing paragraph that duplicates per-number provenance teaches readers to skip the paragraph,
+not to trust the numbers.** The doctrine in §2.1–§2.7 is that disclosure travels *with* the figure —
+on the row, in the drill, into the export — and a block above the table is the one place a reader
+learns to scroll past. Removing one is only safe when the per-number disclosure is already there, so
+check that first: the test is whether a reader who never scrolls up can still tell where the number
+came from and what it does not say.
+
+> ### ⚠ A control is not a caption, and it does not go with the card it sat in
+>
+> The baseline card contained the baseline *picker*, and the desk had asked for the baseline to be
+> overridable one commit earlier. What survives is one line — the date the columns measure from, the
+> date they measure to, and the means to change the first — carrying the long form on its `title`.
+> Deleting a requested control because it shared a box with prose would answer a question about
+> layout by removing a feature.
 
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 

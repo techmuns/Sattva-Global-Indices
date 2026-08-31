@@ -14,7 +14,6 @@ import * as state from '../core/state.js';
 import * as quotes from '../data/quotes.js';
 import { setParams, getParam, onRoute } from '../core/router.js';
 import { parseRange, withinRange } from '../core/range.js';
-import { segmentedToggle } from '../ui/components.js';
 import { sectionHead, statStrip, scoreTable, openDrill, closeDrill } from '../ui/screener.js';
 import { sourceChip, fundChip, missing } from '../ui/visual.js';
 import { exportCsv } from '../ui/export.js';
@@ -27,7 +26,7 @@ import { segmentOf, segmentFloatTotals, SEGMENTS } from '../model/segments.js';
 import { assess, VERDICTS, DISCLOSURE, TRADE_IMPLYING } from '../model/assess.js';
 import { estimateFlows } from '../model/flows.js';
 import { nextReview, reviewCutoffs } from '../model/calendar.js';
-import { gimiCutoffs, assessGimi, reviewWindow, METHODOLOGIES, GIMI_DISCLOSURE, CUTOFF_DISCLOSURE } from '../model/gimi.js';
+import { gimiCutoffs, assessGimi, reviewWindow, METHODOLOGIES } from '../model/gimi.js';
 import { trendSignal, flowPressure, WINDOW_STATES, REBASE_STATES } from '../model/relative.js';
 
 const FUND_ORDER = ['eem', 'smin', 'eems'];
@@ -215,8 +214,10 @@ export function rebuildModel() {
       band: data.rebalanceBaselines()?.bandPct ?? REBALANCE_BASELINE.bandPct,
       thresholdSource: data.rebalanceBaselines()?.attribution ?? REBALANCE_BASELINE.attribution,
     }));
-    // Flows follow the ACTIVE methodology's verdict, which is why they are
-    // rebuilt when the toggle moves rather than cached against one model.
+    // Flows follow the SHIPPED methodology's verdict. The GIMI assessment above
+    // is built for the drill's cross-model block and prices nothing: a flow
+    // estimate carries a rupee figure, and one derived from a verdict the screen
+    // does not show would be a number nobody could trace back to a row.
     flows.set(key, estimateFlows(company, assessment, flowContext));
   }
 
@@ -265,14 +266,15 @@ export function methodologyDelta(rows) {
 export const modelBoundary = () => modelState?.boundary ?? null;
 
 /**
- * The assessment in force, under the methodology the reader has selected.
+ * The assessment in force — under the shipped methodology unless a caller names
+ * the other one.
  *
- * Falls back to the stored EOD one before the first build — but ONLY for the
+ * Falls back to the stored EOD one before the first build, but ONLY for the
  * free-float model, because that is the one the build script wrote. There is no
- * stored GIMI assessment and inventing one from the other model's verdict would
- * make the toggle look like it had done nothing.
+ * stored GIMI assessment, and inventing one from the other model's verdict
+ * would make the drill's cross-model block agree with itself by construction.
  */
-export function assessmentFor(company, methodology = state.getMethodology()) {
+export function assessmentFor(company, methodology = state.METHODOLOGY) {
   const key = data.keyOf(company);
   if (methodology === 'gimi') return modelState?.gimiAssessments.get(key) ?? null;
   return modelState?.assessments.get(key) ?? company.assessment ?? null;
@@ -284,9 +286,14 @@ export const trendFor = (company) => modelState?.trendSignals.get(data.keyOf(com
 /** Flow pressure under the baseline in force. `undefined` while one is loading. */
 export const pressureFor = (company) => modelState?.pressures.get(data.keyOf(company));
 
-/** The same company under the OTHER methodology, for side-by-side comparison. */
-export const otherAssessmentFor = (company) =>
-  assessmentFor(company, state.getMethodology() === 'gimi' ? 'freefloat' : 'gimi');
+/**
+ * The same company under the OTHER methodology, for the drill's side-by-side.
+ *
+ * The screen renders one model, so "the other" is always GIMI. This is where
+ * the two-model comparison lives now that the toggle is gone: per company, on
+ * the row a reader opened, rather than as a count above a table.
+ */
+export const otherAssessmentFor = (company) => assessmentFor(company, 'gimi');
 
 /**
  * The rule a stored distance was measured against — never "the last rule fired".
@@ -431,175 +438,9 @@ function marketCapRange(rows) {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
- * The model banner — which methodology is in force, and what it changes
- * ──────────────────────────────────────────────────────────────────────────── */
-
-/**
- * The band under the heading that names the active model and prices the choice.
- *
- * It exists because a toggle that silently changes 239 verdicts is a trap. A
- * reader has to be able to see, without clicking anything: which model produced
- * what is on screen, what that model does differently, and HOW MANY ROWS
- * DISAGREE with the other one. The disagreement count is derived from both
- * models on every build — never typed, and never an assurance in prose that a
- * difference exists.
- */
-function modelBanner(rows) {
-  const id = state.getMethodology();
-  const meta = METHODOLOGIES[id];
-  const delta = methodologyDelta(rows);
-  const cutoffs = modelCutoffs();
-  const win = modelWindow();
-  const isGimi = id === 'gimi';
-
-  const otherId = isGimi ? 'freefloat' : 'gimi';
-  const other = METHODOLOGIES[otherId];
-
-  const chip = (label, value, title) =>
-    `<div class="min-w-0 rounded-xl bg-white/70 px-3 py-2 ring-1 ring-inset ${isGimi ? 'ring-indigo-200' : 'ring-slate-200'}"${title ? ` title="${escapeHtml(title)}"` : ''}>`
-    + `<div class="break-words text-[10px] font-bold uppercase tracking-wide ${isGimi ? 'text-indigo-700' : 'text-slate-500'}">${escapeHtml(label)}</div>`
-    + `<div class="font-display mt-0.5 text-sm font-extrabold tabular-nums text-slate-900">${value}</div></div>`;
-
-  // ---- what this model does differently, in three lines -------------------
-  const findings = isGimi
-    ? [
-      ['Two sizes, both used',
-        `Ranked by <strong>full</strong> market cap, counting <strong>free float</strong> to ${escapeHtml(num(cutoffs?.standard.targetPct ?? 85, 0))}% and `
-        + `${escapeHtml(num(cutoffs?.imi.targetPct ?? 99, 0))}% coverage; the cutoff is the last counted company's full market cap. `
-        + 'Free float is then tested <em>separately</em> against a minimum.'],
-      ['Buffers, not a bright line',
-        `An existing constituent keeps its segment down to <strong>${escapeHtml(cutoffs?.buffers.lowerLabel ?? '2/3')}</strong>; a non-constituent enters only above `
-        + `<strong>${escapeHtml(cutoffs?.buffers.upperLabel ?? '1.5×')}</strong>. Entry is replacement-based, so clearing the bar makes a company eligible, never included.`],
-      ['The review is priced a month early',
-        win
-          ? escapeHtml(win.note)
-          : 'The price window could not be derived.'],
-    ]
-    : [
-      ['One size number for two jobs',
-        'Free-float market cap decides both whether a company is big enough and which segment it belongs to. '
-        + 'MSCI uses full market cap for the second — see the other model.'],
-      ['A single line per band',
-        'No buffer zone and no hysteresis: a company is above a band or below it.'],
-      ['No review timetable',
-        'Verdicts are not tied to a price window, so they do not say which review they speak to.'],
-    ];
-
-  const body =
-    '<div class="flex flex-wrap items-start justify-between gap-4">'
-    + '<div class="min-w-0 max-w-3xl">'
-    + `<div class="flex items-center gap-2">`
-    + `<span class="rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${isGimi ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-white'}">${escapeHtml(meta.short)}</span>`
-    + `<span class="text-sm font-bold text-slate-900">${escapeHtml(meta.label)}</span></div>`
-    + `<p class="mt-1.5 text-xs leading-relaxed text-slate-600">${escapeHtml(meta.what)}</p>`
-    + '<dl class="mt-2.5 space-y-1.5">'
-    + findings.map(([title, text]) =>
-      '<div class="text-[11px] leading-relaxed">'
-      + `<dt class="inline font-semibold ${isGimi ? 'text-indigo-900' : 'text-slate-700'}">${escapeHtml(title)}. </dt>`
-      + `<dd class="inline text-slate-600">${text}</dd></div>`).join('')
-    + '</dl>'
-    + `<p class="mt-2 text-[11px] leading-relaxed text-slate-500"><strong>Attribution.</strong> ${escapeHtml(meta.attribution)}.`
-    + (isGimi ? ` ${escapeHtml(CUTOFF_DISCLOSURE)}` : '')
-    + '</p>'
-    + '</div>'
-    + '<div class="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:shrink-0 sm:grid-cols-3">'
-    + (isGimi && cutoffs
-      ? chip('Standard cutoff', cutoffs.standard.cutoffInr === null ? EM_DASH : `${escapeHtml(cr(cutoffs.standard.cutoffInr))}`,
-        `Full market cap of ${cutoffs.standard.company?.name ?? 'the last counted company'}, the ${cutoffs.standard.count}th by full market cap, where cumulative free float reaches ${cutoffs.standard.coveragePct?.toFixed(2)}%`)
-        + chip('Small-cap floor', cutoffs.imi.cutoffInr === null ? EM_DASH : `${escapeHtml(cr(cutoffs.imi.cutoffInr))}`,
-          `Full market cap of ${cutoffs.imi.company?.name ?? 'the last counted company'}, at ${cutoffs.imi.coveragePct?.toFixed(2)}% cumulative free-float coverage`)
-        + chip('Min free float', cutoffs.bars.minFreeFloatNew === null ? EM_DASH : `${escapeHtml(cr(cutoffs.bars.minFreeFloatNew))}`,
-          'A new constituent must clear half the small-cap cutoff in free float; an incumbent two-thirds of that')
-      : '')
-    + (delta
-      ? chip(`Differ from ${other.short}`, `${escapeHtml(num(delta.changed))} of ${escapeHtml(num(delta.total))}`,
-        `${delta.changed} companies carry a different verdict under the other model — derived from both models on this build, not typed`)
-      : '')
-    + '</div></div>';
-
-  const wrap = el('div', {
-    class: 'mb-5 rounded-2xl p-4 ring-1 ' + (isGimi
-      ? 'bg-gradient-to-br from-indigo-50 to-white ring-indigo-200'
-      : 'bg-slate-50 ring-slate-200'),
-  });
-  wrap.setAttribute('data-model-banner', id);
-  wrap.innerHTML = body;
-  return wrap;
-}
-
-/* ────────────────────────────────────────────────────────────────────────────
  * Stat strip
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/**
- * Finding 3 as a card: which review the numbers on screen can speak to.
- *
- * This is the finding with the clearest commercial edge, and it is invisible
- * without it. MSCI prices a review on one of the last ten business days of the
- * PRECEDING month (p. 49), so once that window shuts the outcome is fixed and a
- * price move afterwards is evidence about the review after it. A screen that
- * shows verdicts without saying which review they belong to invites a reader to
- * act on a decision that was already taken.
- */
-function reviewWindowCard() {
-  const win = modelWindow();
-  if (!win) {
-    return {
-      label: 'Review window',
-      value: EM_DASH,
-      detail: 'the price window could not be derived',
-    };
-  }
-  const target = win.verdictsAreAbout;
-  const line = (label, value, tone = 'slate') =>
-    '<div class="flex items-baseline justify-between gap-3 text-[11px]">'
-    + `<span class="text-slate-500">${escapeHtml(label)}</span>`
-    + `<span class="font-semibold tabular-nums text-${tone}-700">${escapeHtml(value)}</span></div>`;
-
-  return {
-    label: 'These verdicts are about',
-    value: target.label,
-    detail: win.windowClosed
-      ? `${win.review.label} is already priced and sealed`
-      : `priced on one of ${shortDate(win.windowOpensOn)}–${shortDate(win.windowClosesOn)}`,
-    extra:
-      line(`${win.review.label} priced`, `${shortDate(win.windowOpensOn)} – ${shortDate(win.windowClosesOn)}`)
-      + line('That window', win.windowClosed ? 'shut' : 'still open', win.windowClosed ? 'rose' : 'emerald')
-      + (win.followingCutoffs
-        ? line(`${target.label} prices`, `${shortDate(win.followingCutoffs.price.from)} – ${shortDate(win.followingCutoffs.price.to)}`)
-        : ''),
-    help: {
-      title: 'The exam was in July; the results come out in August',
-      body:
-        '<div class="space-y-3 text-sm leading-relaxed text-slate-600">'
-        + '<p>We knew when index changes take <em>effect</em>. What MSCI also publishes, plainly, is when they are '
-        + '<strong>decided</strong>: the prices behind a review are taken on <strong>one of the last ten business days '
-        + 'of the month before the review month</strong> — and MSCI does not say which of the ten.</p>'
-        + '<div class="overflow-hidden rounded-xl ring-1 ring-slate-200">'
-        + '<table class="w-full text-xs"><thead class="bg-slate-50 text-slate-500">'
-        + '<tr><th scope="col" class="px-3 py-1.5 text-left font-bold">Review</th>'
-        + '<th scope="col" class="px-3 py-1.5 text-left font-bold">Prices taken</th>'
-        + '<th scope="col" class="px-3 py-1.5 text-left font-bold">Takes effect</th></tr></thead><tbody>'
-        + [['February', 'last 10 business days of January', 'end of Feb'],
-          ['May', 'last 10 business days of April', 'end of May'],
-          ['August', 'last 10 business days of July', 'end of Aug'],
-          ['November', 'last 10 business days of October', 'end of Nov']]
-          .map(([r, p, e]) => `<tr class="border-t border-slate-100"><td class="px-3 py-1.5 font-semibold text-slate-700">${escapeHtml(r)}</td>`
-            + `<td class="px-3 py-1.5 text-slate-600">${escapeHtml(p)}</td><td class="px-3 py-1.5 text-slate-600">${escapeHtml(e)}</td></tr>`).join('')
-        + '</tbody></table></div>'
-        + `<p>${escapeHtml(win.note)}</p>`
-        + '<p><strong>An independent check that we read it right.</strong> Elsewhere in the same document MSCI '
-        + 'publishes its own August reference table stamped <strong>20 July 2026</strong> — exactly where this '
-        + 'calculated window opens. Two unrelated parts of the rulebook agreeing. The verification suite asserts it.</p>'
-        + '<p><strong>Why this is commercially useful.</strong> It says when the forecasting is worth the most: the '
-        + 'last ten business days of January, April, July and October. Before that you are aiming at a moving '
-        + 'target; after it you are reading a sealed envelope.</p>'
-        + `<p class="text-xs text-slate-400">${escapeHtml(win.source)}. The prices behind these figures are as of `
-        + `${escapeHtml(shortDate(win.priceAsOf))}.</p>`
-        + '</div>',
-    },
-  };
-}
 
 function buildStats(scopeRows) {
   const cov = data.coverage();
@@ -673,12 +514,6 @@ function buildStats(scopeRows) {
       // getting closer to a cut-off or just floating up with everything else.
       // It is a card rather than a footnote because it moves verdicts.
       //
-      // ONLY UNDER THE FREE-FLOAT MODEL. The GIMI cutoffs are re-derived from
-      // the universe on every build, so they already move with the market —
-      // floating them again by a segment return would apply the correction
-      // twice. Under that model this slot carries the review window instead,
-      // which is the thing GIMI knows and the other model does not.
-      if (state.getMethodology() === 'gimi') return [reviewWindowCard()];
       const b = data.benchmarks();
       if (!b || !b.funds?.length) return [];
       const since = b.lastReview?.label ?? 'the last review';
@@ -972,24 +807,25 @@ function assessmentSectionHtml(company) {
 
   const meta = VERDICTS[assessment.verdict] ?? VERDICTS.unknown;
   const review = nextReview();
-  const activeId = state.getMethodology();
+  const activeId = state.METHODOLOGY;
   const active = METHODOLOGIES[activeId];
-  const otherId = activeId === 'gimi' ? 'freefloat' : 'gimi';
+  const otherId = 'gimi';
 
   let html =
     '<div class="rounded-xl bg-slate-50/70 p-3">'
     + '<div class="mb-2 flex items-center gap-1.5">'
-    + `<span class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${activeId === 'gimi' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-white'}">${escapeHtml(active.short)}</span>`
+    + `<span class="rounded bg-slate-700 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">${escapeHtml(active.short)}</span>`
     + `<span class="text-[10px] text-slate-500">${escapeHtml(active.attribution)}</span></div>`
     + `<div class="flex items-center gap-2">${verdictPill(assessment.verdict)}`
     + `<span class="text-xs text-slate-600">${escapeHtml(meta.detail)}</span></div>`;
 
   // ---- WHAT THE OTHER MODEL SAYS ABOUT THIS SAME COMPANY -----------------
-  // On a screen with two methodologies, the single most useful thing a drill
-  // panel can show is where they disagree — and on which of the two size
-  // numbers the disagreement turns. Agreement is stated too: "both models
-  // agree" is information, and leaving it out would make the block look like it
-  // only ever appears when something is wrong.
+  // THIS IS WHERE THE TWO-MODEL COMPARISON LIVES NOW. The toggle and the banner
+  // that counted the disagreements across the universe went on 31 Aug 2026;
+  // this block did not, because a count above a table tells a reader that 252
+  // verdicts are method-dependent without telling them whether THIS one is.
+  // Agreement is stated too: "both models agree" is information, and leaving it
+  // out would make the block appear only when something is wrong.
   const other = otherAssessmentFor(company);
   if (other) {
     const differs = other.verdict !== assessment.verdict;
@@ -1003,9 +839,9 @@ function assessmentSectionHtml(company) {
       + `<span class="text-[11px] text-slate-600">under ${escapeHtml(otherMeta.short)}</span></div>`
       + (differs
         ? '<p class="mt-1.5 text-[11px] leading-relaxed text-amber-900">'
-          + `${escapeHtml(otherMeta.label)} reaches a different conclusion on this company. Switch the model `
-          + 'toggle at the top to see which rules fire there — the two use different size numbers and '
-          + 'different bars, so a disagreement is a real difference of method, not a bug.</p>'
+          + `${escapeHtml(otherMeta.label)} reaches a different conclusion on this company. The two use `
+          + 'different size numbers and different bars, so a disagreement is a real difference of method, '
+          + 'not a bug — and it is the reason this row deserves a second look before it is acted on.</p>'
         : '')
       + '</div>';
   }
@@ -1662,18 +1498,29 @@ function relativeColumns() {
 }
 
 /**
- * The rebalance-baseline control: which rebalance date the three columns above
- * are measured from, and everything that has to be said about it.
+ * The rebalance-baseline control: which rebalance date the three relative
+ * columns are measured from.
  *
  * ---------------------------------------------------------------------------
- * THE DEFAULT IS CONFIG-SET; THIS IS AN OVERRIDE OF IT
+ * THE CARD IS GONE; THE CONTROL IS NOT
  * ---------------------------------------------------------------------------
- * REBALANCE_BASELINE.defaultReview decides the baseline at build time, resolved
- * against the newest session the exchange served rather than against the clock.
- * The picker lets a reader ask the same question of an earlier rebalance. It
- * changes what the three columns MEASURE; it changes no verdict and no row.
+ * This was a panel of four paragraphs and three coverage cards until 31 Aug
+ * 2026. The prose went for the reason the blanket footer disclosure went on 28
+ * Aug: it restated in general terms what every number already carries
+ * specifically — each of the three cells names its own window, its own formula
+ * and its own fragility on hover, the drill panel carries the long form, and
+ * row 1 of the export carries all of it. A standing paragraph that duplicates
+ * per-number provenance teaches readers to skip the paragraph.
  *
- * Every count here is derived from the rows on screen, never typed — 2.5.
+ * THE PICKER STAYED, because it is a control rather than a caption and the desk
+ * asked for the baseline to be overridable. What is left is one line: the date
+ * the columns measure from, the date they measure to, and the means to change
+ * the first.
+ *
+ * REBALANCE_BASELINE.defaultReview decides that first date at build time,
+ * resolved against the newest session the exchange served rather than against
+ * the clock. This is only the reader's override of it: it changes what the three
+ * columns MEASURE, and it changes no verdict and no row.
  */
 function baselineStrip(rows) {
   const context = data.rebalanceBaselines();
@@ -1691,19 +1538,11 @@ function baselineStrip(rows) {
   const meta = data.baselineMeta(active);
   const isDefault = active === context.defaultReview;
 
-  // Derived from the rows in view. A reading can be absent for nine named
-  // reasons and the denominator is the story — 2.5.
-  let withReading = 0;
-  let robust = 0;
+  // A baseline that is still fetching is a NAMED state, not an absence. Each
+  // cell says so itself; this says how many at once, because three columns of
+  // em dashes with no count reads as a finding about the companies (2.4).
   let loading = 0;
-  for (const row of rows) {
-    const reading = rebaseFor(row);
-    if (reading === undefined) { loading += 1; continue; }
-    if (!reading || reading.relativePct === null) continue;
-    withReading += 1;
-    if (reading.robust) robust += 1;
-  }
-  const notable = rows.filter((row) => pressureFor(row)?.notable).length;
+  for (const row of rows) if (rebaseFor(row) === undefined) loading += 1;
 
   const options = (context.baselines ?? []).map((b) =>
     `<option value="${escapeHtml(b.review)}"${b.review === active ? ' selected' : ''}>`
@@ -1711,17 +1550,26 @@ function baselineStrip(rows) {
     + `${b.review === context.defaultReview ? ' (default)' : ''}</option>`).join('');
 
   const walked = meta && !meta.tradedOnEffectiveDate
-    ? ` India was shut on ${escapeHtml(shortDate(meta.effectiveDate))}, so the baseline is the previous session, `
-      + `${escapeHtml(shortDate(meta.resolvedDate))} — ${meta.walkedBackDays} day(s) earlier.`
+    ? ` India was shut on ${shortDate(meta.effectiveDate)}, so the baseline is the previous session, `
+      + `${shortDate(meta.resolvedDate)} — ${meta.walkedBackDays} day(s) earlier.`
     : '';
 
+  // The long form, on the control itself. Nothing here is new — it is the same
+  // disclosure the drill and the export carry — but the one claim a reader must
+  // not miss is that this measures nothing the verdict depends on.
+  const title =
+    `The three relative columns are measured from ${shortDate(meta?.resolvedDate ?? meta?.effectiveDate ?? '')}, `
+    + `the day the ${meta?.label ?? active} review took effect and every tracking fund traded, to the latest `
+    + `committed close on ${shortDate(context.latestDate)}.${walked} This is NOT the ten-day window MSCI struck `
+    + 'its market caps in — that window is six weeks earlier, has its own drill-panel section, and on this record '
+    + `the two disagree about the sign for 27.8% of companies. ${context.doesNotMoveVerdict} `
+    + `${context.noTradeImplied} ${context.attribution}`;
+
   const html =
-    '<div class="flex flex-wrap items-start justify-between gap-4">'
-    + '<div class="min-w-0 max-w-3xl">'
-    + '<div class="flex flex-wrap items-center gap-2">'
-    + '<span class="rounded-md bg-slate-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Baseline</span>'
-    + '<label class="flex min-w-0 items-center gap-2 text-[11px] font-semibold text-slate-500">'
-    + '<span class="whitespace-nowrap">Measured since</span>'
+    `<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-slate-500" title="${escapeHtml(title)}">`
+    + '<span class="whitespace-nowrap">Returns measured since</span>'
+    + '<label class="flex min-w-0 items-center">'
+    + '<span class="sr-only">Rebalance date the relative columns are measured from</span>'
     + '<select data-baseline aria-label="Rebalance date the relative columns are measured from" '
     // ⚠ A <select> IS AS WIDE AS ITS WIDEST OPTION, and nothing shrinks it.
     // "February 2026 — 27 Feb 2026 (default)" measures 271px, which on a 390px
@@ -1729,48 +1577,18 @@ function baselineStrip(rows) {
     // it shrink and truncate instead; the full label is still in the dropdown.
     + 'class="min-w-0 max-w-full rounded-xl border-0 bg-white py-1.5 pl-2.5 pr-7 text-xs font-medium text-slate-800 shadow-sm ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">'
     + `${options}</select></label>`
+    + `<span class="whitespace-nowrap font-normal text-slate-400">to the close on ${escapeHtml(shortDate(context.latestDate))}</span>`
+    + '<span class="whitespace-nowrap font-normal text-slate-400">· evidence beside a verdict, never an input to one</span>'
     + (isDefault
-      ? '<span class="text-[10px] font-semibold uppercase tracking-wide text-slate-400" '
-        + 'title="Set in public/js/config/thresholds.mjs as REBALANCE_BASELINE.defaultReview, resolved against the newest session the exchange served — not against the clock">config default</span>'
+      ? ''
       : '<button type="button" data-baseline-reset class="rounded-lg bg-white px-2 py-1 text-[10px] font-semibold text-indigo-700 shadow-sm ring-1 ring-slate-200 transition hover:ring-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">'
         + 'back to the default</button>')
-    + '</div>'
-    + '<p class="mt-2 text-xs leading-relaxed text-slate-600">'
-    + `<strong>Index return</strong>, <strong>stock return</strong> and <strong>Δ vs index</strong> are measured from `
-    + `<strong>${escapeHtml(shortDate(meta?.resolvedDate ?? meta?.effectiveDate ?? ''))}</strong>, the day the `
-    + `${escapeHtml(meta?.label ?? active)} review took effect and every tracking fund traded, to the latest committed `
-    + `close on <strong>${escapeHtml(shortDate(context.latestDate))}</strong>.${walked} `
-    + '<span class="opacity-80">This is <em>not</em> the ten-day window MSCI struck its market caps in — that window is '
-    + 'six weeks earlier and has its own drill-panel section, “Against its segment — across MSCI\u2019s two price '
-    + 'windows”. On this record the two disagree about '
-    + 'the sign for 27.8% of companies, so neither substitutes for the other.</span></p>'
-    + '<p class="mt-1.5 text-[11px] leading-relaxed text-slate-500">'
-    + `<strong>It does not decide a verdict.</strong> ${escapeHtml(context.doesNotMoveVerdict)}</p>`
-    + '<p class="mt-1 text-[11px] leading-relaxed text-slate-500">'
-    + `<strong>And it implies no trade.</strong> ${escapeHtml(context.noTradeImplied)}</p>`
-    + `<p class="mt-1 text-[11px] leading-relaxed text-slate-400"><strong>Attribution.</strong> ${escapeHtml(context.attribution)}</p>`
-    + '</div>'
-    + '<div class="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:shrink-0 sm:grid-cols-3">'
-    + [
-      ['With a reading', `${num(withReading)} of ${num(rows.length)}`,
-        'Companies in view carrying a return from this baseline. The rest each state their own reason in the column — a blocked read, an unquantifiable corporate action, or a company not yet listed on that date.'],
-      ['Direction holds', `${num(robust)} of ${num(withReading)}`,
-        `The whole sensitivity span clears the desk's ${context.bandPct} pp band, so the sign survives shifting the baseline a session either side. The rest render neutral however large they look.`],
-      ['Marked beside a verdict', `${num(notable)} of ${num(rows.length)}`,
-        'Rows where the reading says something the size rule does not — it contradicts the verdict, or the company is stable but close enough to the rank cutoff for the trend to matter by the next review.'],
-    ].map(([label, value, title]) =>
-      `<div class="min-w-0 rounded-xl bg-white/70 px-3 py-2 ring-1 ring-inset ring-slate-200" title="${escapeHtml(title)}">`
-      + `<div class="break-words text-[10px] font-bold uppercase tracking-wide text-slate-500">${escapeHtml(label)}</div>`
-      + `<div class="font-display mt-0.5 text-sm font-extrabold tabular-nums text-slate-900">${escapeHtml(value)}</div></div>`).join('')
     + (loading > 0
-      ? `<div class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 text-[10px] text-slate-500 sm:col-span-3">Loading ${num(loading)} readings…</div>`
+      ? `<span class="whitespace-nowrap font-normal text-slate-400">· loading ${num(loading)} readings…</span>`
       : '')
-    + '</div></div>';
+    + '</div>';
 
-  const wrap = el('div', {
-    class: 'mb-5 rounded-2xl bg-gradient-to-br from-slate-50 to-white p-4 ring-1 ring-slate-200',
-    html,
-  });
+  const wrap = el('div', { class: 'mb-4', html });
 
   const select = $('[data-baseline]', wrap);
   const reset = $('[data-baseline-reset]', wrap);
@@ -1845,7 +1663,6 @@ export function renderCompanies(host, { onStatusChange } = {}) {
       }),
     );
 
-    host.append(modelBanner(rows));
     host.append(baselineStrip(rows));
 
     statsHost = el('div', { class: 'mb-6' }, [buildStats(rows)]);
@@ -2176,7 +1993,7 @@ export function renderCompanies(host, { onStatusChange } = {}) {
       onExport: (visibleRows, view) => {
         const fresh = data.freshness();
         exportCsv({
-          filename: `sattva-companies-${state.getMethodology()}-${new Date().toISOString().slice(0, 10)}.csv`,
+          filename: `sattva-companies-${state.METHODOLOGY}-${new Date().toISOString().slice(0, 10)}.csv`,
           freshness: fresh,
           // Row 1 of the workbook has to say WHICH MODEL produced the verdicts
           // in it. Two exports of the same universe can now disagree on every
@@ -2184,8 +2001,8 @@ export function renderCompanies(host, { onStatusChange } = {}) {
           // sheet nobody can reconcile against another (CLAUDE.md §2.7).
           scopeLabel:
             `${visibleRows.length} of ${cov.companies} companies in the record · model: `
-            + `${METHODOLOGIES[state.getMethodology()].label} (${METHODOLOGIES[state.getMethodology()].short}) — `
-            + `${METHODOLOGIES[state.getMethodology()].attribution}`,
+            + `${METHODOLOGIES[state.METHODOLOGY].label} (${METHODOLOGIES[state.METHODOLOGY].short}) — `
+            + `${METHODOLOGIES[state.METHODOLOGY].attribution}`,
           // WHAT THE FILTERS ACTUALLY DID, in words. This used to serialise the
           // view as `band=mcap-30k-70k`, which names an internal id, carries no
           // unit and cannot be read by anyone who did not see the screen — and
@@ -2477,17 +2294,6 @@ export function renderCompanies(host, { onStatusChange } = {}) {
     return bySymbol;
   };
   quotes.setQuotePriority(liveSymbolPriority);
-
-  // A methodology switch rebuilds the whole view: every verdict, every rule
-  // and every flow can change. The reader's search, sort and filters are
-  // carried across deliberately — the comparison is only useful if the two
-  // models are seen through the same lens.
-  state.on('methodology', () => {
-    closeDrill();
-    lastView = table?.view ? { q: table.view.q, sort: table.view.sort, filters: { ...table.view.filters } } : null;
-    setParams({ model: state.getMethodology() });
-    build();
-  });
 
   // A baseline switch rebuilds for the same reason: three columns, every flow
   // pressure and every chip beside a verdict are measured from it. No VERDICT

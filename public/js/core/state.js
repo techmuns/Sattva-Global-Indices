@@ -1,5 +1,6 @@
 /**
- * Global state: methodology, watchlist. localStorage-backed, with a pub/sub.
+ * Global state: the rebalance baseline and the watchlist. localStorage-backed,
+ * with a pub/sub. The methodology is a constant — see below.
  *
  * localStorage can throw (private mode, disabled storage, quota). It is a
  * convenience here, not a source of truth, so every access is guarded and a
@@ -9,17 +10,33 @@
 const STORAGE_PREFIX = 'sattva.v1.';
 
 /**
- * WHICH MODEL IS IN FORCE.
+ * THE METHODOLOGIES THAT EXIST.
  *
- * Two methodologies ship side by side so the desk can see what changes when
- * MSCI's published structure is applied instead of the desk's rupee bands. See
- * public/js/model/gimi.js. The ids are duplicated from METHODOLOGY_IDS there
- * rather than imported, because this module is the storage layer and must not
- * pull the model graph in behind it — the pair is asserted equal by the
- * verification suite instead.
+ * Both models are still implemented and still compared: `gimi.js` applies
+ * MSCI's published structure to our universe, verify-data 30-32 prove its
+ * arithmetic against the desk's, and the drill panel names its verdict on every
+ * row. The ids are duplicated from METHODOLOGY_IDS there rather than imported,
+ * because this module is the storage layer and must not pull the model graph in
+ * behind it — the pair is asserted equal by the verification suite instead.
  */
 export const METHODOLOGIES = ['freefloat', 'gimi'];
-export const DEFAULT_METHODOLOGY = 'freefloat';
+
+/**
+ * WHICH ONE THE SCREEN RENDERS. One, and it is not switchable.
+ *
+ * The model toggle went on 31 Aug 2026, the same way the Held/All scope toggle
+ * went on 26 Aug: a constant, so every reader keeps one meaning and the dead
+ * branches go rather than lingering as unreachable code.
+ *
+ * WHAT THAT COSTS IS STATED, NOT ABSORBED. The toggle existed to show that 252
+ * of 1,265 verdicts depend on which size measure ranks a company. That
+ * comparison did not go with it — it moved to where it belongs to one company,
+ * the drill panel, which names the other model's verdict on every row, says
+ * whether the two agree, and shows which size number the disagreement turns on.
+ * The universe-wide count is still derived on every build and still asserted by
+ * verify-data; it no longer sits above the table.
+ */
+export const METHODOLOGY = 'freefloat';
 
 /**
  * THE SCOPE TOGGLE IS GONE. Held-versus-all was removed on 26 Aug 2026: the
@@ -49,8 +66,6 @@ function writeStore(key, value) {
 
 const listeners = new Map();
 
-const storedMethodology = readStore('methodology', DEFAULT_METHODOLOGY);
-
 /**
  * WHICH REBALANCE DATE THE RELATIVE-PERFORMANCE COLUMNS ARE BASELINED ON.
  *
@@ -69,7 +84,6 @@ const storedMethodology = readStore('methodology', DEFAULT_METHODOLOGY);
 const storedBaseline = readStore('rebalanceBaseline', null);
 
 const state = {
-  methodology: METHODOLOGIES.includes(storedMethodology) ? storedMethodology : DEFAULT_METHODOLOGY,
   rebalanceBaseline: typeof storedBaseline === 'string' ? storedBaseline : null,
   watchlist: new Set(Array.isArray(readStore('watchlist', [])) ? readStore('watchlist', []) : []),
 };
@@ -89,17 +103,6 @@ export function emit(channel, payload) {
       console.error(`[state] listener for "${channel}" threw`, error);
     }
   }
-}
-
-export const getMethodology = () => state.methodology;
-
-export function setMethodology(methodology) {
-  const next = METHODOLOGIES.includes(methodology) ? methodology : DEFAULT_METHODOLOGY;
-  if (next === state.methodology) return next;
-  state.methodology = next;
-  writeStore('methodology', next);
-  emit('methodology', next);
-  return next;
 }
 
 /** The reader's override, or null for the record's own default. */

@@ -9,16 +9,14 @@ What is on the screen and why. For behaviour that is *data* rather than *interfa
 
 One route: `#/companies`. `public/js/core/router.js` owns the hash and holds two parameters.
 
-**`scope`** — the toggle in the header, `Held` / `All`.
+**`q`** — the screener's search, so a filtered view can be shared as it was read.
 
-| | Rows | Means |
-| --- | --- | --- |
-| `Held` | 619 | held by at least one of the three funds |
-| `All` | 1,202 | every company in the record, held or not |
-
-The scope is a genuine filter on the record, not a view of a subset — the denominator on screen
-changes with it and every count reads **"X of Y"**. The 583 unheld companies are the inclusion
-candidates; without `All` there is nothing to forecast.
+Two parameters have been removed rather than defaulted, and both removals were the same argument.
+**`scope`** (`Held` / `All`) went on 26 Aug 2026: the screener shows every company, because a
+candidate no fund holds yet is what an inclusion forecast is *about* and hiding it behind a default
+made the product's own subject opt-in. **`model`** went on 31 Aug 2026 with the toggle that wrote it:
+one methodology renders, so a link cannot be shared "in" a model. Every count on screen still reads
+**"X of Y"**, which is what the scope parameter existed to keep honest.
 
 **`company=<ISIN>`** — mirrors the open drill panel, so a row can be shared. Arriving at that URL by
 paste, by Back, or by reload opens the panel. Keyed on **ISIN**, never a ticker: a ticker is a label,
@@ -51,21 +49,22 @@ nobody scans.
 
 ## 3. The screener
 
-**The model toggle** sits in the header, where the Held/All scope toggle used to be. Two
-methodologies, and the screener always shows every company under both:
+**One model renders.** `model/assess.js` — free-float market cap against the desk's rupee bands —
+and it is not switchable. The header toggle that offered `model/gimi.js` (MSCI's procedure: rank by
+full mcap, count free float to the coverage target, test free float separately, with MSCI's buffers)
+was removed on 31 Aug 2026, along with the banner under the heading that named the model in force and
+counted how many rows disagreed with the other one.
 
-| Toggle | Model | Verdicts turn on |
-| --- | --- | --- |
-| `freefloatmarketcap` | `model/assess.js` | free-float market cap vs the desk's rupee bands |
-| `freefloat+fullmarketcap` | `model/gimi.js` | MSCI's procedure — rank by full mcap, count free float to the coverage target, test free float separately, with MSCI's buffers and review timetable |
+**The second model did not go with it.** It is still computed for every company on every build, and
+**every drill panel shows its verdict for the same company and says plainly whether the two agree** —
+which is the stronger form of the same disclosure: a count above the table says some row on this
+screen is method-dependent, the drill says whether *this* one is. Assertion 25 fails if the drill
+stops saying so, and fails if a model control reappears anywhere on the page.
 
-The banner under the heading names the model in force, lists what it does differently in three lines,
-and prints **how many rows disagree with the other model** — derived from both models on every build,
-never typed. Under `freefloat+fullmarketcap` it also shows the derived Standard cutoff, small-cap
-floor and minimum free float, each carrying `CUTOFF_DISCLOSURE`.
-
-Every drill panel shows the other model's verdict for the same company, and says plainly whether the
-two agree.
+Removed with the toggle: the review-window stat card, which only ever rendered under
+`freefloat+fullmarketcap`. The finding it carried — MSCI prices a review on one of the last ten
+business days of the month *before* the review month, so once that window shuts the outcome is fixed
+— is unchanged in `config/msci-methodology.mjs`, in `docs/MSCI-METHODOLOGY.md`, and in verify-data 28.
 
 **Scope**: gone. The screener shows all companies. A candidate no fund holds yet is what an inclusion
 forecast is about, so hiding it behind a default made the product's own subject opt-in.
