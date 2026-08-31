@@ -1275,15 +1275,29 @@ function rebaseSectionHtml(company) {
       : '')
     + '</dl>'
     + (pressure
-      ? `<div class="mt-2 rounded-xl ${pressure.key === 'neutral' ? 'bg-slate-50/70' : pressure.notableKind === 'contradicts' ? 'bg-amber-50/70' : 'bg-sky-50/70'} p-3">`
-        + `<p class="text-xs font-semibold ${pressure.key === 'neutral' ? 'text-slate-700' : pressure.notableKind === 'contradicts' ? 'text-amber-900' : 'text-sky-900'}">${escapeHtml(pressure.label)}</p>`
-        + `<p class="mt-1 text-xs leading-relaxed ${pressure.key === 'neutral' ? 'text-slate-600' : pressure.notableKind === 'contradicts' ? 'text-amber-800' : 'text-sky-800'}">${escapeHtml(pressure.detail)}</p>`
-        + `<p class="mt-1 text-xs leading-relaxed ${pressure.key === 'neutral' ? 'text-slate-600' : pressure.notableKind === 'contradicts' ? 'text-amber-800' : 'text-sky-800'}">${escapeHtml(pressure.implication)}</p>`
+      // The SAME direction colouring as the chip and the Δ column — emerald
+      // gaining, rose losing, slate where no direction is claimed. A signal that
+      // is green in the table and amber in the drill is two signals to a reader.
+      ? (() => {
+        const skin = pressure.key === 'neutral'
+          ? { box: 'bg-slate-50/70', head: 'text-slate-700', body: 'text-slate-600' }
+          : pressure.key === 'positive'
+            ? { box: 'bg-emerald-50/70', head: 'text-emerald-900', body: 'text-emerald-800' }
+            : { box: 'bg-rose-50/70', head: 'text-rose-900', body: 'text-rose-800' };
+        return `<div class="mt-2 rounded-xl ${skin.box} p-3">`
+        + `<p class="text-xs font-semibold ${skin.head}">${escapeHtml(pressure.label)}</p>`
+        + `<p class="mt-1 text-xs leading-relaxed ${skin.body}">${escapeHtml(pressure.detail)}</p>`
+        + `<p class="mt-1 text-xs leading-relaxed ${skin.body}">${escapeHtml(pressure.implication)}</p>`
         + (pressure.notableReason
+          // ⚠ AMBER STAYS HERE, and only here. The colour above now says which
+          // way the company is moving, so the older meaning — that this reading
+          // CONTRADICTS the verdict — has nowhere else to live. Losing it would
+          // make a disagreement look like agreement.
           ? `<p class="mt-1 text-[11px] font-semibold leading-relaxed ${pressure.notableKind === 'contradicts' ? 'text-amber-900' : 'text-sky-900'}">Marked beside the verdict: ${escapeHtml(pressure.notableReason)}</p>`
           : '')
         + `<p class="mt-1.5 text-[11px] leading-relaxed text-slate-500">Rule: ${escapeHtml(pressure.inputLabel)}, against a band of ${escapeHtml(String(pressure.threshold))} ${escapeHtml(pressure.thresholdUnit)}. `
-        + `Whose threshold: ${escapeHtml(pressure.thresholdSource)}</p></div>`
+        + `Whose threshold: ${escapeHtml(pressure.thresholdSource)}</p></div>`;
+      })()
       : '')
     + '<p class="mt-2 rounded-xl bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">'
     + `<strong>This does not decide the verdict above.</strong> ${escapeHtml(context.doesNotMoveVerdict)}</p>`
@@ -1874,9 +1888,19 @@ export function renderCompanies(host, { onStatusChange } = {}) {
           // keeps its own section in the drill, beside the window it belongs to.
           const pressure = pressureFor(row);
           if (!pressure || !pressure.notable) return pill;
-          const tone = pressure.notableKind === 'contradicts'
-            ? 'bg-amber-50 text-amber-800 ring-amber-200'
-            : 'bg-sky-50 text-sky-800 ring-sky-200';
+          // ⚠ THE COLOUR IS THE DIRECTION, and it matches the Δ column exactly:
+          // emerald where the company is gaining on its segment, rose where it
+          // is losing. Any other mapping would put two different meanings on the
+          // same two colours in one row.
+          //
+          // It used to key on `notableKind` — amber for a reading that
+          // contradicts the verdict, sky for one approaching a boundary. That
+          // distinction is NOT lost, but it is no longer in the colour: it is
+          // the first sentence of the chip's own title, and the drill keeps it
+          // in amber on its "Marked beside the verdict" line.
+          const tone = pressure.key === 'positive'
+            ? 'bg-emerald-50 text-emerald-800 ring-emerald-200'
+            : 'bg-rose-50 text-rose-800 ring-rose-200';
           return `${pill}<span class="ml-1 inline-flex items-center rounded px-1 py-px text-[10px] font-medium ring-1 ${tone}" `
             + `title="${escapeHtml(`${pressure.label} — ${pressure.notableReason} ${pressure.detail} ${pressure.implication} This does not change the verdict.`)}">`
             + `${escapeHtml(pressure.key === 'positive' ? 'flow ↑' : 'flow ↓')}</span>`;
@@ -2303,6 +2327,36 @@ export function renderCompanies(host, { onStatusChange } = {}) {
   }
 
   build();
+
+  /**
+   * A STORED BASELINE OVERRIDE IS NOT IN MEMORY YET, AND NOTHING ELSE FETCHES IT.
+   *
+   * The alternates live in their own file and are fetched on demand — by the
+   * picker's own change handler, which is the only caller. A reader who re-based
+   * yesterday has the review in localStorage and the file in nobody's memory, so
+   * `readingFor` returns `undefined` for every row and the three columns render
+   * "this baseline is still loading" for ever, under a heading naming the
+   * baseline they chose. Measured before this: 0 flow chips and 1,265 em dashes
+   * after a reload on the August 2025 baseline.
+   *
+   * The first paint above is correct either way — it shows the loading state,
+   * which is true at that moment. This resolves it.
+   */
+  const storedBaseline = activeBaseline();
+  if (storedBaseline && storedBaseline !== data.rebalanceBaselines()?.defaultReview) {
+    data.ensureBaseline(storedBaseline)
+      .then((ready) => {
+        if (ready) { build(); return; }
+        throw new Error('that baseline is not in the record');
+      })
+      .catch((error) => {
+        // A baseline that cannot be loaded must not leave the screen claiming
+        // it. Falling back to the default is the only coherent answer — the
+        // picker then shows where the numbers actually came from.
+        console.error('[baseline] stored override could not be loaded; falling back to the default', error);
+        state.setBaseline(null);
+      });
+  }
 
   /**
    * A price landing must not disturb the reader.

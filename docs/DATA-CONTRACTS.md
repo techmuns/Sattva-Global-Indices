@@ -845,6 +845,14 @@ answers a question most readers never ask. Both carry **the same fields**: `stat
 `data.readingFor()` returns `undefined` while a baseline is loading and `null` when a company has no
 reading. The two must not be collapsed: one is a fact about the fetch, the other about the company.
 
+⚠ **A stored override must be resolved at startup, and once was not.** The choice lives in
+localStorage and survives a reload; the file lives in memory and does not, and the only caller of
+`ensureBaseline` was the picker's own change handler. So a reader who re-based yesterday came back to
+the baseline they picked named in the heading and **1,265 em dashes underneath — the loading state,
+permanently true**. Measured before the fix: 0 flow chips after a reload on the August 2025 baseline,
+against 15 up and 36 down before it. `verify-ui` check 48 reloads on an alternate baseline and
+asserts the numbers come back and that not one row is left saying "still loading".
+
 ### `flowPressure()` — how it is reflected in the verdict
 
 The desk asked for the out/under-performance to be reflected in the verdict. It is reflected
@@ -880,6 +888,16 @@ The delta's colour follows **robustness**, never sign. `verify-ui` check 46 asse
 delta is the geometric one — its tolerance is *derived* from the one-decimal rendering and the
 formula's own error amplification (`1/(1+i)` and `(1+s)/(1+i)²`), because a flat allowance fails 422
 of 1,194 rows on correct arithmetic.
+
+The **flow chip beside the verdict is emerald up and rose down** — the same ramp the delta column
+uses, because two meanings on one pair of colours in a single row teaches a reader to distrust both.
+`verify-ui` check 47 asserts the mapping, that both directions actually occur on screen, and that
+each chip's arrow agrees with the delta on its own row.
+
+That colour used to key on `notableKind` — amber where the reading contradicts the verdict, sky where
+it approaches a boundary. The distinction is not lost: it is the first sentence of the chip's title,
+and in the drill it keeps an amber **"Marked beside the verdict"** line. It has to stay visible
+somewhere, because a disagreement that reads as agreement is the worse failure of the two.
 
 ---
 
