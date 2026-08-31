@@ -343,7 +343,7 @@ async function main() {
   const restoreByReload = async (c) => { c.sabotageHook = null; await c.load(); };
 
   /** Register a sabotage that re-applies itself on every load. */
-  const persistent = (body) => async (c) => { c.sabotageHook = body; await c.page.evaluate(body).catch((e) => { process.stdout.write(`\n    SABOTAGE THREW: ${e.message}\n`); }); };
+  const persistent = (body) => async (c) => { c.sabotageHook = body; await c.page.evaluate(body).catch(() => {}); };
 
   await load();
 
@@ -1330,7 +1330,6 @@ async function main() {
         return { ix, compared, geometric, wouldMatchSubtraction, benchmarkNamed, absences, absencesWithoutReason };
       });
 
-      process.stdout.write(`\n    DEBUG m=${JSON.stringify({ ...m, heads: undefined })}\n`);
       ok(m.ix.index >= 0 && m.ix.stock >= 0 && m.ix.delta >= 0,
         'all three columns are on the table', JSON.stringify(m.ix));
       ok(m.ix.index < m.ix.stock && m.ix.stock < m.ix.delta,

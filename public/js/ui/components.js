@@ -7,8 +7,13 @@ import { el, escapeHtml } from '../core/dom.js';
  * @param {{options: Array<{value,label,hint?}>, value, onChange, ariaLabel}} config
  */
 export function segmentedToggle({ options, value, onChange, ariaLabel = 'View' }) {
+  // ⚠ `flex-wrap` AND `max-w-full`, because the labels are unbreakable tokens.
+  // The methodology ids read `freefloat+fullmarketcap`, which is one word to a
+  // line breaker: two segments measure 397px and push a 390px phone sideways.
+  // The segments WRAP rather than truncate — truncating would hide which model
+  // produced the verdicts on screen, which is the one thing this control says.
   const root = el('div', {
-    class: 'inline-flex items-center rounded-xl bg-slate-100 p-1 ring-1 ring-slate-200/70',
+    class: 'inline-flex max-w-full flex-wrap items-center rounded-xl bg-slate-100 p-1 ring-1 ring-slate-200/70',
     role: 'radiogroup',
     'aria-label': ariaLabel,
   });

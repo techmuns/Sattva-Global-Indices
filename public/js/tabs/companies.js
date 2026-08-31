@@ -456,8 +456,8 @@ function modelBanner(rows) {
   const other = METHODOLOGIES[otherId];
 
   const chip = (label, value, title) =>
-    `<div class="rounded-xl bg-white/70 px-3 py-2 ring-1 ring-inset ${isGimi ? 'ring-indigo-200' : 'ring-slate-200'}"${title ? ` title="${escapeHtml(title)}"` : ''}>`
-    + `<div class="text-[10px] font-bold uppercase tracking-wide ${isGimi ? 'text-indigo-700' : 'text-slate-500'}">${escapeHtml(label)}</div>`
+    `<div class="min-w-0 rounded-xl bg-white/70 px-3 py-2 ring-1 ring-inset ${isGimi ? 'ring-indigo-200' : 'ring-slate-200'}"${title ? ` title="${escapeHtml(title)}"` : ''}>`
+    + `<div class="break-words text-[10px] font-bold uppercase tracking-wide ${isGimi ? 'text-indigo-700' : 'text-slate-500'}">${escapeHtml(label)}</div>`
     + `<div class="font-display mt-0.5 text-sm font-extrabold tabular-nums text-slate-900">${value}</div></div>`;
 
   // ---- what this model does differently, in three lines -------------------
@@ -502,7 +502,7 @@ function modelBanner(rows) {
     + (isGimi ? ` ${escapeHtml(CUTOFF_DISCLOSURE)}` : '')
     + '</p>'
     + '</div>'
-    + '<div class="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3">'
+    + '<div class="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:shrink-0 sm:grid-cols-3">'
     + (isGimi && cutoffs
       ? chip('Standard cutoff', cutoffs.standard.cutoffInr === null ? EM_DASH : `${escapeHtml(cr(cutoffs.standard.cutoffInr))}`,
         `Full market cap of ${cutoffs.standard.company?.name ?? 'the last counted company'}, the ${cutoffs.standard.count}th by full market cap, where cumulative free float reaches ${cutoffs.standard.coveragePct?.toFixed(2)}%`)
@@ -1699,10 +1699,14 @@ function baselineStrip(rows) {
     + '<div class="min-w-0 max-w-3xl">'
     + '<div class="flex flex-wrap items-center gap-2">'
     + '<span class="rounded-md bg-slate-700 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Baseline</span>'
-    + '<label class="flex items-center gap-2 text-[11px] font-semibold text-slate-500">'
+    + '<label class="flex min-w-0 items-center gap-2 text-[11px] font-semibold text-slate-500">'
     + '<span class="whitespace-nowrap">Measured since</span>'
     + '<select data-baseline aria-label="Rebalance date the relative columns are measured from" '
-    + 'class="rounded-xl border-0 bg-white py-1.5 pl-2.5 pr-7 text-xs font-medium text-slate-800 shadow-sm ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">'
+    // ⚠ A <select> IS AS WIDE AS ITS WIDEST OPTION, and nothing shrinks it.
+    // "February 2026 — 27 Feb 2026 (default)" measures 271px, which on a 390px
+    // phone pushes this row 26px past the viewport. `min-w-0 max-w-full` lets
+    // it shrink and truncate instead; the full label is still in the dropdown.
+    + 'class="min-w-0 max-w-full rounded-xl border-0 bg-white py-1.5 pl-2.5 pr-7 text-xs font-medium text-slate-800 shadow-sm ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">'
     + `${options}</select></label>`
     + (isDefault
       ? '<span class="text-[10px] font-semibold uppercase tracking-wide text-slate-400" '
@@ -1725,7 +1729,7 @@ function baselineStrip(rows) {
     + `<strong>And it implies no trade.</strong> ${escapeHtml(context.noTradeImplied)}</p>`
     + `<p class="mt-1 text-[11px] leading-relaxed text-slate-400"><strong>Attribution.</strong> ${escapeHtml(context.attribution)}</p>`
     + '</div>'
-    + '<div class="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3">'
+    + '<div class="grid w-full min-w-0 grid-cols-2 gap-2 sm:w-auto sm:shrink-0 sm:grid-cols-3">'
     + [
       ['With a reading', `${num(withReading)} of ${num(rows.length)}`,
         'Companies in view carrying a return from this baseline. The rest each state their own reason in the column — a blocked read, an unquantifiable corporate action, or a company not yet listed on that date.'],
@@ -1734,8 +1738,8 @@ function baselineStrip(rows) {
       ['Marked beside a verdict', `${num(notable)} of ${num(rows.length)}`,
         'Rows where the reading says something the size rule does not — it contradicts the verdict, or the company is stable but close enough to the rank cutoff for the trend to matter by the next review.'],
     ].map(([label, value, title]) =>
-      `<div class="rounded-xl bg-white/70 px-3 py-2 ring-1 ring-inset ring-slate-200" title="${escapeHtml(title)}">`
-      + `<div class="text-[10px] font-bold uppercase tracking-wide text-slate-500">${escapeHtml(label)}</div>`
+      `<div class="min-w-0 rounded-xl bg-white/70 px-3 py-2 ring-1 ring-inset ring-slate-200" title="${escapeHtml(title)}">`
+      + `<div class="break-words text-[10px] font-bold uppercase tracking-wide text-slate-500">${escapeHtml(label)}</div>`
       + `<div class="font-display mt-0.5 text-sm font-extrabold tabular-nums text-slate-900">${escapeHtml(value)}</div></div>`).join('')
     + (loading > 0
       ? `<div class="col-span-2 rounded-xl bg-slate-50 px-3 py-2 text-[10px] text-slate-500 sm:col-span-3">Loading ${num(loading)} readings…</div>`
