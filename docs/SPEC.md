@@ -181,6 +181,22 @@ moved** and leaves the reader's search, filters, sort and watchlist untouched.
 with the stylesheet in force: body 1440/1440, 1024/1024, 390/390, with the table scrolling internally
 at the lower two.
 
+**Columns are the reader's.** Drag a column's right edge to resize it, double-click that edge to fit
+its content, arrow-key the handle for fine control, and untick in the **Columns** menu the ones this
+desk does not read. Widths and hidden columns persist per reader; **Reset gives back the layout the
+table ships with**, so a reader who never touches the controls sees exactly what shipped.
+
+Two things the control could hide, and neither is allowed to be silent. A **put-away column** is
+counted ("9 of 13") and named in a note beside the toolbar, and the note says that hiding changes
+this screen only — the CSV export still carries every field. A **sort whose column is hidden** says
+so in words, because rows in an order whose basis is off-screen read as no order at all.
+
+And a width can lie in a way a formatter guard cannot see: squeezed to 70px, a free float of
+₹10,99,757 Cr renders as `10,99,75`, which is a wrong number that looks like a right one. Every body
+cell therefore ellipsises, and every cell additionally carries a **fade exactly its own padding
+wide** on the clipped edge — a no-op where content fits, and an unmistakable dissolve where it is
+cut. §2.29 in CLAUDE.md carries the measurements; checks 47–50 hold it.
+
 ---
 
 ## 4. The drill panel

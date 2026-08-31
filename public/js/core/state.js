@@ -128,3 +128,37 @@ export function toggleWatch(isin) {
   emit('watchlist', isin);
   return state.watchlist.has(isin);
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Column layout — widths and hidden columns, per table
+ *
+ * A reader's column widths are a convenience, exactly like the watchlist: they
+ * are stored best-effort and a storage failure degrades to the built-in layout
+ * rather than taking the page down. Nothing derived from the data is stored
+ * here — only how wide the reader made a column and which ones they put away.
+ *
+ * KEYED BY COLUMN LABEL, NEVER BY POSITION. A stored `{ 3: 210 }` would follow
+ * the third column wherever a later release moves it, so a reader who widened
+ * "Free float" would come back to a widened "Float %". Labels move with their
+ * column; a label that no longer exists is dropped on read.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** @returns {{widths: Record<string, number>, hidden: string[]}} */
+export function getColumnPrefs(tableKey) {
+  const stored = readStore(`columns.${tableKey}`, null);
+  const widths = {};
+  for (const [label, px] of Object.entries(stored?.widths ?? {})) {
+    if (typeof px === 'number' && Number.isFinite(px) && px > 0) widths[label] = px;
+  }
+  return {
+    widths,
+    hidden: Array.isArray(stored?.hidden) ? stored.hidden.filter((x) => typeof x === 'string') : [],
+  };
+}
+
+export function setColumnPrefs(tableKey, { widths, hidden }) {
+  writeStore(`columns.${tableKey}`, {
+    widths: widths ?? {},
+    hidden: [...(hidden ?? [])],
+  });
+}

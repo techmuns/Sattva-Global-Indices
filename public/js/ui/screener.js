@@ -6,6 +6,7 @@
  */
 
 import { $, $$, el, empty, escapeHtml, onIdle } from '../core/dom.js';
+import { getColumnPrefs, setColumnPrefs } from '../core/state.js';
 import { avatarFor } from './visual.js';
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -367,6 +368,75 @@ const sortIcon = (state) => {
   return '<span aria-hidden="true" class="ml-1 text-slate-300 group-hover:text-slate-400">↕</span>';
 };
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * Column layout — widths the reader sets, and columns the reader puts away
+ *
+ * ⚠ A COLUMN WIDTH CAN MANUFACTURE A WRONG NUMBER, AND IT LOOKS EXACTLY LIKE A
+ * RIGHT ONE. This is CLAUDE.md §2.20 at the layout layer rather than the
+ * formatter layer, and it is the reason most of the code below exists.
+ *
+ * Measured in Chrome on the committed record: with `table-layout: fixed` and
+ * the Free float column squeezed to 70px, `10,99,757` renders as `10,99,75`.
+ * Not blank, not an em dash, not an error — a clean, plausible, ten-times-wrong
+ * number, on the largest bank in the country. A reader has no way to tell that
+ * from a real figure.
+ *
+ * So a narrowed column must make its own clipping VISIBLE, and getting that
+ * right needed measuring rather than assuming. `text-overflow: ellipsis` was
+ * the obvious answer and it is only two-thirds of one:
+ *
+ *   cell content                                    squeezed → renders
+ *   ─────────────────────────────────────────────   ──────────────────────
+ *   plain text            `10,99,757`                `12,34…`      ellipsis
+ *   inline flow + chips   `<span>n</span><chip>`     `10,9…`       ellipsis
+ *   two or more chips     `<chip><chip>`             `SMIN …`      ellipsis
+ *   ONE atomic inline     `<span class=inline-flex>` `10,99,75`    NO ELLIPSIS
+ *
+ * Chrome draws the ellipsis by replacing trailing items on the line, so a line
+ * box holding exactly one atomic inline — an `inline-flex`/`inline-block` box —
+ * has nothing to replace and is simply cut. Wrapping it in a plain `<span>`
+ * does not help; a trailing zero-width space does not help; a leading one puts
+ * the ellipsis first and eats the whole cell. Both were tried and measured.
+ *
+ * Hence TWO mechanisms, not one:
+ *
+ *   1. `text-overflow: ellipsis` on every body cell, which covers every cell
+ *      whose content is inline flow. Cell renderers are written to stay inside
+ *      that shape (see the Free float, vs segment and Funds columns in
+ *      tabs/companies.js, which lost their single flex wrapper for this).
+ *   2. A FADE MASK on the clipped edge of every cell in a narrowed column,
+ *      which needs no cooperation from the cell's markup at all. It is a
+ *      no-op where nothing reaches the edge — non-truncated content stops at
+ *      the cell's padding — and where content IS cut it dissolves rather than
+ *      ending in a hard, readable edge. That is the backstop for the lone-atomic
+ *      case above and for any cell renderer written later.
+ *
+ * THE FADE IS EXACTLY THE CELL'S OWN PADDING WIDE, and that is what makes it
+ * safe to apply to every cell rather than only to the ones measured to be
+ * clipping. Content that fits stops at the padding edge, so the faded strip is
+ * empty and nothing changes; content that is cut runs to the border edge, so
+ * the faded strip is exactly the part that was cut. No per-cell measurement, no
+ * bookkeeping of which column is narrower than its content, and no case where
+ * ink is dimmed for no reason.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** A column may be squeezed to here and no further. Below this a column is
+ *  effectively invisible while still sorting the table, which is a control the
+ *  reader cannot see the effect of. Hiding one is a separate, explicit act. */
+export const MIN_COL_PX = 48;
+/** And no wider than this, so a runaway drag cannot strand the other columns
+ *  off-screen with no obvious way back. */
+export const MAX_COL_PX = 900;
+/** Keyboard resize step, and the shift-key step. */
+const NUDGE_PX = 16;
+const NUDGE_FAST_PX = 48;
+
+const columnsIcon =
+  '<svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">' +
+  '<rect x="2.5" y="3.5" width="15" height="13" rx="1.5"/><path d="M7.5 3.5v13M12.5 3.5v13"/></svg>';
+
+const clamp = (px) => Math.max(MIN_COL_PX, Math.min(MAX_COL_PX, Math.round(px)));
+
 /**
  * @param {object} config — see the kit spec.
  * @returns {{html: string, wire(root): object, updateRows(keys): void, view: object}}
@@ -395,6 +465,9 @@ export function scoreTable(config) {
     wrapHeads = false,
     showAvatar = true,
     stickyHead,
+    /** Turns width-dragging and column hiding on, and names the localStorage
+     *  slot they persist in. Omit it and the table behaves exactly as before. */
+    columnsKey,
     emptyMessage = 'No rows match these filters.',
     rowCountLabel = (shown, total) => `${shown} of ${total}`,
   } = config;
@@ -402,6 +475,50 @@ export function scoreTable(config) {
   const tableId = `st-${Math.random().toString(36).slice(2, 9)}`;
   const pad = dense ? 'px-2' : 'px-4';
   const headTracking = dense ? 'tracking-normal' : 'tracking-wider';
+
+  /* ---- the column layout model ----------------------------------------
+   * One entry per rendered column, INCLUDING the two the caller does not
+   * declare (the rank counter and the name column), because a width map that
+   * covered only the declared columns could not add up to a table width.
+   *
+   * `id` is positional and lives only in the DOM, where it goes into a CSS
+   * selector; `label` is the identity that persists. Selecting on the label
+   * instead would mean escaping `₹`, `%`, `(` and a space into an attribute
+   * selector for every rule, and getting that wrong silently matches nothing.
+   * -------------------------------------------------------------------- */
+  const layout = [
+    ...(showRank ? [{ id: 'rk', label: '#', hideable: false, resizable: false }] : []),
+    { id: 'nm', label: nameHeading, hideable: false, resizable: true },
+    ...columns.map((column, index) => ({
+      id: `c${index}`,
+      label: column.label,
+      // Every declared column may be put away. The name column may not: a row
+      // with no name is a row the reader cannot identify, and the rest of the
+      // line is meaningless without it.
+      hideable: true,
+      resizable: true,
+      column,
+    })),
+  ];
+  const layoutById = new Map(layout.map((entry) => [entry.id, entry]));
+  // Column LABELS are already required to be unique by the kit — `view.sort.key`
+  // is a label and the sort resolves it with `columns.find` — so keying stored
+  // widths on the label adds no new constraint.
+  const resizable = Boolean(columnsKey);
+  const stored = resizable ? getColumnPrefs(columnsKey) : { widths: {}, hidden: [] };
+  const knownLabels = new Set(layout.map((c) => c.label));
+  /** label -> px. Empty means automatic layout, exactly as before this feature. */
+  const widths = new Map(
+    Object.entries(stored.widths).filter(([label]) => knownLabels.has(label)).map(([l, px]) => [l, clamp(px)]),
+  );
+  const hidden = new Set(
+    stored.hidden.filter((label) => layout.some((c) => c.label === label && c.hideable)),
+  );
+  /** What each column measured under automatic layout — the width at which it
+   *  fits its own content, and therefore the width below which it can clip. */
+  const naturalWidths = new Map();
+  const colFor = (label) => layout.find((c) => c.label === label) ?? null;
+  const visibleColumns = () => layout.filter((c) => !hidden.has(c.label));
 
   const view = {
     q: initialView?.q ?? '',
@@ -525,13 +642,13 @@ export function scoreTable(config) {
 
     if (showRank) {
       cells.push(
-        `<td class="${pad} py-2.5 text-right text-xs font-semibold text-slate-400 tabular-nums" data-rank></td>`,
+        `<td data-col="rk" class="${pad} py-2.5 text-right text-xs font-semibold text-slate-400 tabular-nums" data-rank></td>`,
       );
     }
 
     const nameStyle = nameMaxPx ? ` style="max-width:${nameMaxPx}px"` : '';
     cells.push(
-      `<td class="${pad} py-2.5"${nameStyle}>` +
+      `<td data-col="nm" class="${pad} py-2.5"${nameStyle}>` +
         '<div class="flex items-center gap-2.5">' +
         (nameAfter ? nameAfter(row) : '') +
         (showAvatar ? avatarFor(nameOf(row)) : '') +
@@ -541,13 +658,13 @@ export function scoreTable(config) {
         '</div></div></td>',
     );
 
-    for (const column of columns) {
+    for (const [index, column] of columns.entries()) {
       const align =
         column.align === 'right' ? 'text-right' : column.align === 'center' ? 'text-center' : 'text-left';
       const value = column.get(row);
       const content = column.html ? (value ?? '') : escapeHtml(value ?? '');
       cells.push(
-        `<td class="${pad} py-2.5 text-[13px] ${align} ${column.cellClass ?? 'text-slate-700'}">${content}</td>`,
+        `<td data-col="c${index}" class="${pad} py-2.5 text-[13px] ${align} ${column.cellClass ?? 'text-slate-700'}">${content}</td>`,
       );
     }
 
@@ -575,17 +692,38 @@ export function scoreTable(config) {
     return parts.join('');
   }
 
+  /**
+   * The drag target at a column's trailing edge.
+   *
+   * `role="separator"` with a tabindex is the ARIA pattern for a splitter, so
+   * the arrow keys are not an extra affordance bolted on for the audit — they
+   * are the only way a keyboard user can resize at all, and a mouse-only
+   * resize would be a control a keyboard reader can see and not operate.
+   */
+  function resizeHandleHtml(entry) {
+    if (!resizable || !entry.resizable) return '';
+    return (
+      `<span data-resize="${entry.id}" role="separator" aria-orientation="vertical" tabindex="0"` +
+      ` aria-label="Resize the ${escapeHtml(entry.label)} column"` +
+      ' title="Drag to resize. Double-click to fit the content. Arrow keys nudge; hold Shift for larger steps."' +
+      ' class="group/resize absolute inset-y-0 right-0 z-20 flex w-2.5 cursor-col-resize touch-none select-none items-center justify-center' +
+      ' focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">' +
+      '<span aria-hidden="true" class="h-1/2 w-px bg-slate-300 transition group-hover/resize:w-0.5 group-hover/resize:bg-indigo-500"></span></span>'
+    );
+  }
+
   function headHtml() {
     const heads = [];
     if (showRank) {
       heads.push(
-        `<th scope="col" class="${pad} py-2.5 text-right text-[10px] font-bold uppercase ${headTracking} text-slate-400">#</th>`,
+        `<th scope="col" data-col="rk" class="relative ${pad} py-2.5 text-right text-[10px] font-bold uppercase ${headTracking} text-slate-400">#</th>`,
       );
     }
     heads.push(
-      `<th scope="col" class="${pad} py-2.5 text-left text-[10px] font-bold uppercase ${headTracking} text-slate-500">${escapeHtml(nameHeading)}</th>`,
+      `<th scope="col" data-col="nm" class="relative ${pad} py-2.5 text-left text-[10px] font-bold uppercase ${headTracking} text-slate-500">` +
+        `${escapeHtml(nameHeading)}${resizeHandleHtml(layoutById.get('nm'))}</th>`,
     );
-    for (const column of columns) {
+    for (const [index, column] of columns.entries()) {
       const align =
         column.align === 'right' ? 'text-right' : column.align === 'center' ? 'text-center' : 'text-left';
       const sortable = column.sortable !== false;
@@ -598,8 +736,8 @@ export function scoreTable(config) {
           `<span>${escapeHtml(column.label)}</span>${sortIcon(state)}</button>`
         : `<span class="text-[10px] font-bold uppercase ${headTracking} text-slate-500">${escapeHtml(column.label)}</span>`;
       heads.push(
-        `<th scope="col" aria-sort="${state === 'asc' ? 'ascending' : state === 'desc' ? 'descending' : 'none'}" ` +
-          `class="${pad} py-2.5 ${align} ${wrap} align-bottom">${inner}</th>`,
+        `<th scope="col" data-col="c${index}" aria-sort="${state === 'asc' ? 'ascending' : state === 'desc' ? 'descending' : 'none'}" ` +
+          `class="relative ${pad} py-2.5 ${align} ${wrap} align-bottom">${inner}${resizeHandleHtml(layoutById.get(`c${index}`))}</th>`,
       );
     }
     return `<tr>${heads.join('')}</tr>`;
@@ -693,6 +831,12 @@ export function scoreTable(config) {
     parts.push(
       '<div class="ml-auto flex items-center gap-3">' +
         '<span data-row-count class="text-[11px] font-semibold tabular-nums text-slate-500"></span>' +
+        (resizable
+          ? '<div class="relative" data-columns-wrap>' +
+              '<button type="button" data-columns aria-haspopup="dialog" aria-expanded="false" ' +
+              'class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:ring-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">' +
+              `${columnsIcon}Columns<span data-columns-count class="tabular-nums font-normal text-slate-400"></span></button></div>`
+          : '') +
         (exportName
           ? '<button type="button" data-export class="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 transition hover:ring-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">' +
             '<svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 3v10m0 0 4-4m-4 4-4-4M4 16h12" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
@@ -711,6 +855,10 @@ export function scoreTable(config) {
       // text is written with textContent — never innerHTML — because it quotes
       // back exactly what somebody typed.
       '<p data-filter-status hidden class="mt-2 text-[11px] font-medium leading-relaxed"></p>' +
+      // WHAT THE READER PUT AWAY IS STATED WHERE THEY PUT IT AWAY. A screen
+      // that quietly drops a column reads as the whole record; a sort running
+      // on a column that is no longer on screen reads as no sort at all.
+      (resizable ? '<p data-columns-note class="mt-2 text-[11px] leading-relaxed text-amber-700" hidden></p>' : '') +
       (notes.length
         ? `<p class="mt-2 text-[11px] leading-relaxed text-slate-400">${notes.map(escapeHtml).join(' ')}</p>`
         : '')
@@ -722,6 +870,11 @@ export function scoreTable(config) {
   const scrollStyle = stickyHead ? ` style="max-height:${stickyHead}"` : '';
   const html =
     `<section data-score-table="${tableId}" class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">` +
+    // One stylesheet per table, rewritten on every layout change. Hiding a
+    // column by toggling a rule here is O(1); walking 1,265 rows to set an
+    // attribute on each cell is not, and it would miss every row still
+    // streaming in behind the fill.
+    '<style data-col-style></style>' +
     `<div data-toolbar class="mb-3">${toolbarHtml()}</div>` +
     `<div data-table-scroll class="overflow-auto rounded-xl ring-1 ring-slate-100"${scrollStyle}>` +
     '<table class="w-full border-collapse text-left">' +
@@ -1023,6 +1176,394 @@ export function scoreTable(config) {
         th.setAttribute('aria-sort', state === 'asc' ? 'ascending' : state === 'desc' ? 'descending' : 'none');
       }
     }
+    // The sort may have landed on a column that is put away, and the note that
+    // says so is only true until the next sort.
+    updateColumnChrome();
+  }
+
+  /* ---- column layout: apply, measure, persist -------------------------- */
+
+  /** The cell padding, in px — and therefore exactly how wide the fade may be
+   *  without ever touching content that fits. See the section header. */
+  const fadePx = dense ? 8 : 16;
+
+  const headCell = (id) => (root ? $(`thead th[data-col="${id}"]`, root) : null);
+
+  function persistColumns() {
+    if (!resizable) return;
+    setColumnPrefs(columnsKey, { widths: Object.fromEntries(widths), hidden: [...hidden] });
+  }
+
+  /**
+   * Write the whole layout: the stylesheet, the header widths, the chrome.
+   *
+   * `widths` empty means AUTOMATIC layout — byte for byte what this table did
+   * before column sizing existed. That is the default state and the one the
+   * reader gets back from Reset, so the feature can always be undone rather
+   * than merely adjusted.
+   */
+  function applyColumnLayout() {
+    if (!root || !resizable) return;
+    const styleEl = $('[data-col-style]', root);
+    const table = $('table', root);
+    if (!styleEl || !table) return;
+    const sel = `[data-score-table="${tableId}"]`;
+    const rules = [];
+
+    for (const entry of layout) {
+      if (hidden.has(entry.label)) rules.push(`${sel} [data-col="${entry.id}"]{display:none}`);
+    }
+
+    const fixed = widths.size > 0;
+    let total = 0;
+    for (const entry of layout) {
+      const th = headCell(entry.id);
+      if (!th) continue;
+      if (!fixed || hidden.has(entry.label)) {
+        th.style.width = '';
+        continue;
+      }
+      const px = widths.get(entry.label);
+      if (px === undefined) {
+        th.style.width = '';
+        continue;
+      }
+      th.style.width = `${px}px`;
+      total += px;
+    }
+
+    if (fixed) {
+      // WIDTH IS THE SUM, NEVER 100%. Under `table-layout: fixed` a table told
+      // to be 100% wide redistributes the slack across the columns, so every
+      // width the reader set comes out as something else — dragging one column
+      // silently moves its neighbours. Sizing the table to the sum makes each
+      // width mean what it says and lets the scroll container do its job.
+      rules.push(`${sel} table{table-layout:fixed;width:${total}px}`);
+      rules.push(`${sel} tbody td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}`);
+      rules.push(`${sel} thead th{overflow:hidden}`);
+      // The backstop for cells `text-overflow` cannot reach — see the section
+      // header. The fade is exactly the cell's own padding wide, so content
+      // that FITS (which stops at the padding edge) is never touched, and
+      // content that is CUT (which runs to the border edge) always is.
+      rules.push(
+        `${sel} tbody td{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - ${fadePx}px),transparent 100%);` +
+          `mask-image:linear-gradient(to right,#000 calc(100% - ${fadePx}px),transparent 100%)}`,
+      );
+    }
+
+    styleEl.textContent = rules.join('\n');
+    root.dataset.colLayout = fixed ? 'fixed' : 'auto';
+    root.dataset.colsHidden = String(hidden.size);
+    updateColumnChrome();
+  }
+
+  /**
+   * Natural widths — what each visible column occupies when the browser sizes
+   * it to its own content. Read by dropping the table back to automatic layout
+   * for one synchronous measurement, because that is the only thing that knows.
+   */
+  function measureNaturalWidths() {
+    if (!root) return new Map();
+    const styleEl = $('[data-col-style]', root);
+    const table = $('table', root);
+    const saved = styleEl.textContent;
+    const savedWidths = layout.map((entry) => headCell(entry.id)?.style.width ?? '');
+    const sel = `[data-score-table="${tableId}"]`;
+    styleEl.textContent = layout
+      .filter((entry) => hidden.has(entry.label))
+      .map((entry) => `${sel} [data-col="${entry.id}"]{display:none}`)
+      .join('\n');
+    for (const entry of layout) {
+      const th = headCell(entry.id);
+      if (th) th.style.width = '';
+    }
+    table.style.tableLayout = '';
+    const measured = new Map();
+    for (const entry of visibleColumns()) {
+      const th = headCell(entry.id);
+      if (th) measured.set(entry.label, clamp(th.getBoundingClientRect().width));
+    }
+    // Put everything back before returning, so a caller that changes nothing
+    // leaves no trace.
+    styleEl.textContent = saved;
+    layout.forEach((entry, index) => {
+      const th = headCell(entry.id);
+      if (th) th.style.width = savedWidths[index];
+    });
+    naturalWidths.clear();
+    for (const [label, px] of measured) naturalWidths.set(label, px);
+    return measured;
+  }
+
+  /**
+   * Switch from automatic to explicit widths, keeping the layout on screen
+   * exactly as it is. Every visible column gets a width in the same pass: under
+   * fixed layout a column without one is sized by the browser out of whatever
+   * is left, so half a width map is a layout nobody chose.
+   */
+  function ensureExplicitWidths() {
+    if (widths.size > 0) return;
+    // Measure against ALL the rows, not the screenful painted so far, or the
+    // widths adopt whatever the first 80 companies happened to need.
+    flushRemaining();
+    for (const [label, px] of measureNaturalWidths()) widths.set(label, px);
+  }
+
+  function setColumnWidth(label, px) {
+    ensureExplicitWidths();
+    widths.set(label, clamp(px));
+    applyColumnLayout();
+  }
+
+  /** Double-click on a handle: give this column exactly the width its content
+   *  needs, which is the one width a reader cannot find by dragging. */
+  function autoFitColumn(label) {
+    ensureExplicitWidths();
+    const measured = measureNaturalWidths();
+    if (measured.has(label)) widths.set(label, measured.get(label));
+    applyColumnLayout();
+    persistColumns();
+  }
+
+  function setColumnHidden(label, isHidden) {
+    const entry = colFor(label);
+    if (!entry?.hideable) return;
+    if (isHidden) hidden.add(label);
+    else hidden.delete(label);
+    // A column coming back needs a width or fixed layout has nothing to size it
+    // with; it gets the one its content asks for rather than a guess. The
+    // fallback is only reachable before the table is wired, where there is no
+    // DOM to measure and nothing on screen to be wrong about.
+    if (!isHidden && widths.size > 0 && !widths.has(label)) {
+      applyColumnLayout();
+      const measured = measureNaturalWidths();
+      widths.set(label, measured.get(label) ?? MIN_COL_PX * 3);
+    }
+    applyColumnLayout();
+    persistColumns();
+  }
+
+  /** Back to the layout the table ships with — every column shown, every width
+   *  automatic. The feature has to be undoable, not merely adjustable. */
+  function resetColumns() {
+    widths.clear();
+    hidden.clear();
+    naturalWidths.clear();
+    for (const entry of layout) {
+      const th = headCell(entry.id);
+      if (th) th.style.width = '';
+    }
+    const table = $('table', root);
+    if (table) table.style.tableLayout = '';
+    applyColumnLayout();
+    persistColumns();
+  }
+
+  /**
+   * Everything the reader has to be told about the layout they built.
+   *
+   * Two things a column control can hide, and both of them change what the
+   * screen means rather than only how it looks:
+   *
+   *   - A PUT-AWAY COLUMN. A table showing nine of eleven columns looks exactly
+   *     like a table that has nine. The count says which it is, and names them.
+   *   - A SORT ON A COLUMN THAT IS NOT THERE. The rows are in an order whose
+   *     basis is off-screen, which reads as no order at all — so the sort says
+   *     itself in words while its column is away.
+   */
+  function updateColumnChrome() {
+    if (!root || !resizable) return;
+    const shown = visibleColumns().length;
+    const count = $('[data-columns-count]', root);
+    if (count) count.textContent = ` ${shown} of ${layout.length}`;
+    const button = $('[data-columns]', root);
+    if (button) {
+      button.setAttribute(
+        'title',
+        hidden.size
+          ? `${shown} of ${layout.length} columns shown. Hidden: ${[...hidden].join(', ')}. Every field is still in the CSV export.`
+          : `All ${layout.length} columns shown. Drag a column's right edge to resize it.`,
+      );
+    }
+
+    const sortedHidden = view.sort && hidden.has(view.sort.key) ? view.sort : null;
+    const lines = [];
+    if (hidden.size) {
+      lines.push(
+        `${hidden.size} column${hidden.size === 1 ? '' : 's'} hidden on this screen — ${[...hidden].join(', ')}. ` +
+          'Hiding changes this screen only: the CSV export still carries every field.',
+      );
+    }
+    if (sortedHidden) {
+      lines.push(
+        `These rows are sorted by “${sortedHidden.key}”, ${sortedHidden.dir === 'asc' ? 'smallest first' : 'largest first'} — ` +
+          'and that column is hidden, so the order has no visible basis.',
+      );
+    }
+    const note = $('[data-columns-note]', root);
+    if (note) {
+      note.textContent = lines.join(' ');
+      note.hidden = lines.length === 0;
+    }
+
+    for (const handle of $$('[data-resize]', root)) {
+      const entry = layoutById.get(handle.dataset.resize);
+      const px = entry ? widths.get(entry.label) : undefined;
+      handle.setAttribute('aria-valuemin', String(MIN_COL_PX));
+      handle.setAttribute('aria-valuemax', String(MAX_COL_PX));
+      if (px === undefined) handle.removeAttribute('aria-valuenow');
+      else handle.setAttribute('aria-valuenow', String(px));
+    }
+  }
+
+  /* ---- the drag itself -------------------------------------------------- */
+
+  function beginResize(handle, event) {
+    const entry = layoutById.get(handle.dataset.resize);
+    if (!entry) return;
+    ensureExplicitWidths();
+    const startX = event.clientX;
+    const startWidth = widths.get(entry.label) ?? headCell(entry.id)?.getBoundingClientRect().width ?? MIN_COL_PX;
+    // Capture, so a drag that leaves the 10px handle keeps arriving. It can
+    // throw on a pointer the browser has already released; the drag then works
+    // only while the pointer stays over the handle, which is a degradation
+    // rather than a broken control.
+    try { handle.setPointerCapture(event.pointerId); } catch { /* no capture */ }
+    document.body.style.cursor = 'col-resize';
+    // While dragging, suppress text selection across the whole document —
+    // otherwise a drag that leaves the header selects half the table.
+    document.body.style.userSelect = 'none';
+
+    const move = (moveEvent) => {
+      widths.set(entry.label, clamp(startWidth + (moveEvent.clientX - startX)));
+      applyColumnLayout();
+    };
+    const end = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', end);
+      handle.removeEventListener('pointercancel', end);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      persistColumns();
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
+    event.preventDefault();
+  }
+
+  /* ---- the columns menu -------------------------------------------------- */
+
+  let closeColumnsMenu = null;
+
+  function openColumnsMenu(button) {
+    const wrap = button.closest('[data-columns-wrap]');
+    if (!wrap) return;
+    // ⚠ THE GEOMETRY IS INLINE, NOT TAILWIND, AND THAT IS THE POINT.
+    //
+    // Tailwind arrives from a CDN and its play build generates classes
+    // ASYNCHRONOUSLY, so a `w-72` panel measured in the same tick it was
+    // appended is still `width: auto`. The nudge below read that phantom box,
+    // decided the panel was on screen, and did nothing — and at 390px the real
+    // panel then landed 37px off the left edge, where `overflow-x: hidden` on
+    // <body> makes it unreachable rather than merely ugly. Measured.
+    //
+    // Anything this code has to MEASURE is therefore set inline, where it
+    // applies synchronously; only the paint is left to Tailwind.
+    const panel = el('div', {
+      class: 'z-40 rounded-xl bg-white p-3 text-left shadow-xl ring-1 ring-slate-200',
+      style: 'position:absolute;top:100%;right:0;margin-top:8px;width:288px;max-width:calc(100vw - 1rem)',
+      role: 'dialog',
+      'aria-label': 'Choose columns',
+      'data-columns-menu': '',
+    });
+
+    const boxes = layout
+      .filter((entry) => entry.hideable)
+      .map((entry) => {
+        const input = el('input', {
+          type: 'checkbox',
+          class: 'h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500',
+          checked: !hidden.has(entry.label),
+        });
+        input.checked = !hidden.has(entry.label);
+        input.addEventListener('change', () => setColumnHidden(entry.label, !input.checked));
+        return el(
+          'label',
+          { class: 'flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50' },
+          [input, el('span', { class: 'truncate' }, entry.label)],
+        );
+      });
+
+    const reset = el(
+      'button',
+      {
+        type: 'button',
+        class:
+          'w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-indigo-700 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500',
+      },
+      'Show every column, at its automatic width',
+    );
+    reset.addEventListener('click', () => {
+      resetColumns();
+      for (const box of $$('input[type="checkbox"]', panel)) box.checked = true;
+    });
+
+    panel.append(
+      el('p', { class: 'px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400' }, 'Columns on this screen'),
+      el('div', { class: 'max-h-72 overflow-y-auto' }, boxes),
+      el('div', { class: 'mt-2 border-t border-slate-100 pt-2' }, [reset]),
+      el(
+        'p',
+        { class: 'px-2 pt-2 text-[10px] leading-relaxed text-slate-400' },
+        'Hiding a column changes this screen only — the CSV export always carries every field. ' +
+          'Drag a column’s right edge to resize it, or double-click that edge to fit its content.',
+      ),
+    );
+
+    wrap.append(panel);
+    button.setAttribute('aria-expanded', 'true');
+
+    // The panel hangs off the button's right edge, and on a phone the button
+    // does not sit far enough right for it to fit. Nudged only when it actually
+    // lands outside — a measurement, not a breakpoint guess about where the
+    // toolbar puts the button.
+    const box = panel.getBoundingClientRect();
+    if (box.left < 8) panel.style.right = `${Math.round(box.left - 8)}px`;
+
+    const onDocPointer = (event) => {
+      if (!panel.contains(event.target) && !button.contains(event.target)) closeColumnsMenu?.();
+    };
+    const onKey = (event) => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      closeColumnsMenu?.();
+      button.focus();
+    };
+    // A pointer dismisses it; so must a keyboard. Tabbing past the last
+    // checkbox leaves the panel open and unreachable otherwise — a menu a
+    // screen-reader user can open and not close.
+    const onFocusOut = (event) => {
+      const next = event.relatedTarget;
+      if (next && (panel.contains(next) || button.contains(next))) return;
+      // relatedTarget is null when focus leaves the window entirely; that is
+      // not a dismissal.
+      if (next) closeColumnsMenu?.();
+    };
+    // Deferred, or the very click that opened the menu closes it again.
+    setTimeout(() => document.addEventListener('pointerdown', onDocPointer), 0);
+    document.addEventListener('keydown', onKey);
+    panel.addEventListener('focusout', onFocusOut);
+
+    closeColumnsMenu = () => {
+      document.removeEventListener('pointerdown', onDocPointer);
+      document.removeEventListener('keydown', onKey);
+      panel.removeEventListener('focusout', onFocusOut);
+      panel.remove();
+      button.setAttribute('aria-expanded', 'false');
+      closeColumnsMenu = null;
+    };
+    ($('input', panel) ?? panel).focus?.();
   }
 
   function wire(container) {
@@ -1039,7 +1580,59 @@ export function scoreTable(config) {
     seedRovingTabStop();
 
     // ---- delegated listeners. Never per row. ----
-    $('thead', root).addEventListener('click', (event) => {
+    const thead = $('thead', root);
+
+    if (resizable) {
+      thead.addEventListener('pointerdown', (event) => {
+        const handle = event.target.closest('[data-resize]');
+        if (!handle || event.button !== 0) return;
+        // The handle sits inside the same <th> as the sort button. Stopping
+        // propagation here keeps a drag that ends on the header from also
+        // re-sorting the table under the reader's hands.
+        event.stopPropagation();
+        beginResize(handle, event);
+      });
+
+      thead.addEventListener('dblclick', (event) => {
+        const handle = event.target.closest('[data-resize]');
+        if (!handle) return;
+        event.stopPropagation();
+        const entry = layoutById.get(handle.dataset.resize);
+        if (entry) autoFitColumn(entry.label);
+      });
+
+      thead.addEventListener('keydown', (event) => {
+        const handle = event.target.closest('[data-resize]');
+        if (!handle) return;
+        const entry = layoutById.get(handle.dataset.resize);
+        if (!entry) return;
+        const step = event.shiftKey ? NUDGE_FAST_PX : NUDGE_PX;
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          event.preventDefault();
+          ensureExplicitWidths();
+          setColumnWidth(entry.label, (widths.get(entry.label) ?? MIN_COL_PX) + (event.key === 'ArrowRight' ? step : -step));
+          persistColumns();
+          return;
+        }
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          autoFitColumn(entry.label);
+        }
+      });
+
+      // A click ON the handle must never reach the sort button behind it.
+      thead.addEventListener('click', (event) => {
+        if (event.target.closest('[data-resize]')) event.stopPropagation();
+      }, true);
+
+      const columnsButton = $('[data-columns]', root);
+      columnsButton?.addEventListener('click', () => {
+        if (closeColumnsMenu) closeColumnsMenu();
+        else openColumnsMenu(columnsButton);
+      });
+    }
+
+    thead.addEventListener('click', (event) => {
       const button = event.target.closest('[data-sort]');
       if (!button) return;
       const key = button.dataset.sort;
@@ -1166,6 +1759,11 @@ export function scoreTable(config) {
 
     updateCount();
     updateFilterStatus();
+    // Stored widths are applied straight away, before the fill: the reader's
+    // layout should be the one they see arrive, not one that snaps into place
+    // a second later. A width for a column that no longer exists was already
+    // dropped on read.
+    if (resizable) applyColumnLayout();
     scheduleFill();
     return api;
   }
@@ -1187,6 +1785,25 @@ export function scoreTable(config) {
     /** The filters in force, in words — for row 1 of an export. */
     filterSummary,
     flush: flushRemaining,
+    /**
+     * The column layout, for the verification suite and for any caller that
+     * needs to drive it without a pointer. Read-only views of the state plus
+     * the same three actions the controls call — never a second implementation
+     * that could agree with itself while the screen does something else.
+     */
+    columns: {
+      layout: () => layout.map((c) => ({ id: c.id, label: c.label, hideable: c.hideable, resizable: c.resizable })),
+      widths: () => Object.fromEntries(widths),
+      hidden: () => [...hidden],
+      naturalWidths: () => Object.fromEntries(naturalWidths),
+      setWidth: (label, px) => {
+        setColumnWidth(label, px);
+        persistColumns();
+      },
+      setHidden: setColumnHidden,
+      autoFit: autoFitColumn,
+      reset: resetColumns,
+    },
   };
 
   return api;
