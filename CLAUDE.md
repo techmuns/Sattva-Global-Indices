@@ -1429,7 +1429,7 @@ scripts/
   fetch-corporate-actions.mjs      BSE's own action history → public/data/corporate-actions.json
   build-companies.mjs              everything → public/data/companies.json
   verify-data.mjs                  42 data assertions; no browser, no network
-  verify-ui.mjs                    30 interface assertions; the served site
+  verify-ui.mjs                    32 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
@@ -1511,7 +1511,7 @@ node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
 node scripts/verify-data.mjs           # 42 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 30 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 32 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 

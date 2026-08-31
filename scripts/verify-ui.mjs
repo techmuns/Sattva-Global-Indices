@@ -1537,7 +1537,196 @@ async function main() {
       fix();
       new MutationObserver(fix).observe(document.body, { childList: true, subtree: true });
     })()`),
+    // ⚠ `restoreByReload` IS NOT ENOUGH HERE, AND `--prove` IS HOW THAT SHOWED.
+    //
+    // The switch back to the default sits at the END of `run`, so a sabotaged
+    // run — which is supposed to throw partway — never reaches it. The chosen
+    // baseline is in localStorage, so it survives the reload too, and every
+    // check after this one then measures a screen this one re-based. Check 51
+    // found it: "0 up, 0 down" in the prove pass, with clean runs either side.
+    //
+    // A restore hook runs in the harness's `finally`, which is the only place
+    // that sees the check however it ended.
+    restore: async (c) => {
+      c.sabotageHook = null;
+      await c.page.evaluate(() => {
+        try { localStorage.removeItem('sattva.v1.rebalanceBaseline'); } catch { /* storage unavailable */ }
+      }).catch(() => {});
+      await c.load();
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 51,
+    what: 'the flow chip is green up and red down, and its arrow agrees with the delta on its own row',
+    run: async (c) => {
+      // The chip's colour IS its direction, and it shares the emerald/rose ramp
+      // with the delta column two cells away. Two different meanings on one pair
+      // of colours in a single row is how a reader learns to distrust both — so
+      // this asserts the mapping AND that the arrow agrees with the number it
+      // claims to summarise.
+      const m = await c.page.evaluate(() => {
+        const heads = [...document.querySelectorAll('thead th')].map((h) => h.textContent.trim());
+        const vi = heads.findIndex((h) => /^Verdict/.test(h));
+        const di = heads.findIndex((h) => /vs index/.test(h));
+        if (vi < 0 || di < 0) return { vi, di };
+        const wrongColour = [];
+        const wrongArrow = [];
+        let up = 0;
+        let down = 0;
+        let rows = 0;
+        for (const row of document.querySelectorAll('tbody tr')) {
+          rows += 1;
+          const cells = row.querySelectorAll('td');
+          const chip = [...(cells[vi]?.querySelectorAll('span') ?? [])]
+            .find((sp) => /^flow/.test(sp.textContent.trim()));
+          if (!chip) continue;
+          const isUp = chip.textContent.includes('\u2191');
+          if (isUp) up += 1; else down += 1;
+          const cls = chip.className;
+          const green = /emerald/.test(cls);
+          const red = /rose/.test(cls);
+          if (isUp ? !green : !red) wrongColour.push(`${chip.textContent.trim()} :: ${cls}`);
+          // And the arrow must agree with the delta on the same row.
+          const delta = cells[di]?.innerText.trim() ?? '';
+          if (delta && !delta.startsWith('\u2014')) {
+            const negative = delta.startsWith('-');
+            if (isUp === negative) wrongArrow.push(`${chip.textContent.trim()} beside ${delta}`);
+          }
+        }
+        return { vi, di, rows, up, down, wrongColour, wrongArrow };
+      });
+
+      ok(m.vi >= 0 && m.di >= 0, 'the Verdict and delta columns are both locatable', JSON.stringify(m));
+      ok(m.up + m.down > 5, 'enough chips are on screen to judge', `${m.up} up, ${m.down} down`);
+      // BOTH directions must occur. A screen where every chip pointed the same
+      // way would satisfy a one-sided mapping by accident.
+      ok(m.up > 0 && m.down > 0,
+        'both directions occur, or the mapping is only half tested', `${m.up} up, ${m.down} down`);
+      empty(m.wrongColour, 'every up chip is emerald and every down chip is rose', (x) => x);
+      empty(m.wrongArrow, 'every chip points the way its own row\'s delta does', (x) => x);
+      return `${m.up + m.down} chips on ${m.rows} rows — ${m.up} emerald up, ${m.down} rose down, `
+        + 'each agreeing with its own delta';
+    },
+    // Swap the ramp, which is the change that would make green mean losing.
+    // Idempotent for the same reason as the sabotages above: a MutationObserver
+    // that rewrites what it observes never settles.
+    sabotage: persistent(`(() => {
+      const fix = () => {
+        for (const sp of document.querySelectorAll('tbody td span')) {
+          if (!/^flow/.test(sp.textContent.trim())) continue;
+          if (sp.dataset.sabotaged === '1') continue;
+          sp.dataset.sabotaged = '1';
+          sp.className = sp.className
+            .replace(/emerald/g, '__TMP__').replace(/rose/g, 'emerald').replace(/__TMP__/g, 'rose');
+        }
+      };
+      fix();
+      new MutationObserver(fix).observe(document.body, { childList: true, subtree: true });
+    })()`),
     restore: restoreByReload,
+  }, ctx);
+
+  await suite.check({
+    id: 52,
+    what: 'a chosen baseline survives a reload WITH ITS NUMBERS — not a heading over a column of em dashes',
+    run: async (c) => {
+      // ⚠ THIS CHECK EXISTS BECAUSE THE BUG IT CATCHES SHIPPED IN THE SAME HOUR.
+      //
+      // The alternates live in their own file and are fetched on demand, and the
+      // only caller was the picker's own change handler. The CHOICE is in
+      // localStorage and survives a reload; the FILE is in nobody's memory and
+      // does not. So a reader who re-based yesterday came back to the baseline
+      // they picked named in the heading and 1,265 em dashes underneath, for
+      // ever — the loading state, permanently true.
+      //
+      // Measured before the fix: 0 flow chips after a reload on the August 2025
+      // baseline, against 15 up and 36 down before it.
+      const context = await c.page.evaluate(() => {
+        const select = document.querySelector('[data-baseline]');
+        return { value: select?.value ?? null, options: [...(select?.options ?? [])].map((o) => o.value) };
+      });
+      ok(context.options.length >= 2, 'there is an alternate baseline to choose',
+        JSON.stringify(context.options));
+      const other = context.options.find((o) => o !== context.value);
+
+      await c.page.evaluate(() => { window.__previousTable = document.querySelector('[data-score-table]'); });
+      await c.page.evaluate((value) => {
+        const select = document.querySelector('[data-baseline]');
+        select.value = value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }, other);
+      await c.page.waitForFunction(
+        () => window.__previousTable && !window.__previousTable.isConnected, null, { timeout: 30000 },
+      );
+      await c.page.evaluate(() => window.__settle());
+
+      const readings = () => c.page.evaluate(() => {
+        const heads = [...document.querySelectorAll('thead th')].map((h) => h.textContent.trim());
+        const di = heads.findIndex((h) => /vs index/.test(h));
+        let numbers = 0;
+        let dashes = 0;
+        let loading = 0;
+        for (const row of document.querySelectorAll('tbody tr')) {
+          const cell = row.querySelectorAll('td')[di];
+          const text = cell?.innerText.trim() ?? '';
+          if (!text) continue;
+          if (text.startsWith('\u2014')) {
+            dashes += 1;
+            const titled = cell.querySelector('[title]') ?? (cell.getAttribute('title') ? cell : null);
+            if (/still loading/i.test(titled?.getAttribute('title') ?? '')) loading += 1;
+          } else numbers += 1;
+        }
+        return { baseline: document.querySelector('[data-baseline]')?.value ?? null, numbers, dashes, loading };
+      });
+
+      const before = await readings();
+      equal(before.baseline, other, 'the picker switched to the alternate baseline');
+      ok(before.numbers > 500, 'the alternate baseline carries readings before the reload',
+        JSON.stringify(before));
+
+      // A REAL document reload, which is what a reader does. The choice comes
+      // back from localStorage; the file has to be fetched again.
+      await c.reload();
+      const after = await readings();
+
+      equal(after.baseline, other, 'the chosen baseline survives a reload');
+      equal(after.loading, 0,
+        'and NOT ONE row is left saying "still loading" — that state must resolve, not persist');
+      ok(after.numbers > 500,
+        'the columns carry their numbers after the reload, not a heading over em dashes',
+        JSON.stringify(after));
+      // The absences that remain are the honest ones and must still say why.
+      ok(Math.abs(after.numbers - before.numbers) <= 2,
+        'the same rows carry readings before and after — a reload is not a re-measurement',
+        `${before.numbers} before, ${after.numbers} after`);
+
+      return `${other} survived a reload: ${after.numbers} readings, ${after.dashes} stated absences, `
+        + '0 rows left loading';
+    },
+    // Leave the columns in the loading state the fix exists to resolve.
+    sabotage: persistent(`(() => {
+      const fix = () => {
+        const heads = [...document.querySelectorAll('thead th')].map((h) => h.textContent.trim());
+        const di = heads.findIndex((h) => /vs index/.test(h));
+        if (di < 0) return;
+        for (const row of document.querySelectorAll('tbody tr')) {
+          const cell = row.querySelectorAll('td')[di];
+          if (!cell || cell.dataset.sabotaged === '1') continue;
+          cell.dataset.sabotaged = '1';
+          cell.innerHTML = '<span class="text-slate-300" title="this baseline is still loading — not a fact about this company">\u2014</span>';
+        }
+      };
+      fix();
+      new MutationObserver(fix).observe(document.body, { childList: true, subtree: true });
+    })()`),
+    restore: async (c) => {
+      c.sabotageHook = null;
+      await c.page.evaluate(() => {
+        try { localStorage.removeItem('sattva.v1.rebalanceBaseline'); } catch { /* storage unavailable */ }
+      }).catch(() => {});
+      await c.load();
+    },
   }, ctx);
 
   await suite.check({
