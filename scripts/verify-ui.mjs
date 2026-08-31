@@ -1873,6 +1873,398 @@ async function main() {
     restore: restoreByReload,
   }, ctx);
 
+  /* ── columns the reader controls ────────────────────────────────────────*/
+  suite.section('Columns the reader controls');
+
+  /**
+   * Every check in this block leaves a stored layout behind, and a stored
+   * layout is applied on every subsequent load. Clearing it is part of
+   * restoring, not politeness — a width left set here would silently become the
+   * starting condition of every check after it.
+   */
+  const clearColumnPrefs = async (c) => {
+    await c.page.evaluate(() => {
+      try { localStorage.removeItem('sattva.v1.columns.companies'); } catch { /* storage unavailable */ }
+      window.__sattva?.view?.table()?.columns?.reset();
+    });
+  };
+  const restoreColumns = async (c) => {
+    c.sabotageHook = null;
+    await c.load();
+    await clearColumnPrefs(c);
+    await c.load();
+  };
+
+  /** Column ids for a set of heading patterns — located by what the header
+   *  says, never by position, so adding a column ahead of them cannot silently
+   *  point a check at a different column. */
+  const COLUMN_HEADINGS = ['Free float', 'Index return', 'Stock return', 'vs index', 'Funds'];
+
+  await suite.check({
+    id: 47,
+    what: 'a squeezed column dissolves what it cuts — no cell ends in a clean, readable edge',
+    run: async (c) => {
+      // ⚠ THIS IS §2.20 AT THE LAYOUT LAYER, AND IT IS THE REASON THE FEATURE
+      // NEEDED A CHECK AT ALL.
+      //
+      // Measured before the guard existed: with the Free float column dragged
+      // to 70px, HDFC Bank's ₹10,99,757 Cr rendered as `10,99,75`. Not blank,
+      // not an em dash — a clean, plausible, ten-times-wrong number on the
+      // largest bank in the country, with nothing on screen to say it had been
+      // cut. A formatter that rounds a real value to nothing is forbidden; a
+      // column width that truncates one into a different value is the same
+      // failure wearing a different hat.
+      //
+      // So the assertion is not "the reader can read it" — at 48px they cannot,
+      // and that is their choice. It is that a cut value never LOOKS whole.
+      await clearColumnPrefs(c);
+      const m = await c.page.evaluate(() => {
+        const table = window.__sattva.view.table();
+        // Squeeze every resizable column to the floor, so the measurement is
+        // over the whole table rather than the one column that happened to be
+        // chosen.
+        for (const column of table.columns.layout()) {
+          if (column.resizable) table.columns.setWidth(column.label, 1); // clamped to MIN_COL_PX
+        }
+        const cells = [...document.querySelectorAll('[data-score-table] tbody td')];
+        const clipped = [];
+        const naked = [];
+        for (const td of cells) {
+          if (td.scrollWidth <= td.clientWidth) continue;
+          clipped.push(td);
+          const style = getComputedStyle(td);
+          const mask = style.maskImage && style.maskImage !== 'none' ? style.maskImage : style.webkitMaskImage;
+          const fades = Boolean(mask) && mask !== 'none' && /gradient/.test(mask);
+          if (!fades || style.overflow !== 'hidden') {
+            naked.push(`${td.dataset.col}:${td.innerText.trim().slice(0, 18)} overflow=${style.overflow} mask=${String(mask).slice(0, 24)}`);
+          }
+        }
+        return {
+          cells: cells.length,
+          clipped: clipped.length,
+          naked: naked.slice(0, 8),
+          nakedCount: naked.length,
+          declaredWidth: Number(
+            /table\{table-layout:fixed;width:(\d+)px\}/.exec(document.querySelector('[data-col-style]')?.textContent ?? '')?.[1] ?? NaN,
+          ),
+          visible: [...document.querySelectorAll('[data-score-table] thead th')]
+            .filter((th) => getComputedStyle(th).display !== 'none').length,
+          layout: getComputedStyle(document.querySelector('[data-score-table] table')).tableLayout,
+        };
+      });
+
+      // Non-vacuity first: a squeeze that clipped nothing would let every
+      // assertion below pass without ever meeting the case they exist for.
+      ok(m.clipped > 0, 'the squeeze must actually clip cells, or nothing below is being tested',
+        `${m.clipped} of ${m.cells} cells overflow at the minimum width`);
+      equal(m.layout, 'fixed', 'explicit widths only mean anything under a fixed table layout');
+      // A fixed-layout table told to be 100% wide redistributes the slack, so
+      // every width the reader set comes out as something else. The table has
+      // to be the SUM of its columns for a width to mean what it says.
+      //
+      // Read off the RULE the table generates, not off the rendered box. Without
+      // Tailwind the table falls back to `border-collapse: separate`, whose
+      // border spacing is part of the rendered width and none of the code's
+      // business — measured here as 574px for eleven 48px columns.
+      equal(m.declaredWidth, m.visible * 48,
+        `the table must declare the width its ${m.visible} columns add up to, not the container's`);
+      equal(m.nakedCount, 0,
+        `every clipped cell must fade at the edge it cuts — ${m.naked.join(' | ')}`);
+      // Leave the table as it was found. `restore` only runs under --prove, so
+      // a check that stored a squeezed layout would quietly become the starting
+      // condition of every check after it in a normal run.
+      await clearColumnPrefs(c);
+      return `${m.clipped} of ${m.cells} cells clip at the 48px floor, and every one of them dissolves rather than ending in a readable edge`;
+    },
+    // THE CHANGE A FUTURE AUTHOR ACTUALLY MAKES: the fade looks like a
+    // rendering artefact, so they delete it.
+    //
+    // Overridden with `!important` rather than edited out of the table's own
+    // stylesheet, and that is not a stylistic choice. The check rewrites that
+    // stylesheet several times, and a MutationObserver watching for the rewrite
+    // fires on a microtask — AFTER the synchronous evaluate() that squeezes and
+    // then reads has already finished. That sabotage was written first, was
+    // survived, and reported CANNOT FAIL. A sabotage must land before the thing
+    // it sabotages is observed, and a static override always has.
+    sabotage: persistent(`(() => {
+      let node = document.getElementById('sabotage-no-fade');
+      if (!node) {
+        node = document.createElement('style');
+        node.id = 'sabotage-no-fade';
+        node.textContent = '[data-score-table] tbody td{-webkit-mask-image:none!important;mask-image:none!important}';
+        document.head.append(node);
+      }
+    })()`),
+    restore: restoreColumns,
+  }, ctx);
+
+  await suite.check({
+    id: 48,
+    what: 'the figure columns stay in inline flow, which is what makes a squeezed cell ellipsise instead of cut',
+    run: async (c) => {
+      // The fade in check 47 is the backstop. The PRIMARY signal is the
+      // ellipsis, and whether Chrome draws one depends on the shape of the
+      // cell's content, which had to be measured rather than assumed:
+      //
+      //   plain text                    `12,34…`     ellipsis
+      //   inline flow + chips           `10,9…`      ellipsis
+      //   two or more chips             `SMIN …`     ellipsis
+      //   ONE atomic inline box         `10,99,75`   NO ELLIPSIS
+      //
+      // An `inline-flex` wrapper around the whole cell is the last row, and it
+      // is what these columns used to carry. Wrapping it in a plain <span> does
+      // not rescue it; a trailing zero-width space does not either. Both were
+      // tried. The only fix is not to have a lone atomic box.
+      await clearColumnPrefs(c);
+      const m = await c.page.evaluate((headings) => {
+        const heads = [...document.querySelectorAll('[data-score-table] thead th')];
+        const colOf = (needle) => heads.find((th) => th.textContent.includes(needle))?.dataset.col ?? null;
+        const table = window.__sattva.view.table();
+        const targets = headings.map(colOf).filter(Boolean);
+        for (const column of table.columns.layout()) {
+          if (column.resizable) table.columns.setWidth(column.label, 1);
+        }
+        // BOTH the computed display AND the class that would produce it.
+        // Tailwind arrives from a CDN and does not always load in a sandboxed
+        // run; where it has not, an `inline-flex` wrapper computes to plain
+        // `inline` and a display-only test sees nothing wrong. That is exactly
+        // how the first version of this check survived its own sabotage.
+        const ATOMIC = /^(inline-flex|inline-block|inline-grid|inline-table|flex|grid|block|table)$/;
+        const ATOMIC_CLASS = /(^|\s)(inline-flex|inline-block|inline-grid|inline-table|flex|grid|block|table)(\s|$)/;
+        const offenders = [];
+        let inspected = 0;
+        let clipped = 0;
+        let ellipsised = 0;
+        for (const col of targets) {
+          for (const td of document.querySelectorAll(`[data-score-table] tbody td[data-col="${col}"]`)) {
+            inspected += 1;
+            const style = getComputedStyle(td);
+            if (td.scrollWidth > td.clientWidth) clipped += 1;
+            if (style.textOverflow === 'ellipsis' && style.whiteSpace === 'nowrap') ellipsised += 1;
+            // The failing shape: the cell's whole content is one atomic box.
+            const elements = [...td.children];
+            const ownText = [...td.childNodes]
+              .filter((n) => n.nodeType === 3 && n.textContent.trim())
+              .length;
+            if (
+              elements.length === 1 && ownText === 0
+              && (ATOMIC.test(getComputedStyle(elements[0]).display) || ATOMIC_CLASS.test(elements[0].className))
+            ) {
+              offenders.push(`${col}: <${elements[0].tagName.toLowerCase()} class="${elements[0].className}"> is the cell's only content`);
+            }
+          }
+        }
+        return { targets, inspected, clipped, ellipsised, offenders: offenders.slice(0, 6), offenderCount: offenders.length };
+      }, COLUMN_HEADINGS);
+
+      equal(m.targets.length, COLUMN_HEADINGS.length, 'every figure column must be locatable by its heading');
+      ok(m.clipped > 0, 'the squeeze must clip these columns, or the shape below is untested', `${m.clipped} clipped`);
+      equal(m.ellipsised, m.inspected, 'every cell in these columns must be able to show an ellipsis');
+      equal(m.offenderCount, 0,
+        `a cell whose entire content is one atomic inline box is cut with no ellipsis — ${m.offenders.join(' | ')}`);
+      await clearColumnPrefs(c);
+      return `${m.inspected} cells across ${COLUMN_HEADINGS.length} figure columns · ${m.clipped} clipped at the floor · 0 wrapped in a lone atomic box`;
+    },
+    // Put the `inline-flex` wrapper back — precisely the markup these three
+    // columns carried before, and the tidiest-looking way to align a number
+    // with its chips.
+    sabotage: persistent(`(() => {
+      const heads = () => [...document.querySelectorAll('[data-score-table] thead th')];
+      const wrap = () => {
+        const target = heads().find((h) => h.textContent.includes('Free float'))?.dataset.col;
+        if (!target) return;
+        for (const td of document.querySelectorAll('[data-score-table] tbody td[data-col="' + target + '"]')) {
+          if (td.dataset.sabotaged) continue;
+          td.dataset.sabotaged = '1';
+          const box = document.createElement('span');
+          box.className = 'inline-flex items-center justify-end gap-1';
+          while (td.firstChild) box.append(td.firstChild);
+          td.append(box);
+        }
+      };
+      wrap();
+      new MutationObserver(wrap).observe(document.body, { childList: true, subtree: true });
+    })()`),
+    restore: restoreColumns,
+  }, ctx);
+
+  await suite.check({
+    id: 49,
+    what: 'a hidden column is disclosed by count and by name, a sort on one says so, and the export keeps every field',
+    run: async (c) => {
+      // A screen showing nine of eleven columns looks exactly like a screen
+      // that has nine. And a sort running on a column that is no longer there
+      // puts the rows in an order whose basis is off-screen — which reads as no
+      // order at all, on the one table where the order IS the finding.
+      await clearColumnPrefs(c);
+      const before = await c.page.evaluate(() => window.__sattva.rows().length);
+
+      const m = await c.page.evaluate(() => {
+        const table = window.__sattva.view.table();
+        const sortKey = table.view.sort?.key;
+        table.columns.setHidden('Day %', true);
+        table.columns.setHidden('EM SC wt %', true);
+        // …and put away the column the table is sorted BY.
+        if (sortKey) table.columns.setHidden(sortKey, true);
+        const section = document.querySelector('[data-score-table]');
+        const heads = [...section.querySelectorAll('thead th')];
+        return {
+          sortKey,
+          hidden: table.columns.hidden(),
+          count: section.querySelector('[data-columns-count]')?.textContent.trim() ?? '',
+          note: section.querySelector('[data-columns-note]')?.textContent ?? '',
+          noteVisible: section.querySelector('[data-columns-note]')?.hidden === false,
+          // Cell/heading counts must NOT change: a hidden column is collapsed
+          // by CSS and stays in the tree, so every index-addressed assertion in
+          // this suite keeps addressing the column it means.
+          heads: heads.length,
+          total: table.columns.layout().length,
+          collapsed: heads.filter((th) => getComputedStyle(th).display === 'none').length,
+          firstRowCells: section.querySelectorAll('tbody tr:first-child td').length,
+          rows: window.__sattva.rows().length,
+        };
+      });
+
+      equal(m.hidden.length, 3, 'three columns must actually be hidden for this to test anything');
+      equal(m.collapsed, 3, 'a hidden column must be collapsed on screen');
+      equal(m.firstRowCells, m.heads, 'a hidden column stays in the tree, so headings and cells stay aligned');
+      equal(m.rows, before, 'hiding a column must not change which rows are on screen');
+      // DERIVED, NEVER TYPED. A literal "8 of 11" here would go stale the day a
+      // column is added — which is exactly what happened to this check between
+      // one rebase and the next.
+      equal(m.count, `${m.total - 3} of ${m.total}`,
+        'the control must say how many of how many columns are shown');
+      for (const label of m.hidden) {
+        ok(m.note.includes(label), 'the note must NAME every hidden column, not just count them', `"${m.note.slice(0, 120)}"`);
+      }
+      ok(m.noteVisible, 'the note must be on screen, not merely present in the markup');
+      ok(/sorted by/i.test(m.note) && m.note.includes(m.sortKey),
+        'a sort whose column is hidden must say so in words', `"${m.note.slice(0, 200)}"`);
+
+      // "Hiding changes this screen only" is a claim about the export, so it is
+      // tested against the export rather than repeated.
+      const [download] = await Promise.all([
+        c.page.waitForEvent('download', { timeout: 15000 }),
+        c.page.click('[data-export]'),
+      ]);
+      const csv = c.csvOverride ?? readFileSync(await download.path(), 'utf8');
+      const parsed = parseCsv(csv);
+      const headerIndex = parsed.findIndex((r) => r[0]?.replace(/^﻿/, '') === 'Name' && r.includes('ISIN'));
+      ok(headerIndex > 0, 'the export must still carry a locatable header row');
+      const header = parsed[headerIndex];
+      ok(header.length > 30, 'a column hidden on screen must still be in the workbook', `${header.length} columns exported`);
+      for (const label of ['Day change %', 'Free float (INR Cr)']) {
+        ok(header.some((h) => h === label), `"${label}" must survive being hidden on screen`, header.join('|').slice(0, 200));
+      }
+      await clearColumnPrefs(c);
+      return `3 of ${m.total} columns hidden and all three named on screen · the sort says its column is away · ${header.length} columns still exported`;
+    },
+    // Silence the note — the change made when the amber line "looks noisy".
+    //
+    // The writes are swallowed at the element rather than undone after the
+    // fact, for the same reason as check 47: the check hides its columns and
+    // reads the note inside one synchronous evaluate(), and an observer-driven
+    // sabotage does not run until that evaluate() is over. It was written that
+    // way first and reported CANNOT FAIL.
+    sabotage: persistent(`(() => {
+      for (const note of document.querySelectorAll('[data-columns-note]')) {
+        if (note.dataset.sabotaged) continue;
+        note.dataset.sabotaged = '1';
+        Object.defineProperty(note, 'textContent', { get: () => '', set: () => {}, configurable: true });
+        Object.defineProperty(note, 'hidden', { get: () => true, set: () => {}, configurable: true });
+      }
+    })()`),
+    restore: restoreColumns,
+  }, ctx);
+
+  await suite.check({
+    id: 50,
+    what: 'widths and hidden columns survive a real reload, and Reset gives back the layout the table ships with',
+    run: async (c) => {
+      // A layout the reader has to rebuild every morning is not a layout. And a
+      // layout with no way back is a trap: Reset has to return the automatic
+      // widths the table shipped with, not merely a different set of numbers.
+      await clearColumnPrefs(c);
+      const shipped = await c.page.evaluate(() => ({
+        mode: document.querySelector('[data-score-table]').dataset.colLayout,
+        hidden: window.__sattva.view.table().columns.hidden().length,
+      }));
+      equal(shipped.mode, 'auto', 'a reader who never touches the controls must get automatic layout');
+      equal(shipped.hidden, 0, 'and every column');
+
+      await c.page.evaluate(() => {
+        const table = window.__sattva.view.table();
+        table.columns.setWidth('Full mcap (₹ Cr)', 210);
+        table.columns.setHidden('Float %', true);
+      });
+      await c.reload();
+      const after = await c.page.evaluate(() => {
+        const table = window.__sattva.view.table();
+        // FIND THE COLUMN BY ITS HEADING, NEVER BY POSITION. A hard-coded
+        // `data-col="c5"` was right until a release added three columns ahead
+        // of it, and then this check read a different column's width and
+        // reported a persistence failure that was its own. The code under test
+        // keys widths by label for exactly this reason; the check must too.
+        const heads = [...document.querySelectorAll('[data-score-table] thead th')];
+        const th = heads.find((h) => h.textContent.includes('Full mcap'));
+        // Is Tailwind actually here? Without it the table falls back to
+        // `border-collapse: separate` with 2px of border spacing, so a cell's
+        // rendered box is its column width plus the spacing — a reading about
+        // the CDN, not about persistence. Same reasoning as checks 33 and 42.
+        const probe = document.createElement('table');
+        probe.className = 'border-collapse';
+        document.body.append(probe);
+        const styled = getComputedStyle(probe).borderCollapse === 'collapse';
+        probe.remove();
+        return {
+          styled,
+          width: table.columns.widths()['Full mcap (₹ Cr)'] ?? null,
+          hidden: table.columns.hidden(),
+          mode: document.querySelector('[data-score-table]').dataset.colLayout,
+          // Read what reached the DOM too, not just the stored number — a width
+          // that persists into a variable but not onto the screen is not
+          // persistence.
+          declared: th?.style.width ?? '',
+          rendered: Math.round(th?.getBoundingClientRect().width ?? 0),
+          collapsedOnScreen: [...document.querySelectorAll('[data-score-table] thead th')]
+            .filter((el) => getComputedStyle(el).display === 'none').length,
+        };
+      });
+      equal(after.width, 210, 'the width a reader set must come back after a reload');
+      equal(after.mode, 'fixed', 'and the table must still be under explicit widths');
+      equal(after.hidden.join(','), 'Float %', 'the hidden column must come back hidden');
+      equal(after.collapsedOnScreen, 1, 'and it must be collapsed on screen, not merely recorded');
+      equal(after.declared, '210px', 'the stored width must reach the header cell that sizes the column');
+      if (after.styled) equal(after.rendered, 210, 'and must be the width actually rendered');
+
+      await c.page.evaluate(() => window.__sattva.view.table().columns.reset());
+      await c.reload();
+      const reset = await c.page.evaluate(() => ({
+        mode: document.querySelector('[data-score-table]').dataset.colLayout,
+        widths: Object.keys(window.__sattva.view.table().columns.widths()).length,
+        hidden: window.__sattva.view.table().columns.hidden().length,
+      }));
+      equal(reset.mode, 'auto', 'Reset must give back automatic layout, not a different set of fixed widths');
+      equal(reset.widths, 0, 'and no stored widths at all');
+      equal(reset.hidden, 0, 'and every column back');
+      return `a 210px width and one hidden column survived a document reload; Reset restored automatic layout`
+        + (after.styled
+          ? ` · the column measured ${after.rendered}px on screen`
+          : ' · rendered width NOT compared: the Tailwind CDN did not load here, so the table falls back to '
+            + `border-spacing and measures ${after.rendered}px for a 210px column`);
+    },
+    // Drop the writes. The failure this catches is the one nobody notices
+    // locally, because the layout is right until the tab is closed.
+    sabotage: persistent(`(() => {
+      const real = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (String(key).includes('columns.')) return undefined;
+        return real.call(this, key, value);
+      };
+    })()`),
+    restore: restoreColumns,
+  }, ctx);
+
   /* ── the live path ──────────────────────────────────────────────────────*/
   suite.section('The live path');
 

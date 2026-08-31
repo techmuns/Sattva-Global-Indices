@@ -909,8 +909,8 @@ output would be checkable** — that is the whole difference between it and a nu
 Two commands. Neither needs the other, and both exit non-zero if any check failed.
 
 ```bash
-node scripts/verify-data.mjs                                   # 21 checks, no browser, no network
-node scripts/verify-ui.mjs                                     # 21 checks vs http://127.0.0.1:8080
+node scripts/verify-data.mjs                                   # 42 checks, no browser, no network
+node scripts/verify-ui.mjs                                     # 30 checks vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live  # vs `npx wrangler dev`
 node scripts/verify-data.mjs --prove                           # break each check; it must go red
 ```
@@ -969,6 +969,11 @@ that undoing the fix turns something red:
 | 39b | a tick repaints only changed rows | a rebuild throwing away the reader's search and sort |
 | 40 | the token appears in zero **served** files | checking the repo instead of what is served |
 | 41 | Worker unreachable ⇒ EOD, "Last close" | claiming live when no byte arrived |
+| 44 | a typed range reads grouped digits and names an entry it cannot read | `parseFloat("3,000")` → `3`, filtering confidently on a wrong number |
+| 47 | a squeezed column dissolves what it cuts | ₹10,99,757 Cr rendered as `10,99,75` at 70px — a clean, wrong number |
+| 48 | figure cells stay in inline flow | one `inline-flex` wrapper, which Chrome cuts with no ellipsis |
+| 49 | a hidden column is named, and a sort on one says so | rows in an order whose basis is off-screen |
+| 50 | widths and hidden columns survive a reload; Reset restores the shipped layout | a layout that has to be rebuilt every morning, and one with no way back |
 
 Three checks in `verify-data` cover the second methodology (`public/js/model/gimi.js`):
 

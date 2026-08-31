@@ -57,17 +57,22 @@ export function avatarFor(name, { size = 34 } = {}) {
  * The source travels with the number — a reader comparing two rows must be able
  * to see that one is NSE-sourced and one is not, because the two exchanges
  * apply different float definitions and their factors genuinely disagree.
+ *
+ * Spaced by its own `ml-1` rather than by a flex gap on whatever holds it: the
+ * table's cells cannot be flex containers, because a cell whose entire content
+ * is one flex box is cut without an ellipsis when its column is squeezed. See
+ * the column-layout header in ui/screener.js.
  */
 export function sourceChip(source) {
   if (source === 'nse') {
     return (
-      '<span class="inline-flex items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 ring-1 ring-inset ring-indigo-200" ' +
+      '<span class="ml-1 inline-flex items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 ring-1 ring-inset ring-indigo-200" ' +
       'title="Free float as published by NSE. NSE is used wherever it publishes a reading, because MSCI follows NSE.">NSE</span>'
     );
   }
   if (source === 'bse') {
     return (
-      '<span class="inline-flex items-center rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-purple-700 ring-1 ring-inset ring-purple-200" ' +
+      '<span class="ml-1 inline-flex items-center rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-purple-700 ring-1 ring-inset ring-purple-200" ' +
       'title="Free float as published by BSE. Used where NSE publishes no reading for this company.">BSE</span>'
     );
   }
