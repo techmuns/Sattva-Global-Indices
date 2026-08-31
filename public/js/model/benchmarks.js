@@ -176,6 +176,26 @@ export function weekdayTally(series) {
 export function assertSeriesDates(series) {
   const tally = weekdayTally(series);
   const problems = [];
+
+  // ⚠ ONE TRADING DATE, ONE CLOSE. Yahoo's timestamps are unique but the dates
+  // they map to are not: it appends a live bar for the current session beside
+  // that session's daily bar, and both label the same date. The committed file
+  // carried USDINR=X twice on 2026-08-28 — 95.4704 and 95.3600 — and every
+  // consumer builds a Map from this series, so whichever bar happened to come
+  // last silently won. Both are plausible rates; the ambiguity is the defect.
+  const seen = new Set();
+  const duplicates = [];
+  for (const point of series ?? []) {
+    if (seen.has(point.date)) duplicates.push(point.date);
+    seen.add(point.date);
+  }
+  if (duplicates.length > 0) {
+    problems.push(
+      `${duplicates.length} duplicate date label(s) — one trading date must carry one close: `
+      + `${[...new Set(duplicates)].slice(0, 5).join(', ')}`,
+    );
+  }
+
   const weekend = (tally.Sat ?? 0) + (tally.Sun ?? 0);
   if (weekend > 0) {
     problems.push(`${weekend} weekend date label(s) — no exchange here trades at a weekend`);

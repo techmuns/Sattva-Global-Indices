@@ -583,10 +583,25 @@ company is **quarantined** and its verdict becomes `unknown`.
 | **Cadence** | once per review, when a new price window closes |
 | **Why** | The desk's question is review-to-review, and the repo held one trading day of prices. |
 
-Each scrip's raw close on every business day of the two most recent **closed** MSCI price windows —
-20 sessions, 4,772 scrips. `dates[]` is the union of both windows in order; `scrips[code].closes[]`
-is index-aligned to it, with `null` for a session the scrip did not trade. `firstSeen` separates
-that from *not yet listed*, which index-aligned nulls cannot tell apart on their own.
+Each scrip's raw close on every business day of the two most recent **closed** MSCI price windows,
+**and** on a short span around each of the last four **rebalance effective dates** — 37 sessions,
+4,792 scrips. `dates[]` is the union of every captured session in order; `scrips[code].closes[]` is
+index-aligned to it, with `null` for a session the scrip did not trade. `firstSeen` separates that
+from *not yet listed*, which index-aligned nulls cannot tell apart on their own.
+
+`windows[]` and `baselines[]` are **two different things and answer two different questions**:
+
+| | `windows[]` | `baselines[]` |
+| --- | --- | --- |
+| What | the ten days MSCI struck a review's market caps in | the day that review's composition took **effect** |
+| For the May 2026 review | 17–30 Apr 2026 | 29 May 2026 |
+| Sessions each | 10 | 4–5 (the effective date ± 2 business days) |
+| The extra days are | the window itself — all ten are averaged | a **sensitivity span**; only `resolvedDate` is used |
+
+Each baseline carries `resolvedDate`, `walkedBackDays` and `tradedOnEffectiveDate`, because MSCI's
+effective date is a global index date and **the Indian market can be shut on it**. The baseline then
+resolves to the nearest earlier session in the span and says so. On the committed capture all four
+effective dates were Indian sessions, so nothing walked back.
 
 **Closes are unadjusted.** They are BSE's own published figures carried through unchanged, so an
 adjusted price — a number no exchange published — never enters the record. Adjustment happens in
@@ -723,9 +738,148 @@ move. Re-reading the trend against that rank double-counts.
 `trendSignal()` is the one role that does not. Today's rank is a *point forecast* of the rank in
 MSCI's next price window, which has not happened, so a robust trend is evidence about which way that
 forecast moves. It marks a company within `nearBoundaryPct` of the observed rank cutoff whose robust
-trend points **across** a boundary its rank has not crossed — additively, beside the verdict pill,
-never inside it. On the committed record it fires on two companies (HFCL, Kalyan Jewellers), both
-currently reading `stable`.
+trend points **across** a boundary its rank has not crossed — additively, never inside a verdict.
+
+> **Where it renders changed on 31 Aug 2026.** `trendSignal()` used to be the chip beside the
+> verdict pill. That chip is now driven by `flowPressure()` on the **since-rebalance** reading, and
+> `trendSignal()` lives in its own drill section beside the window it belongs to. Two chips, on two
+> windows that disagree about the sign for 27.8% of companies, beside one verdict was a reader's
+> trap: whichever one you read, you could not tell which window it meant.
+
+---
+
+## `sinceRebalance` on `companies[]` — the desk's baseline
+
+| | |
+| --- | --- |
+| **Produced by** | `public/js/model/relative.js` → `assessSinceRebalance()`, called from `build-companies.mjs` |
+| **Tier** | 2 — derived by us from tier-1 closes and tier-1 published actions |
+| **Alternates** | `public/data/relative-baselines.json`, fetched only when a reader re-bases |
+
+How a company moved against its segment **since the last rebalance took effect**. This is not a
+variant of `relativePerformance` above; it is a different window answering a different question, and
+the two are kept side by side because neither substitutes for the other.
+
+| | `relativePerformance` | `sinceRebalance` |
+| --- | --- | --- |
+| Baseline | MSCI's ten-day **price window** — 17–30 Apr 2026 | the **rebalance effective date** — 29 May 2026 |
+| Far end | MSCI's next price window — 20–31 Jul 2026 | the latest committed close — 28 Aug 2026 |
+| Each end is | the mean of ten closes | one close |
+| Uncertainty | which of MSCI's ten undisclosed days | how fragile one published date is |
+| Answers | what MSCI's *next* size decision will see | what has happened since it last traded |
+
+The two are **six weeks apart at the near end** and on the committed record they **disagree about
+the sign for 326 of 1,174 companies (27.8%)**, 129 of them with both readings above 5%. Nothing may
+sum, average or substitute one for the other.
+
+```
+stockPct     = (latestClose - baselineClose / adjustmentFactor) / (baselineClose / adjustmentFactor) x 100
+indexPct     = (indexLatest - indexBaseline) / indexBaseline x 100        // in RUPEES
+relativePct  = ((1 + stockPct/100) / (1 + indexPct/100) - 1) x 100        // GEOMETRIC
+```
+
+### Why there is no ten-day mean here
+
+The mean upstream exists because MSCI does not publish *which* of its ten price days it used, so no
+single day is privileged. **That reasoning does not transfer.** The rebalance date is published and
+unambiguous — averaging it with its neighbours would baseline the reading on a window nobody asked
+for.
+
+### The sensitivity test, which replaces the envelope
+
+What replaces the day-choice envelope is a fragility measure: if the baseline had been struck a
+session or two either side, would the sign survive? Measured across the committed record over the
+five candidate sessions around 29 May 2026:
+
+| | |
+| --- | --- |
+| sensitivity width | p10 **1.56** · median **3.64** · p75 **5.66** · p90 **9.56** · max **49.29** pp |
+| entirely one side of zero | **1,084 of 1,193** (90.9%) |
+
+Far more stable than the window reading (90.9% against 68.6%) — and for a reason rather than by
+luck: the only uncertainty is a day or two of price noise, not 100 undisclosed day-pairs.
+`REBALANCE_BASELINE.bandPct` is **4 pp**, the first whole number at or above that measured median,
+on the same principle as the 15 pp band above. **849 of 1,193 readings are robust (71.2%)**, and 24
+of the 39 migration rows.
+
+⚠ **The test varies the BASELINE end only.** The latest close is the newest fact, not a choice
+anybody makes, and a reader watches it move daily. The baseline is the fixed, invisible choice, so it
+is the one worth testing.
+
+⚠ **The action interval is HALF-OPEN, and it is not the interval `adjustmentFor` uses.** Both ends
+here are single days whose closes are already struck, so `baselineDate < exDate <= latestDate`: an
+action ex *on* the baseline is already in that close and is not applied; one ex *on* the latest date
+must be. Copying the window function's bounds across is a silent 2× error on a bonus.
+
+### The states
+
+| `state` | Meaning | Count |
+| --- | --- | --- |
+| `measured` | both ends traded, no action between them | 1,181 |
+| `adjusted` | an action went ex between the two dates; the baseline is divided by BSE's factor | 13 |
+| `not-yet-listed` | the company first appears after this rebalance date | 17 |
+| `no-price-history` | no BSE scrip code, or absent from the archived bhavcopies | 39 |
+| `unquantifiable-action` | a rights issue or demerger moved the price by an amount BSE does not publish | 7 |
+| `no-baseline-close` | the scrip did not trade on the rebalance date or anywhere in its span | 4 |
+| `no-latest-close` | no close in the latest committed bhavcopy | 3 |
+| `no-action-data` | BSE did not answer for this scrip — unknown actions, not none | 1 |
+| `no-index-leg` | the benchmark has no close on one of the two dates | 0 |
+| `no-benchmark` | no Indian benchmark stands for this segment | 0 |
+
+`not-yet-listed` is the state this reading has and the window one does not, and it earns its place:
+an older baseline is a date more companies did not exist on. Rendering it as "did not trade" would
+report a listing date as a gap in the data.
+
+### The baseline, and overriding it
+
+`REBALANCE_BASELINE.defaultReview` (`null` = the most recent rebalance whose date has passed) is
+resolved **at build time against the newest session the exchange served**, never against the clock.
+`REBALANCE_BASELINE.offerCount` (4) decides how many past rebalances the reader may switch to;
+`sensitivityDays` (2) how wide each fragility span is.
+
+The default reading is inline on every company. The alternates are in
+`public/data/relative-baselines.json` — 1.27 MB, **fetched only when a reader re-bases**, because it
+answers a question most readers never ask. Both carry **the same fields**: `state` is the key into
+`REBASE_STATES` and the prose is not duplicated 1,265 times per baseline.
+
+`data.readingFor()` returns `undefined` while a baseline is loading and `null` when a company has no
+reading. The two must not be collapsed: one is a fact about the fetch, the other about the company.
+
+### `flowPressure()` — how it is reflected in the verdict
+
+The desk asked for the out/under-performance to be reflected in the verdict. It is reflected
+**beside** it: `flowPressure()` classifies every reading as `positive`, `negative` or `neutral`
+carrying the rule, the input, the band and whose band it is, and the verdict key is untouched.
+
+⚠ **"Flow pressure" is not flow, and CLAUDE.md §2.11 is why.** A rising weight forces no trade at
+all. What the signal says is that at the *next* review, when MSCI re-ranks, the forced trade would
+point one way rather than the other. It carries a direction and **never a rupee figure**.
+
+The chip beside the verdict fires on `notable` rows, **not on robust ones**: 849 of 1,193 readings
+are robust, and a marker on two rows in three is a marker readers stop seeing. A row is notable when
+the reading says something the verdict does not — it contradicts a migration, inclusion or exclusion
+verdict, or the row is `stable` and within `nearBoundaryPct` of the rank cutoff. Every other row
+still shows the number, one column away.
+
+### What it may NOT do
+
+**It never changes a verdict.** `verify-data` check 37 sweeps *both* readings from −200 to +200 pp
+and asserts the verdict multiset does not move; `verify-ui` check 45 switches the baseline through
+the interface and asserts every one of the three columns moves and **not one verdict does**. Check 37
+also asserts `flowPressure()` yields the same direction with or without a verdict — the verdict only
+decides whether the row is *marked* — and that the classification carries no rupee figure.
+
+### On screen
+
+Three columns, in the order the arithmetic reads: **Index return %**, **Stock return %**, **Δ vs
+index %**. They replaced a single `vs segment %` column that put both legs in a tooltip, so a reader
+saw an answer and not the working — and could not tell a stock that fell 2% against a flat index from
+one that rose 8% against an index up 10%. Same delta, different events.
+
+The delta's colour follows **robustness**, never sign. `verify-ui` check 44 asserts every rendered
+delta is the geometric one — its tolerance is *derived* from the one-decimal rendering and the
+formula's own error amplification (`1/(1+i)` and `(1+s)/(1+i)²`), because a flat allowance fails 422
+of 1,194 rows on correct arithmetic.
 
 ---
 
@@ -917,9 +1071,22 @@ A check that survives is reported **CANNOT FAIL**, as a failure. This is not cer
   with the stylesheet in force: body 1440/1440, 1024/1024 and 390/390, with the table scrolling
   inside its own container at the lower two.
 
-Two of the sabotages then had to be repaired for a second reason: a `MutationObserver` whose
-callback writes to the thing it observes re-triggers itself for ever, and both hung the run rather
-than failing it. Assigning `textContent` fires a `characterData` mutation even when the value is
+**The same two traps caught the next two sabotages written, on 31 Aug 2026 — checks 44 and 45.**
+One was new and is worth naming, because nothing about it is visible at the site of the bug:
+
+> A `persistent()` sabotage body is a **JS template literal**, and an untagged template literal
+> **silently eats an unrecognised escape**. `\d` inside one arrives in the browser as a bare `d`, so
+> the sabotage's own `text.match(/[+-]?\d+/)` stopped matching digits, every cell read as "no
+> number", and the sabotage **mutated nothing while throwing nothing**. `--prove` reported SURVIVED,
+> and both the check and the sabotage read perfectly correctly on the page. The identical regex in
+> the check body — a real function, not a string — worked fine. Backslashes inside a sabotage body
+> must be doubled. A backtick inside one closes it, so the comment explaining this cannot contain
+> one either.
+
+Two of the earlier sabotages had to be repaired for a second reason, and the new pair repeated it: a
+`MutationObserver` whose callback writes to the thing it observes re-triggers itself for ever, and
+both hung the run rather than failing it. Checks 44 and 45 mark each cell they have already written
+so the second pass is a no-op; before that, check 44 took **238 seconds** to report SURVIVED. Assigning `textContent` fires a `characterData` mutation even when the value is
 unchanged, and `prepend()` is itself a `childList` mutation. Both now `disconnect()` while they
 write — which also clears the pending record queue, so the reconnect is safe. **A hang is an outage
 reported as nothing**, so the harness now carries a per-check deadline (60 s for data, 150 s for
@@ -1052,6 +1219,25 @@ price: the floor is safe by construction, not by luck. The soft spot is that `Mk
 master is struck at an undisclosed moment. **118 active scrips sit between ₹1,500 Cr and ₹2,000 Cr**,
 and one that has re-rated sharply since the master was cut would be invisible to the scrape and
 therefore to the model.
+
+### 13. Two relative readings ship side by side, and they disagree about the sign a quarter of the time
+
+`relativePerformance` measures MSCI's price window to MSCI's price window; `sinceRebalance` measures
+from the rebalance effective date to the latest close. Both are correct answers to different
+questions, and on the committed record **326 of 1,174 companies (27.8%) get opposite signs from
+them**, 129 with both readings above 5%. Neither is wrong; a reader who takes one for the other is.
+
+That is a real cost of shipping both, and it is mitigated rather than removed: each names its own
+window everywhere it appears, only one drives the chip beside the verdict, and the export's banner
+says in as many words that the two families must never be summed or compared. **The residual risk is
+a reader who sorts by one column and reasons about the other**, which no amount of labelling fully
+prevents.
+
+The second-order weakness is narrower. `sinceRebalance` is struck on **one close at each end**,
+where the window reading averages ten. The sensitivity span says how fragile the baseline end is —
+median 3.64 pp — but says nothing about the *latest* end, deliberately, because "today" is not a
+choice. A company whose last print was an outlier carries that outlier into the delta with nothing
+on screen marking it.
 
 ### What would move the needle most
 

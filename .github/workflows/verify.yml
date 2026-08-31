@@ -79,17 +79,27 @@ jobs:
       - name: The build must reproduce the committed record
         run: |
           cp public/data/companies.json /tmp/companies-committed.json
+          cp public/data/relative-baselines.json /tmp/baselines-committed.json
           node scripts/build-companies.mjs
           node -e '
             const fs = require("fs");
-            const a = JSON.parse(fs.readFileSync("/tmp/companies-committed.json", "utf8"));
-            const b = JSON.parse(fs.readFileSync("public/data/companies.json", "utf8"));
-            delete a.builtAt; delete b.builtAt;
-            if (JSON.stringify(a) !== JSON.stringify(b)) {
-              console.error("::error::companies.json does not reproduce from its inputs — re-run build-companies.mjs and commit the result");
-              process.exit(1);
+            // BOTH files the build writes. relative-baselines.json is derived
+            // from the same inputs by the same run, and the interface swaps
+            // between it and the reading inline in companies.json — so a stale
+            // copy would put one baseline’s numbers under another’s heading.
+            for (const [name, committed, built] of [
+              ["companies.json", "/tmp/companies-committed.json", "public/data/companies.json"],
+              ["relative-baselines.json", "/tmp/baselines-committed.json", "public/data/relative-baselines.json"],
+            ]) {
+              const a = JSON.parse(fs.readFileSync(committed, "utf8"));
+              const b = JSON.parse(fs.readFileSync(built, "utf8"));
+              delete a.builtAt; delete b.builtAt;
+              if (JSON.stringify(a) !== JSON.stringify(b)) {
+                console.error(`::error::${name} does not reproduce from its inputs — re-run build-companies.mjs and commit the result`);
+                process.exit(1);
+              }
+              console.log(`${name} reproduces exactly, apart from builtAt`);
             }
-            console.log("companies.json reproduces exactly, apart from builtAt");
           '
 
   ui-static:

@@ -187,3 +187,48 @@ export function upcomingReviews(now = new Date(), count = 4) {
   }
   return out;
 }
+
+/**
+ * The last `count` reviews whose effective date has passed, newest first.
+ *
+ * ---------------------------------------------------------------------------
+ * ⚠ THIS IS THE REBALANCE DATE, NOT THE PRICE WINDOW
+ * ---------------------------------------------------------------------------
+ * `reviewCutoffs().price` is the ten-day window MSCI struck its market caps in —
+ * the last ten business days of the month BEFORE the review month. This is a
+ * different date and answers a different question: the day the new composition
+ * took effect and every tracking fund actually traded.
+ *
+ * For the May 2026 review those are 17–30 April (prices) and 29 May (effective).
+ * Six weeks apart. A reading baselined on one and labelled with the other would
+ * be measuring a window nobody asked about.
+ *
+ * `asOfDate` is an ISO date, and it is the newest session the exchange has
+ * actually served — never the clock. A review whose effective date is in the
+ * future has no close and cannot be a baseline.
+ */
+export function closedReviews(asOfDate, count = 4) {
+  if (!asOfDate) return [];
+  const [y0] = asOfDate.split('-').map(Number);
+  if (!Number.isFinite(y0)) return [];
+  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const out = [];
+  for (let year = y0 - 4; year <= y0; year += 1) {
+    for (const month of REVIEW_MONTHS) {
+      const effective = lastBusinessDay(year, month).toISOString().slice(0, 10);
+      if (effective > asOfDate) continue;
+      out.push({
+        review: `${year}-${String(month).padStart(2, '0')}`,
+        year,
+        month,
+        monthName: MONTH_NAMES[month - 1],
+        label: `${MONTH_NAMES[month - 1]} ${year}`,
+        effectiveDate: effective,
+        assumed: true,
+        convention: CONVENTION,
+      });
+    }
+  }
+  out.sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate));
+  return out.slice(0, count);
+}

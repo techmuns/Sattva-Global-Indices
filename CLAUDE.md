@@ -384,6 +384,71 @@ The consequence is a gate that admits few rows: 198 of 1,177 readings are robust
 rows. **That is a finding about how noisy a ten-undisclosed-day window is, not a calibration failure
 to be tuned away.** Report the fire rate; never loosen the band to make a column look populated.
 
+### 2.12.3 The desk's baseline is the rebalance DATE, not the window MSCI priced on
+
+Two dates belong to every review and confusing them is the easiest mistake in this codebase, because
+**both are real dates in our own files and either produces a plausible number on every row**:
+
+| | May 2026 review |
+| --- | --- |
+| **Price window** — the ten days MSCI struck its market caps in (§2.12.2) | 17–30 April 2026 |
+| **Effective date** — the day the new composition took effect and every tracking fund traded | **29 May 2026** |
+
+Six weeks apart. The desk's question — *how has this stock done against the index since the last
+rebalance* — is baselined on the **second**. `relativePerformance` measures the first pair of windows;
+`sinceRebalance` measures from the effective date to the latest committed close, and
+`closedReviews()` in `calendar.js` derives the dates so neither is ever typed.
+
+**Both ship, and neither substitutes for the other.** Measured on the committed record they disagree
+about the **sign for 326 of 1,174 companies (27.8%)**, 129 of them with both readings above 5%. So
+every surface names its own window, nothing sums or compares across them, and `verify-data` check 38
+asserts no baseline is ever a price-window date.
+
+**There is no ten-day mean at the rebalance end**, and the reason the mean exists upstream is exactly
+why it must not be copied here: it exists because MSCI does not publish *which* of its ten days it
+used. The rebalance date is published. Averaging it with its neighbours would baseline the reading on
+a window nobody asked for.
+
+What replaces the day-choice envelope is a **sensitivity test** — would the sign survive if the
+baseline were struck a session or two either side? Measured: p10 **1.56**, median **3.64**, p75
+**5.66**, p90 **9.56**, max **49.29** pp, and **1,084 of 1,193** spans sit entirely one side of zero
+(90.9%, against 68.6% for the window reading). `REBALANCE_BASELINE.bandPct` is **4 pp** — the first
+whole number at or above that measured median, on the same principle as §2.12.2's band, and set from
+the measurement rather than picked. **849 of 1,193 readings are robust.**
+
+The test varies the **baseline end only**. The latest close is the newest fact, not a choice anybody
+makes, and a reader watches it move daily; the baseline is the fixed, invisible choice.
+
+⚠ **The corporate-action interval is half-open here and it is NOT the window function's interval.**
+Both ends are single days whose closes are already struck, so `baselineDate < exDate <= latestDate`:
+an action ex *on* the baseline is already in that close, one ex *on* the latest date must be applied.
+Copying `adjustmentFor`'s bounds across is a silent 2× error on a bonus.
+
+**The default baseline is config-set** — `REBALANCE_BASELINE.defaultReview`, resolved at build time
+against the newest session the exchange served, never against the clock. The reader may override it
+from the screener; the alternates live in `public/data/relative-baselines.json` and are fetched only
+when someone actually re-bases.
+
+### 2.12.4 "Flow pressure" is a direction, and §2.11 is why it is not a flow
+
+The desk asked for out/under-performance to be reflected in the verdict. It is reflected **beside**
+it, never inside it: `flowPressure()` labels each reading `positive`, `negative` or `neutral` and
+carries the rule, the input, the band and whose band it is. **No verdict key moves** — `verify-data`
+check 37 sweeps *both* readings across ±200 pp asserting the verdict multiset is unchanged, and
+`verify-ui` check 45 switches the baseline through the interface and asserts all three columns move
+and not one verdict does.
+
+**It is not money moving.** §2.11 is absolute: a rising weight forces no trade, because the fund's
+holding and the index weight rise by the same proportion. The signal says only that at the *next*
+review, when MSCI re-ranks, the forced trade would point one way rather than the other. It therefore
+carries a direction and **never a rupee figure**.
+
+**The chip beside the verdict fires on `notable` rows, not on robust ones.** 849 of 1,193 readings
+are robust — two rows in three — and a marker on two rows in three is a marker readers stop seeing.
+A row earns a chip only where the reading says something the verdict does not: it contradicts a
+migration, inclusion or exclusion verdict, or the row is `stable` and within `nearBoundaryPct` of the
+rank cutoff. Every other row still shows the number, one column away.
+
 ### 2.13 A verdict is a label on a rule, and there is no probability
 
 The requirement asks for a probability of inclusion or exclusion. **We do not print one, and the
@@ -1110,6 +1175,23 @@ in roughly equal numbers. A whole-day shift cannot satisfy either test in either
 > inside this run's own span, how many came back* — anchored on the previous file, which the run
 > cannot move. It caught precisely the 59 phantom Sundays and nothing else.
 
+> ### ⚠ Yahoo serves TWO bars for the current session, and they carry the same date
+>
+> Timestamps are unique; the dates they map to are not. Yahoo appends a **live bar** for the session
+> in progress beside that session's daily bar, and after the timezone shift above both land on the
+> same date label. The committed file carried `USDINR=X` twice on **2026-08-28 — 95.4704 and
+> 95.3600**, 0.12% apart, and nothing said so.
+>
+> That is not cosmetic, because every consumer builds a `Map` from the series: whichever bar came
+> last **silently won**, and there was no way to see which. RELIANCE's index leg read 1.328% against
+> the 1.445% a reader recomputing it by hand from the same file would get. Same family as the
+> timezone bug — a well-formed number about something slightly else.
+>
+> The parser now collapses duplicates keeping the later bar (which is what `seriesToMap` was already
+> doing by accident) and **counts the collapses**, and `assertSeriesDates` fails on any duplicate
+> date, so a regression is loud instead of a tenth of a percent on every rupee return.
+> `verify-data` assertion 41 is proved by pushing exactly that second bar back in.
+
 ### 3.9 Identity is ISIN, never a ticker
 
 A ticker is a label: two exchanges spell it differently, a fund vendor invents its own codes, and
@@ -1214,11 +1296,12 @@ scripts/
   fetch-bhavcopy.mjs               BSE EOD prices → public/data/prices.json
   fetch-quote-stats.mjs            monthly ADV / splits → public/data/quote-stats.json
   fetch-fund-benchmarks.mjs        Yahoo daily closes → public/data/fund-benchmarks.json
-  fetch-price-history.mjs          two MSCI price windows → public/data/price-history.json
+  fetch-price-history.mjs          two MSCI price windows + four rebalance baselines
+                                   -> public/data/price-history.json
   fetch-corporate-actions.mjs      BSE's own action history → public/data/corporate-actions.json
   build-companies.mjs              everything → public/data/companies.json
-  verify-data.mjs                  21 data assertions; no browser, no network
-  verify-ui.mjs                    21 interface assertions; the served site
+  verify-data.mjs                  41 data assertions; no browser, no network
+  verify-ui.mjs                    25 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
@@ -1243,13 +1326,17 @@ public/
   data/quote-stats.json            generated — monthly ADV, splits
   data/share-reconciliation.json   generated — share-count outliers and quarantines
   data/price-history.json          generated — every close in the two MSCI price windows
+                                   AND around each of the last four rebalance dates
+  data/relative-baselines.json     generated — the non-default rebalance baselines,
+                                   fetched by the browser only on demand
   data/corporate-actions.json      generated — BSE's published bonuses, splits, rights
   data/companies.json              generated — the record the interface reads
   js/model/thresholds.js           desk bands + the observed boundary, both labelled
   js/model/segments.js             constituent → segment; disjointness re-checked
   js/model/assess.js               the rules engine → verdict + rulesFired
   js/model/flows.js                price a trade-implying verdict, and only those
-  js/model/relative.js             review-window relative performance + the trend signal
+  js/model/relative.js             review-window AND since-rebalance relative performance,
+                                   the trend signal and flow pressure
   js/model/calendar.js             review dates (assumed, configurable)
   js/core/live.js                  visibility-aware poller
   js/data/quotes.js                live overlay; memory only, never written back
@@ -1287,15 +1374,15 @@ node scripts/fetch-bhavcopy.mjs        # 1 request, the whole market's closes
 node scripts/fetch-quote-stats.mjs     # monthly ADV/splits; --concurrency 1 --gap-ms 1200
 node scripts/reconcile-shares.mjs      # share-count outliers -> quarantine list
 node scripts/fetch-corporate-actions.mjs  # ~1,240 requests, ~4 min - BEFORE price history
-node scripts/fetch-price-history.mjs   # 20 requests, both MSCI price windows
+node scripts/fetch-price-history.mjs   # 37 requests: both MSCI price windows + the rebalance baselines
 node scripts/build-companies.mjs       # no network; joins everything
 node scripts/verify-data.mjs           # the data assertions; run before committing
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 21 assertions; no browser, no network
+node scripts/verify-data.mjs           # 41 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 21 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 25 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 

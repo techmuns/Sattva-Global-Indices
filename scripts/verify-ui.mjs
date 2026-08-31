@@ -296,7 +296,7 @@ async function main() {
   const restoreByReload = async (c) => { c.sabotageHook = null; await c.load(); };
 
   /** Register a sabotage that re-applies itself on every load. */
-  const persistent = (body) => async (c) => { c.sabotageHook = body; await c.page.evaluate(body).catch(() => {}); };
+  const persistent = (body) => async (c) => { c.sabotageHook = body; await c.page.evaluate(body).catch((e) => { process.stdout.write(`\n    SABOTAGE THREW: ${e.message}\n`); }); };
 
   await load();
 
@@ -976,16 +976,16 @@ async function main() {
     id: 43,
     what: 'the relative column claims a direction only where the reading is robust, and every absence states its reason',
     run: async (c) => {
-      // ⚠ THIS IS THE HONESTY TEST FOR THE NEW COLUMN, AND IT IS ABOUT COLOUR.
+      // ⚠ THIS IS THE HONESTY TEST FOR THE DELTA COLUMN, AND IT IS ABOUT COLOUR.
       //
-      // MSCI prices on one of ten business days and does not publish which, so
-      // for 31.4% of companies the SIGN of this number depends on the day. A
-      // green or red cell asserts a direction. So the assertion under test is
-      // that tone follows ROBUSTNESS, not sign: an unstable reading must render
-      // in the neutral tone however positive or negative it looks.
+      // A green or red cell asserts a direction. The reading is struck on a
+      // single published rebalance date, so the assertion under test is that
+      // tone follows ROBUSTNESS — whether the sign survives shifting that
+      // baseline a session either side — and never bare sign. A fragile reading
+      // must render neutral however positive or negative it looks.
       const m = await c.page.evaluate(() => {
         const heads = [...document.querySelectorAll('thead th')].map((h) => h.textContent.trim());
-        const index = heads.findIndex((h) => /vs segment/.test(h));
+        const index = heads.findIndex((h) => /vs index/.test(h));
         if (index < 0) return { index };
         const rows = [...document.querySelectorAll('tbody tr')];
         let toned = 0;
@@ -1017,17 +1017,17 @@ async function main() {
         return { index, rows: rows.length, readings, toned, tonedUnstable, neutralUnstable, missingWithReason, missingWithout };
       });
 
-      ok(m.index >= 0, 'the "vs segment %" column is on the table', `column index ${m.index}`);
+      ok(m.index >= 0, 'the "Δ vs index %" column is on the table', `column index ${m.index}`);
       ok(m.readings > 0, 'the column carries readings to judge', `${m.readings} readings rendered`);
       // The load-bearing one.
       equal(m.tonedUnstable, 0,
-        'no reading whose direction depends on the day MSCI priced on is rendered in a directional colour');
+        'no reading whose sign fails the baseline-sensitivity test is rendered in a directional colour');
       ok(m.neutralUnstable > 0,
-        'unstable readings actually exist here, or the check above passed vacuously',
-        `${m.neutralUnstable} unstable readings rendered neutral`);
+        'fragile readings actually exist here, or the check above passed vacuously',
+        `${m.neutralUnstable} fragile readings rendered neutral`);
       ok(m.toned > 0, 'robust readings ARE coloured, so the tone means something', `${m.toned} coloured`);
       equal(m.missingWithout, 0, 'every em dash in this column carries a title saying which kind of absence it is');
-      return `${m.readings} readings · ${m.toned} coloured (robust only) · ${m.neutralUnstable} neutral because the day decides the sign`
+      return `${m.readings} readings · ${m.toned} coloured (robust only) · ${m.neutralUnstable} neutral because the baseline day decides the sign`
         + ` · ${m.missingWithReason} absences, all with a stated reason`;
     },
     // Colour every reading by sign regardless of robustness — the change a
@@ -1041,6 +1041,268 @@ async function main() {
               sp.className = sp.className.replace(/text-slate-500/, sp.textContent.trim().startsWith('+') ? 'text-emerald-700' : 'text-rose-700');
             }
           }
+        }
+      };
+      fix();
+      new MutationObserver(fix).observe(document.body, { childList: true, subtree: true });
+    })()`),
+    restore: restoreByReload,
+  }, ctx);
+
+  await suite.check({
+    id: 44,
+    what: 'the three since-rebalance columns show both legs and a delta a reader cannot reconstruct by subtraction',
+    run: async (c) => {
+      // ⚠ THE POINT OF THREE COLUMNS IS THAT THE ARITHMETIC IS VISIBLE.
+      //
+      // The single column that stood here put both legs in a tooltip, so a
+      // reader saw an answer and not the working — and could not tell a stock
+      // that fell 2% against a flat index from one that rose 8% against an
+      // index up 10%. Same delta, different events (2.1: a derived number must
+      // be reconstructable from what is on screen).
+      //
+      // And the delta is GEOMETRIC. A reader who subtracts the two columns gets
+      // a different number, which is why the cell states the formula. This check
+      // asserts the rendered delta really is the geometric one — if it were the
+      // subtraction, the three columns would be internally consistent and
+      // silently wrong.
+      const m = await c.page.evaluate(() => {
+        const heads = [...document.querySelectorAll('thead th')].map((h) => h.textContent.trim());
+        const ix = {
+          index: heads.findIndex((h) => /Index return/.test(h)),
+          stock: heads.findIndex((h) => /Stock return/.test(h)),
+          delta: heads.findIndex((h) => /vs index/.test(h)),
+        };
+        if (ix.index < 0 || ix.stock < 0 || ix.delta < 0) return { ix, heads };
+        const numberIn = (cell) => {
+          const text = cell?.innerText?.trim() ?? '';
+          if (!text || text.startsWith('\u2014')) return null;
+          const match = text.match(/[+-]?\d+(?:\.\d+)?/);
+          return match ? Number(match[0]) : null;
+        };
+        let compared = 0;
+        let geometric = 0;
+        let wouldMatchSubtraction = 0;
+        let benchmarkNamed = 0;
+        const absencesWithoutReason = { index: 0, stock: 0, delta: 0 };
+        let absences = 0;
+        for (const row of document.querySelectorAll('tbody tr')) {
+          const cells = row.querySelectorAll('td');
+          for (const [name, at] of Object.entries(ix)) {
+            const cell = cells[at];
+            if (!cell) continue;
+            if (cell.innerText.trim().startsWith('\u2014')) {
+              if (name === 'delta') absences += 1;
+              const titled = cell.querySelector('[title]') ?? (cell.getAttribute('title') ? cell : null);
+              if ((titled?.getAttribute('title') ?? '').trim().length < 12) absencesWithoutReason[name] += 1;
+            }
+          }
+          const i = numberIn(cells[ix.index]);
+          const st = numberIn(cells[ix.stock]);
+          const d = numberIn(cells[ix.delta]);
+          if (i === null || st === null || d === null) continue;
+          compared += 1;
+          // The index cell carries its own benchmark, because it differs by row.
+          if (/INDA|SMIN|EEM/.test(cells[ix.index].innerText)) benchmarkNamed += 1;
+          const geo = (((1 + st / 100) / (1 + i / 100)) - 1) * 100;
+          // ⚠ THE TOLERANCE IS DERIVED, NOT PICKED. All three cells render at
+          // one decimal, so each carries up to 0.05 of rounding — and the
+          // geometric formula AMPLIFIES the two inputs' errors by
+          // 1/(1+i) and (1+s)/(1+i)^2. On a stock up 300% against an index up
+          // 5% that second factor is ~3.6x, so a flat 0.06 pp allowance fails
+          // 422 of 1,194 rows on correct arithmetic. A fixed tolerance here
+          // would have been a threshold below its own measurement's precision —
+          // the same error §2.12.2 names, wearing a test's face.
+          const dStock = Math.abs(1 / (1 + i / 100));
+          const dIndex = Math.abs((1 + st / 100) / ((1 + i / 100) ** 2));
+          const tol = 0.05 * dStock + 0.05 * dIndex + 0.05 + 1e-9;
+          if (Math.abs(geo - d) <= tol) geometric += 1;
+          if (Math.abs((st - i) - d) <= tol) wouldMatchSubtraction += 1;
+        }
+        return { ix, compared, geometric, wouldMatchSubtraction, benchmarkNamed, absences, absencesWithoutReason };
+      });
+
+      process.stdout.write(`\n    DEBUG m=${JSON.stringify({ ...m, heads: undefined })}\n`);
+      ok(m.ix.index >= 0 && m.ix.stock >= 0 && m.ix.delta >= 0,
+        'all three columns are on the table', JSON.stringify(m.ix));
+      ok(m.ix.index < m.ix.stock && m.ix.stock < m.ix.delta,
+        'and in the order the arithmetic reads: index, stock, then the delta between them',
+        JSON.stringify(m.ix));
+      ok(m.compared > 20, 'enough rows carry all three to judge', `${m.compared} rows`);
+      equal(m.geometric, m.compared, 'every rendered delta is (1 + stock) / (1 + index) - 1');
+      ok(m.wouldMatchSubtraction < m.compared,
+        'and the subtraction genuinely differs on this screen, or the distinction is untested here',
+        `${m.wouldMatchSubtraction} of ${m.compared} rows would also match a plain subtraction`);
+      equal(m.benchmarkNamed, m.compared,
+        'every index cell names its own benchmark — it is INDA for one row and SMIN for the next, and a bare percentage would not say which');
+      equal(JSON.stringify(m.absencesWithoutReason), JSON.stringify({ index: 0, stock: 0, delta: 0 }),
+        'every em dash in all three columns carries a title saying which kind of absence it is');
+      return `${m.compared} rows with all three legs · every delta geometric · `
+        + `${m.compared - m.wouldMatchSubtraction} would read differently under subtraction · ${m.absences} stated absences`;
+    },
+    // Render the delta as the difference of the two columns — the change a
+    // future author makes when the three numbers "do not add up".
+    // ⚠ IDEMPOTENT, AND IT HAS TO BE. The first writing of this sabotage
+    // rewrote every delta cell on every MutationObserver callback — including
+    // the callbacks its own writes produced — so it never settled, the page
+    // spun, and the check reported SURVIVED after four minutes. A sabotage that
+    // cannot come to rest proves nothing. The marker attribute is what makes the
+    // second pass a no-op.
+    sabotage: persistent(`(() => {
+      const fix = () => {
+        const heads = [...document.querySelectorAll('thead th')].map((h) => h.textContent.trim());
+        const ii = heads.findIndex((h) => /Index return/.test(h));
+        const si = heads.findIndex((h) => /Stock return/.test(h));
+        const di = heads.findIndex((h) => /vs index/.test(h));
+        if (ii < 0 || si < 0 || di < 0) return;
+        const numberIn = (cell) => {
+          const t = cell?.textContent?.trim() ?? '';
+          if (!t || t.startsWith('\u2014')) return null;
+          // Doubled backslashes, and they have to be. This body is a TEMPLATE
+          // LITERAL: an untagged template literal EATS an unrecognised escape, so a
+          // lone \\d arrives in the browser as a bare letter d. The regex then stops
+          // matching digits, numberIn returns null for every cell, and the sabotage
+          // mutates nothing while throwing nothing — --prove reported SURVIVED and
+          // both the check and the sabotage read correctly on the page.
+          const m = t.match(/[+-]?\\d+(?:\\.\\d+)?/);
+          return m ? Number(m[0]) : null;
+        };
+        for (const row of document.querySelectorAll('tbody tr')) {
+          const cells = row.querySelectorAll('td');
+          const cell = cells[di];
+          if (!cell || cell.dataset.sabotaged === '1') continue;
+          const i = numberIn(cells[ii]); const s = numberIn(cells[si]);
+          if (i === null || s === null) continue;
+          const target = [...cell.querySelectorAll('span')]
+            .find((sp) => /^[+-]/.test(sp.textContent.trim()));
+          if (!target) continue;
+          const v = s - i;
+          const next = (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+          cell.dataset.sabotaged = '1';
+          if (target.textContent !== next) target.textContent = next;
+        }
+      };
+      fix();
+      new MutationObserver(fix).observe(document.body, { childList: true, subtree: true });
+    })()`),
+    restore: restoreByReload,
+  }, ctx);
+
+  await suite.check({
+    id: 45,
+    what: 'switching the rebalance baseline moves all three columns and moves NO verdict',
+    run: async (c) => {
+      // ⚠ THE LOAD-BEARING ASSERTION OF THE WHOLE FEATURE, ON SCREEN.
+      //
+      // The reading is evidence beside a verdict and never an input to one
+      // (2.12.1). verify-data proves that by sweeping the stored reading; this
+      // proves it through the interface, which is where a future author would
+      // actually wire the two together. A baseline switch is the sharpest
+      // available test: it changes every number the reading produces at once.
+      const read = () => {
+        const heads = [...document.querySelectorAll('thead th')].map((h) => h.textContent.trim());
+        const ix = {
+          index: heads.findIndex((h) => /Index return/.test(h)),
+          stock: heads.findIndex((h) => /Stock return/.test(h)),
+          delta: heads.findIndex((h) => /vs index/.test(h)),
+          verdict: heads.findIndex((h) => /^Verdict/.test(h)),
+        };
+        const rows = [...document.querySelectorAll('tbody tr')].slice(0, 60);
+        return {
+          baseline: document.querySelector('[data-baseline]')?.value ?? null,
+          options: [...(document.querySelector('[data-baseline]')?.options ?? [])].map((o) => o.value),
+          legs: rows.map((r) => ['index', 'stock', 'delta']
+            .map((k) => r.querySelectorAll('td')[ix[k]]?.innerText.trim()).join('|')),
+          // The verdict PILL text only — the flow chip beside it is expected to
+          // move, and folding it in would make this assertion vacuous.
+          verdicts: rows.map((r) => r.querySelectorAll('td')[ix.verdict]
+            ?.querySelector('[data-verdict], span')?.textContent.trim() ?? ''),
+          keys: rows.map((r) => r.dataset.key),
+        };
+      };
+
+      const before = await c.page.evaluate(read);
+      ok(before.options.length >= 2,
+        'the baseline picker offers more than one rebalance date, or there is nothing to switch to',
+        JSON.stringify(before.options));
+
+      const other = before.options.find((o) => o !== before.baseline);
+      await c.page.evaluate(async (value) => {
+        await window.__set(document.querySelector('[data-baseline]'), value);
+      }, other);
+      // The alternates live in their own file, so the switch is a fetch.
+      await c.page.waitForFunction(
+        (was) => document.querySelector('[data-baseline]')?.value !== was, before.baseline, { timeout: 15000 },
+      );
+      const after = await c.page.evaluate(read);
+
+      equal(after.baseline, other, 'the picker switched to the baseline asked for');
+      equal(JSON.stringify(after.keys), JSON.stringify(before.keys),
+        'the SAME rows are on screen — a baseline changes what is measured, never which companies are in view');
+
+      let legsMoved = 0;
+      let verdictsMoved = 0;
+      for (let i = 0; i < before.keys.length; i += 1) {
+        if (before.legs[i] !== after.legs[i]) legsMoved += 1;
+        if (before.verdicts[i] !== after.verdicts[i]) verdictsMoved += 1;
+      }
+      ok(legsMoved > before.keys.length * 0.8,
+        'nearly every row\'s three columns move — otherwise the picker is decoration',
+        `${legsMoved} of ${before.keys.length} rows moved`);
+      equal(verdictsMoved, 0,
+        'and NOT ONE verdict moved — the reading is evidence beside a verdict, never an input to one');
+
+      // Absences must stay stated under the new baseline too: a company not yet
+      // listed on an older rebalance date is a different absence, not a blank.
+      const blank = await c.page.evaluate(() => {
+        const heads = [...document.querySelectorAll('thead th')].map((h) => h.textContent.trim());
+        const di = heads.findIndex((h) => /vs index/.test(h));
+        let bad = 0;
+        let dashes = 0;
+        for (const row of document.querySelectorAll('tbody tr')) {
+          const cell = row.querySelectorAll('td')[di];
+          const text = cell?.innerText.trim() ?? '';
+          if (text === '') { bad += 1; continue; }
+          if (!text.startsWith('\u2014')) continue;
+          dashes += 1;
+          const titled = cell.querySelector('[title]') ?? (cell.getAttribute('title') ? cell : null);
+          if ((titled?.getAttribute('title') ?? '').trim().length < 12) bad += 1;
+        }
+        return { bad, dashes };
+      });
+      equal(blank.bad, 0, 'under the new baseline every absence is still an em dash with a stated reason');
+
+      // Back to the default, so the rest of the suite sees the shipped state.
+      await c.page.evaluate(async (value) => {
+        await window.__set(document.querySelector('[data-baseline]'), value);
+      }, before.baseline);
+      await c.page.waitForFunction(
+        (want) => document.querySelector('[data-baseline]')?.value === want, before.baseline, { timeout: 15000 },
+      );
+
+      return `${before.baseline} -> ${other}: ${legsMoved} of ${before.keys.length} rows re-measured, `
+        + `0 verdicts moved, ${blank.dashes} absences still stated`;
+    },
+    // Wire the verdict to the reading — the change 2.12.1 forbids and the one a
+    // future author is most likely to make when asked to "reflect it in the
+    // verdict". The pill text follows the delta's sign under the new baseline.
+    sabotage: persistent(`(() => {
+      const fix = () => {
+        const heads = [...document.querySelectorAll('thead th')].map((h) => h.textContent.trim());
+        const di = heads.findIndex((h) => /vs index/.test(h));
+        const vi = heads.findIndex((h) => /^Verdict/.test(h));
+        if (di < 0 || vi < 0) return;
+        for (const row of document.querySelectorAll('tbody tr')) {
+          const cells = row.querySelectorAll('td');
+          // Idempotent, like the one above. Without a marker every write queues
+          // another MutationObserver callback that writes again, and the page never
+          // settles: the same runaway that made check 44 take four minutes.
+          if (!cells[vi] || cells[vi].dataset.sabotaged === '1') continue;
+          const t = cells[di]?.innerText.trim() ?? '';
+          const pill = cells[vi]?.querySelector('[data-verdict], span');
+          if (!pill || !t || t.startsWith('\u2014')) continue;
+          cells[vi].dataset.sabotaged = '1';
+          pill.textContent = t.startsWith('-') ? 'Migration down' : 'Migration up';
         }
       };
       fix();
@@ -1270,6 +1532,12 @@ async function main() {
         'Free float is an exchange-published figure',
         'Prices name their exchange and their tier',
         'Weight drift requires no trade',
+        'Relative performance is a MEASUREMENT beside the verdict',
+        // The two windows must be told apart in the file itself. A sheet
+        // carrying both families with only one of them naming its window is how
+        // a reader sorts one column and reasons about the other.
+        'There are TWO relative-performance families in this file',
+        'Flow pressure is a direction, not a flow, and it forces no trade',
         'Rows in this file',
       ];
       const missing = BANNERS.filter((b) => !csv.includes(b));
