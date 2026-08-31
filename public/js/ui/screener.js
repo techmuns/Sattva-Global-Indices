@@ -338,6 +338,13 @@ export function statStrip(cards) {
 /** How many rows the initial markup carries. The rest streams in. */
 export const FIRST_PAINT_ROWS = 80;
 
+/**
+ * How long typing settles before a range is applied. Long enough that "3,000"
+ * is not filtered as "3" on the way through, short enough that a reader who
+ * stops typing sees the answer without wondering whether it took.
+ */
+const RANGE_DEBOUNCE_MS = 160;
+
 const collator = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
 
 /** Missing sorts to its own group at the END, in either direction. */
@@ -428,19 +435,72 @@ export function scoreTable(config) {
   const searchOf = (row) =>
     (searchText ? searchText(row) : `${nameOf(row) ?? ''} ${subOf?.(row) ?? ''}`).toLowerCase();
 
-  function passesFilters(row) {
+  /**
+   * The filters in force, resolved ONCE per repaint.
+   *
+   * Two kinds live here. A `select` filter names one of its own options, so
+   * resolving it is a lookup. A `range` filter carries whatever a reader typed,
+   * so resolving it is a PARSE — and a parse can fail, which is the whole
+   * reason this is a separate step rather than a predicate.
+   *
+   *   - Parsing inside the row predicate would re-read the same string once per
+   *     row, 1,265 times per keystroke.
+   *   - And it would leave the failure nowhere a reader can see it. An entry
+   *     that cannot be read must hide NOTHING and say so (CLAUDE.md §2.4): a
+   *     typo silently filtered to an empty table reads as a finding about the
+   *     companies. So a broken range yields no matcher at all, and its reason
+   *     travels out of here to the status line and into the export.
+   */
+  function activeFilters() {
+    const resolved = [];
     for (const filter of filters) {
       const value = view.filters[filter.id];
-      if (!value) continue;
+      if (value === undefined || value === null || value === '') continue;
+      if (filter.kind === 'range') {
+        const parsed = filter.parse(value);
+        resolved.push({
+          filter,
+          parsed,
+          match: parsed.active ? (row) => filter.match(row, parsed) : null,
+        });
+        continue;
+      }
       const option = filter.options.find((o) => o.value === value);
-      if (option?.match && !option.match(row)) return false;
+      if (!option) continue;
+      resolved.push({ filter, option, match: option.match ?? null });
     }
-    return true;
+    return resolved;
+  }
+
+  /**
+   * What the filters currently in force are doing, in words — for the status
+   * line under the toolbar and for row 1 of any export.
+   *
+   * A range that could not be read is NAMED here rather than omitted. The file
+   * it lands in is genuinely unfiltered by it, and a sheet that simply said
+   * nothing would contradict the screen the reader was looking at.
+   */
+  function filterSummary() {
+    return activeFilters()
+      .map((entry) => {
+        if (entry.filter.kind !== 'range') {
+          return entry.filter.describe
+            ? entry.filter.describe(entry.option)
+            : `${entry.filter.label}: ${entry.option.label}`;
+        }
+        if (entry.parsed.error) {
+          return `${entry.filter.label}: ${entry.parsed.error} — NOT applied, so it hid nothing`;
+        }
+        return entry.parsed.active ? entry.filter.describe(entry.parsed) : null;
+      })
+      .filter(Boolean)
+      .join('; ');
   }
 
   function computeRows() {
     const query = view.q.trim().toLowerCase();
-    let list = sourceRows.filter(passesFilters);
+    const matchers = activeFilters().map((entry) => entry.match).filter(Boolean);
+    let list = sourceRows.filter((row) => matchers.every((match) => match(row)));
     if (query) {
       const terms = query.split(/\s+/).filter(Boolean);
       list = list.filter((row) => {
@@ -545,6 +605,59 @@ export function scoreTable(config) {
     return `<tr>${heads.join('')}</tr>`;
   }
 
+  /**
+   * A typed min–max range: two boxes, the unit stated between them, and an
+   * en dash so the pair reads as the range it is.
+   *
+   * It replaced a five-option dropdown on 31 Aug 2026. A dropdown can only
+   * offer boundaries somebody chose in advance, and the ones on offer were an
+   * order of magnitude apart at the top — useful for a first cut through a
+   * universe that spans four orders of magnitude, useless for "show me the
+   * companies between ₹3,000 and ₹8,000 Cr", which is the question the desk
+   * actually asks around a review.
+   *
+   * Both ends are OPTIONAL. An empty box is an open end, never a zero: leaving
+   * the maximum blank asks for everything upwards, and it must not be confused
+   * with typing a 0 there, which asks for a maximum of nothing.
+   *
+   * The unit is rendered as part of the control rather than left to a caption,
+   * because a bare pair of numbers beside a market-cap column is exactly the
+   * kind of thing a reader supplies their own unit for — and being out by a
+   * factor of ten million is this project's signature failure (CLAUDE.md §3.8).
+   */
+  function rangeControlHtml(filter) {
+    const value = view.filters[filter.id] ?? {};
+    const box = (side, placeholder) =>
+      `<input data-range-${side} type="text" inputmode="decimal" autocomplete="off" spellcheck="false" ` +
+      `value="${escapeHtml(value[side] ?? '')}" placeholder="${escapeHtml(placeholder)}" ` +
+      `aria-label="${escapeHtml(`${filter.label} ${side === 'min' ? 'minimum' : 'maximum'}${filter.unitSuffix ? `, in ${filter.unitPrefix ?? ''}${filter.unitSuffix}` : ''}`)}" ` +
+      // The min box is right-aligned and the max box left-aligned, so the two
+      // figures sit against the dash and the control reads as one range rather
+      // than as two unrelated boxes.
+      `class="w-[4.25rem] ${side === 'min' ? 'text-right' : 'text-left'} border-0 bg-transparent p-0 text-xs ` +
+      'font-semibold tabular-nums text-slate-800 placeholder:font-normal placeholder:text-slate-400 ' +
+      'focus:outline-none focus:ring-0">';
+
+    return (
+      '<div class="flex items-center gap-2 text-[11px] font-semibold text-slate-500">' +
+        `<span class="whitespace-nowrap">${escapeHtml(filter.label)}</span>` +
+        `<span data-range="${escapeHtml(filter.id)}" ` +
+        `${filter.hint ? `title="${escapeHtml(filter.hint)}" ` : ''}` +
+        'class="inline-flex items-center gap-1.5 rounded-xl bg-white py-1.5 px-2.5 shadow-sm ring-1 ring-slate-200 ' +
+        'focus-within:ring-2 focus-within:ring-indigo-500">' +
+          (filter.unitPrefix ? `<span aria-hidden="true" class="text-slate-400">${escapeHtml(filter.unitPrefix)}</span>` : '') +
+          box('min', filter.placeholders?.min ?? 'min') +
+          '<span aria-hidden="true" class="text-slate-400">–</span>' +
+          box('max', filter.placeholders?.max ?? 'max') +
+          (filter.unitSuffix ? `<span aria-hidden="true" class="text-slate-400">${escapeHtml(filter.unitSuffix)}</span>` : '') +
+          '<button type="button" data-range-clear hidden aria-label="Clear the range" title="Clear the range" ' +
+          'class="rounded text-slate-400 transition hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">' +
+          '<svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
+          '<path d="m5 5 10 10M15 5 5 15" stroke-linecap="round"/></svg></button>' +
+        '</span></div>'
+    );
+  }
+
   function toolbarHtml() {
     const parts = [];
     if (searchable) {
@@ -558,6 +671,10 @@ export function scoreTable(config) {
     }
 
     for (const filter of filters) {
+      if (filter.kind === 'range') {
+        parts.push(rangeControlHtml(filter));
+        continue;
+      }
       const options = [
         `<option value="">${escapeHtml(filter.allLabel ?? `All ${filter.label.toLowerCase()}`)}</option>`,
         ...filter.options.map(
@@ -587,6 +704,13 @@ export function scoreTable(config) {
     const notes = filters.filter((f) => f.note).map((f) => f.note);
     return (
       '<div class="flex flex-wrap items-center gap-3">' + parts.join('') + '</div>' +
+      // WHAT THE TYPED ENTRY WAS READ AS, in the reader's own sight line. A
+      // range is the one filter whose meaning is not visible in the control
+      // itself: "3,000" could have been read as 3, and an unreadable entry
+      // could have been read as nothing at all. Both are stated here, and the
+      // text is written with textContent — never innerHTML — because it quotes
+      // back exactly what somebody typed.
+      '<p data-filter-status hidden class="mt-2 text-[11px] font-medium leading-relaxed"></p>' +
       (notes.length
         ? `<p class="mt-2 text-[11px] leading-relaxed text-slate-400">${notes.map(escapeHtml).join(' ')}</p>`
         : '')
@@ -737,6 +861,42 @@ export function scoreTable(config) {
     staleKeys.clear();
   }
 
+  /* ---- the typed range ------------------------------------------------- */
+  let rangeTimer = null;
+
+  /**
+   * Read both boxes of one range control into the view and repaint.
+   *
+   * The RAW TEXT is what is stored, not the parsed numbers. A reader who typed
+   * something unreadable must still see it sitting there — normalising it away,
+   * or storing only what parsed, would silently rewrite the question they
+   * asked. Parsing happens on the way out, in `activeFilters`, every time.
+   */
+  function applyRange(input) {
+    const wrap = input?.closest('[data-range]');
+    if (!wrap) return;
+    const id = wrap.dataset.range;
+    const min = wrap.querySelector('[data-range-min]')?.value ?? '';
+    const max = wrap.querySelector('[data-range-max]')?.value ?? '';
+    const current = view.filters[id];
+    if (current && current.min === min && current.max === max) return;
+    // A NEW object every time. `lastView` keeps a shallow copy of this map, so
+    // mutating one in place would silently edit a snapshot taken earlier.
+    view.filters[id] = { min, max };
+    config.onViewChange?.(view);
+    repaint({ resetScroll: true });
+  }
+
+  function clearRange(wrap, focusTarget) {
+    if (!wrap) return;
+    clearTimeout(rangeTimer);
+    for (const input of wrap.querySelectorAll('input')) input.value = '';
+    view.filters[wrap.dataset.range] = { min: '', max: '' };
+    config.onViewChange?.(view);
+    repaint({ resetScroll: true });
+    focusTarget?.focus();
+  }
+
   /**
    * Repaint. When the row set is unchanged this MOVES existing <tr> nodes,
    * which is what makes a sort on 1,202 rows feel instant.
@@ -755,6 +915,7 @@ export function scoreTable(config) {
     $('[data-empty]', root).hidden = currentRows.length > 0;
     seedRovingTabStop();
     updateCount();
+    updateFilterStatus();
     updateHead();
     if (resetScroll && scrollEl) scrollEl.scrollTop = 0;
     scheduleFill();
@@ -787,6 +948,57 @@ export function scoreTable(config) {
     const node = $('[data-row-count]', root);
     // Reads the ARRAY, never the DOM: rows are still streaming in.
     if (node) node.textContent = rowCountLabel(currentRows.length, sourceRows.length);
+  }
+
+  /**
+   * Repaint the status line and the state of every range control.
+   *
+   * Three states, and they must be told apart at a glance:
+   *
+   *   idle     nothing typed — no line at all, and no clear button
+   *   in force the parsed range, spelled out with its unit and its inclusivity
+   *   broken   the reason it could not be read, in rose, on inputs marked
+   *            aria-invalid — AND the rows left exactly as they were
+   *
+   * The third is the one that matters. An unreadable entry that quietly
+   * filtered to nothing would put an empty table in front of a reader who would
+   * reasonably conclude no company is that size (CLAUDE.md §2.4: a failure is
+   * not an absence).
+   */
+  function updateFilterStatus() {
+    const node = $('[data-filter-status]', root);
+    const lines = [];
+    let broken = false;
+
+    for (const entry of activeFilters()) {
+      if (entry.filter.kind !== 'range') continue;
+      const wrap = root?.querySelector(`[data-range="${entry.filter.id}"]`);
+      const inputs = wrap ? [...wrap.querySelectorAll('input')] : [];
+      const clear = wrap?.querySelector('[data-range-clear]');
+      const failed = Boolean(entry.parsed.error);
+
+      for (const input of inputs) input.setAttribute('aria-invalid', failed ? 'true' : 'false');
+      if (wrap) {
+        wrap.classList.toggle('ring-rose-400', failed);
+        wrap.classList.toggle('ring-2', failed);
+        wrap.classList.toggle('ring-slate-200', !failed);
+        wrap.classList.toggle('ring-1', !failed);
+      }
+      if (clear) clear.hidden = entry.parsed.empty;
+
+      if (failed) {
+        broken = true;
+        lines.push(`${entry.filter.label}: ${entry.parsed.error}. The range is NOT applied — every row is still listed.`);
+      } else if (entry.parsed.active) {
+        lines.push(`${entry.filter.describe(entry.parsed)}.`);
+      }
+    }
+
+    if (!node) return;
+    node.textContent = lines.join(' ');
+    node.hidden = lines.length === 0;
+    node.classList.toggle('text-rose-600', broken);
+    node.classList.toggle('text-slate-500', !broken);
   }
 
   /**
@@ -893,12 +1105,58 @@ export function scoreTable(config) {
       });
     }
 
-    $('[data-toolbar]', root).addEventListener('change', (event) => {
-      const select = event.target.closest('[data-filter]');
-      if (!select) return;
-      view.filters[select.dataset.filter] = select.value;
-      config.onViewChange?.(view);
-      repaint({ resetScroll: true });
+    const toolbar = $('[data-toolbar]', root);
+
+    toolbar.addEventListener('change', (event) => {
+      const select = event.target.closest('select[data-filter]');
+      if (select) {
+        view.filters[select.dataset.filter] = select.value;
+        config.onViewChange?.(view);
+        repaint({ resetScroll: true });
+        return;
+      }
+      // A range box committed by blur or by the browser's own change event.
+      const typed = event.target.closest('[data-range-min], [data-range-max]');
+      if (typed) {
+        clearTimeout(rangeTimer);
+        applyRange(typed);
+      }
+    });
+
+    /**
+     * Typing is debounced, Enter is not.
+     *
+     * The delay exists because "3,000" passes through "3" on its way to being
+     * typed, and repainting 1,265 rows for a prefix nobody meant is both slow
+     * and, for a moment, a wrong answer on screen. Enter and blur bypass it, so
+     * a reader who has finished never waits on a timer.
+     */
+    toolbar.addEventListener('input', (event) => {
+      const typed = event.target.closest('[data-range-min], [data-range-max]');
+      if (!typed) return;
+      clearTimeout(rangeTimer);
+      rangeTimer = setTimeout(() => applyRange(typed), RANGE_DEBOUNCE_MS);
+    });
+
+    toolbar.addEventListener('keydown', (event) => {
+      const typed = event.target.closest('[data-range-min], [data-range-max]');
+      if (!typed) return;
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        clearTimeout(rangeTimer);
+        applyRange(typed);
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        clearRange(typed.closest('[data-range]'), typed);
+      }
+    });
+
+    toolbar.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-range-clear]');
+      if (!button) return;
+      const wrap = button.closest('[data-range]');
+      clearRange(wrap, wrap?.querySelector('[data-range-min]'));
     });
 
     const exportButton = $('[data-export]', root);
@@ -907,6 +1165,7 @@ export function scoreTable(config) {
     }
 
     updateCount();
+    updateFilterStatus();
     scheduleFill();
     return api;
   }
@@ -925,6 +1184,8 @@ export function scoreTable(config) {
       if (root) repaint(options ?? {});
     },
     rows: () => currentRows,
+    /** The filters in force, in words — for row 1 of an export. */
+    filterSummary,
     flush: flushRemaining,
   };
 

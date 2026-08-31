@@ -13,11 +13,15 @@ import * as data from '../data/companies.js';
 import * as state from '../core/state.js';
 import * as quotes from '../data/quotes.js';
 import { setParams, getParam, onRoute } from '../core/router.js';
+import { parseRange, withinRange } from '../core/range.js';
 import { segmentedToggle } from '../ui/components.js';
 import { sectionHead, statStrip, scoreTable, openDrill, closeDrill } from '../ui/screener.js';
 import { sourceChip, fundChip, missing } from '../ui/visual.js';
 import { exportCsv } from '../ui/export.js';
-import { REVIEW_THRESHOLDS, crore, toCrore, MARKET_CAP_FILTER_BANDS, MARKET_CAP_FILTER_ATTRIBUTION, RELATIVE_PERFORMANCE, REBALANCE_BASELINE } from '../config/thresholds.mjs';
+// `crore` (₹ Cr → rupees) went with the fixed bands: nothing in this module
+// converts INTO rupees any more. The typed range is compared in ₹ crore, so
+// only `toCrore` — the record's way out — is needed here.
+import { REVIEW_THRESHOLDS, toCrore, MARKET_CAP_FILTER_ATTRIBUTION, RELATIVE_PERFORMANCE, REBALANCE_BASELINE } from '../config/thresholds.mjs';
 import { observedBoundary, rankByFreeFloat, THRESHOLD_SOURCE } from '../model/thresholds.js';
 import { segmentOf, segmentFloatTotals, SEGMENTS } from '../model/segments.js';
 import { assess, VERDICTS, DISCLOSURE, TRADE_IMPLYING } from '../model/assess.js';
@@ -347,37 +351,83 @@ function priceChip(view) {
 }
 
 /**
- * The market-cap buckets the size filter offers, READ FROM THE THRESHOLD
- * MODULE, never from literals here.
+ * The market-cap filter: a min–max range the reader types, in ₹ crore.
  *
- * These are FULL market cap and they are a navigation aid — wide, round ranges
- * that between them cover the whole tracked universe. They are NOT the desk's
- * review cut-offs: those are about free float, they are narrow, and they drive
- * verdicts. Nothing in the model reads these.
+ * It was five fixed bands in a dropdown until 31 Aug 2026. The bands covered
+ * the universe and nothing else: they could answer "roughly how big" and could
+ * not answer "show me ₹3,000 to ₹8,000 Cr", which is the actual question when
+ * a company is being weighed against a cut-off. Ranges a reader types have no
+ * boundaries for us to have chosen, which is the point — and it is also why
+ * the entry itself now has to be honest about what it did with the typing.
  *
- * A company with no market-cap reading matches NO band, in either direction.
- * It is not a small company; it is a company we have not measured, and putting
- * it in the bottom bucket would report an absence as a fact (CLAUDE.md §2.3).
+ * Four things this owes the reader, and each is load-bearing:
+ *
+ *   THE UNIT. The comparison happens in ₹ CRORE — the unit on the boxes, the
+ *   unit on the column, the unit the reader typed. Converting the entry to
+ *   rupees to meet the record would put a factor of ten million between what
+ *   was asked and what was answered, which is this project's signature failure
+ *   (CLAUDE.md §3.8). `toCrore` is the single conversion point and it converts
+ *   the RECORD, once per row, not the reader.
+ *
+ *   THE GROUPING. "3,000" is three thousand. `parseFloat` would read it as 3
+ *   without erroring, so `parseRange` validates the whole string before
+ *   converting anything and refuses what it cannot read (core/range.js).
+ *
+ *   BOTH ENDS INCLUDED. A person who types 3,000–8,000 means both. The old
+ *   bands were half-open because they had to tile a universe with no gaps and
+ *   no overlaps; a typed range has no such duty, and the status line says
+ *   "inclusive" rather than leaving it to be discovered.
+ *
+ *   NO READING IS NOT SMALL. A company with no market cap matches no range in
+ *   either direction (CLAUDE.md §2.3), and the note under the toolbar counts
+ *   how many that is so the gap is never mistaken for a boundary effect.
  */
-function sizeBands() {
-  const band = (min, max) => (row) => {
-    const value = row.fullMcapInr;
-    if (value === null || value === undefined) return false; // no reading is not a band
-    return (min === null || value >= min) && (max === null || value < max);
-  };
+function marketCapRange(rows) {
+  const withReading = rows.filter((row) => row.fullMcapInr !== null && row.fullMcapInr !== undefined);
+  const note =
+    `${MARKET_CAP_FILTER_ATTRIBUTION} `
+    + 'Either end may be left blank for an open end — a blank is not a zero. '
+    + `${num(withReading.length)} of ${num(rows.length)} companies carry a market-cap reading; `
+    + `the other ${num(rows.length - withReading.length)} have no reading and match no range in either direction.`;
+
   // Local, because `cr` from ../core/format.js is the table cell formatter and
   // shadowing it here would make two different formatters share one name.
-  const crLabel = (rupees) => num(toCrore(rupees));
-  return MARKET_CAP_FILTER_BANDS.map((b) => ({
-    value: b.id,
-    label:
-      b.minInr === null
-        ? `< ₹${crLabel(b.maxInr)} Cr`
-        : b.maxInr === null
-          ? `≥ ₹${crLabel(b.minInr)} Cr`
-          : `₹${crLabel(b.minInr)}–${crLabel(b.maxInr)} Cr`,
-    match: band(b.minInr, b.maxInr),
-  }));
+  const crLabel = (value) => num(value, Number.isInteger(value) ? 0 : 2);
+
+  return {
+    id: 'mcap',
+    kind: 'range',
+    label: 'Market cap',
+    unitPrefix: '₹',
+    unitSuffix: 'Cr',
+    placeholders: { min: 'min', max: 'max' },
+    hint:
+      'Type a number in either box, or the whole range in one — 3,000–8,000. '
+      + '>3000, <8000 and 3000+ work too. Blank means open-ended. Figures are ₹ crore of full market cap.',
+    note,
+    parse: parseRange,
+    // In ₹ crore, the unit the reader typed in. The record is converted to
+    // meet the entry; the entry is never converted to meet the record.
+    //
+    // ⚠ THE MISSING CHECK COMES FIRST, BEFORE THE CONVERSION. `toCrore` is
+    // division, and `null / 1e7` is 0 — not NaN, not an error, a real finite
+    // zero. So converting first would hand a company we have never measured to
+    // the range as though it were worth nothing, and every range starting at 0
+    // would quietly list all 26 of them among companies whose size is known
+    // (CLAUDE.md §2.3). Caught by assertion 44 on its first run, which is the
+    // whole argument for writing the check before believing the code.
+    match: (row, range) => (row.fullMcapInr === null || row.fullMcapInr === undefined
+      ? false
+      : withinRange(toCrore(row.fullMcapInr), range)),
+    describe: (range) => {
+      const both = 'inclusive at both ends';
+      if (range.min !== null && range.max !== null) {
+        return `Market cap ₹${crLabel(range.min)}–${crLabel(range.max)} Cr, ${both}`;
+      }
+      if (range.min !== null) return `Market cap ₹${crLabel(range.min)} Cr and above, inclusive`;
+      return `Market cap up to ₹${crLabel(range.max)} Cr, inclusive`;
+    },
+  };
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -1980,14 +2030,8 @@ export function renderCompanies(host, { onStatusChange } = {}) {
     ];
 
     // Both notes are DERIVED from the rows on screen, never typed. A filter
-    // option that can only ever return nothing has to say so where the reader
-    // chooses it, or an empty table reads as a finding instead of a structure.
-    const bandedRows = rows.filter((row) => row.fullMcapInr !== null && row.fullMcapInr !== undefined);
-    const bandNote =
-      `${MARKET_CAP_FILTER_ATTRIBUTION} ` +
-      `${num(bandedRows.length)} of ${num(rows.length)} companies carry a market-cap reading and fall in a band; ` +
-      `the other ${num(rows.length - bandedRows.length)} have no reading and match no band in either direction.`;
-
+    // that can only ever return nothing has to say so where the reader sets it,
+    // or an empty table reads as a finding instead of a structure.
     const heldByAll = rows.filter((row) => FUND_ORDER.every((id) => Boolean(row.funds?.[id]))).length;
     const fundNote =
       'The EM ETF tracks the standard segment and the two small-cap funds track small caps, so the segments are ' +
@@ -2045,13 +2089,7 @@ export function renderCompanies(host, { onStatusChange } = {}) {
             },
           ],
         },
-        {
-          id: 'band',
-          label: 'Market cap',
-          allLabel: 'Any market cap',
-          note: bandNote,
-          options: sizeBands(),
-        },
+        marketCapRange(rows),
         {
           id: 'verdict',
           label: 'Verdict',
@@ -2101,12 +2139,15 @@ export function renderCompanies(host, { onStatusChange } = {}) {
             `${visibleRows.length} of ${cov.companies} companies in the record · model: `
             + `${METHODOLOGIES[state.getMethodology()].label} (${METHODOLOGIES[state.getMethodology()].short}) — `
             + `${METHODOLOGIES[state.getMethodology()].attribution}`,
-          filterLabel: [
-            view.q ? `search "${view.q}"` : '',
-            ...Object.entries(view.filters)
-              .filter(([, v]) => v)
-              .map(([k, v]) => `${k}=${v}`),
-          ]
+          // WHAT THE FILTERS ACTUALLY DID, in words. This used to serialise the
+          // view as `band=mcap-30k-70k`, which names an internal id, carries no
+          // unit and cannot be read by anyone who did not see the screen — and
+          // a typed range would have been worse, since `mcap=[object Object]`
+          // is what a raw entry serialises to. The table describes its own
+          // filters, including a range it could NOT read, because a file that
+          // stayed silent about that would contradict the screen it came from
+          // (CLAUDE.md §2.7).
+          filterLabel: [view.q ? `search “${view.q}”` : '', table.filterSummary()]
             .filter(Boolean)
             .join('; '),
           rows: visibleRows,

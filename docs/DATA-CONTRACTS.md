@@ -876,7 +876,7 @@ index %**. They replaced a single `vs segment %` column that put both legs in a 
 saw an answer and not the working — and could not tell a stock that fell 2% against a flat index from
 one that rose 8% against an index up 10%. Same delta, different events.
 
-The delta's colour follows **robustness**, never sign. `verify-ui` check 44 asserts every rendered
+The delta's colour follows **robustness**, never sign. `verify-ui` check 46 asserts every rendered
 delta is the geometric one — its tolerance is *derived* from the one-decimal rendering and the
 formula's own error amplification (`1/(1+i)` and `(1+s)/(1+i)²`), because a flat allowance fails 422
 of 1,194 rows on correct arithmetic.
@@ -1071,7 +1071,7 @@ A check that survives is reported **CANNOT FAIL**, as a failure. This is not cer
   with the stylesheet in force: body 1440/1440, 1024/1024 and 390/390, with the table scrolling
   inside its own container at the lower two.
 
-**The same two traps caught the next two sabotages written, on 31 Aug 2026 — checks 44 and 45.**
+**The same two traps caught the next two sabotages written, on 31 Aug 2026 — checks 46 and 45.**
 One was new and is worth naming, because nothing about it is visible at the site of the bug:
 
 > A `persistent()` sabotage body is a **JS template literal**, and an untagged template literal
@@ -1085,8 +1085,8 @@ One was new and is worth naming, because nothing about it is visible at the site
 
 Two of the earlier sabotages had to be repaired for a second reason, and the new pair repeated it: a
 `MutationObserver` whose callback writes to the thing it observes re-triggers itself for ever, and
-both hung the run rather than failing it. Checks 44 and 45 mark each cell they have already written
-so the second pass is a no-op; before that, check 44 took **238 seconds** to report SURVIVED. Assigning `textContent` fires a `characterData` mutation even when the value is
+both hung the run rather than failing it. Checks 46 and 45 mark each cell they have already written
+so the second pass is a no-op; before that, check 46 took **238 seconds** to report SURVIVED. Assigning `textContent` fires a `characterData` mutation even when the value is
 unchanged, and `prepend()` is itself a `childList` mutation. Both now `disconnect()` while they
 write — which also clears the pending record queue, so the reconnect is safe. **A hang is an outage
 reported as nothing**, so the harness now carries a per-check deadline (60 s for data, 150 s for
