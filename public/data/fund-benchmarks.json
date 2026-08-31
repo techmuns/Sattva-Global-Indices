@@ -3,29 +3,17 @@
   "note": "The ETF, not the index. An ETF carries tracking error and trades at a premium or discount to NAV, so this is a close PROXY for the index it tracks, never the index itself. MSCI index levels are licensed and this project has no entitlement to them.",
   "returnBasis": "PRICE return, dividends not reinvested — a free-float market cap moves with price, not with a distribution paid out in cash.",
   "currencyNote": "Funds quote in USD. A rupee return is price_usd × usdinr on each date, both halves from the same date. Measured 20 Aug 2026, ignoring this would have put SMIN's 1-year move at -3.62% instead of +5.44% — the wrong sign.",
-  "capturedAt": "2026-08-28T23:47:03.181Z",
-  "asOf": "2026-08-28",
+  "capturedAt": "2026-08-31T10:54:20.104Z",
+  "asOf": "2026-08-31",
   "range": "2y",
   "fx": {
     "symbol": "USDINR=X",
     "currency": "INR",
     "meaning": "INR per USD",
-    "firstClose": "2024-08-28",
-    "lastClose": "2026-08-28",
-    "points": 519,
+    "firstClose": "2024-09-02",
+    "lastClose": "2026-08-31",
+    "points": 516,
     "series": [
-      {
-        "date": "2024-08-28",
-        "close": 83.92160034179688
-      },
-      {
-        "date": "2024-08-29",
-        "close": 83.94149780273438
-      },
-      {
-        "date": "2024-08-30",
-        "close": 83.89510345458984
-      },
       {
         "date": "2024-09-02",
         "close": 83.86380004882812
@@ -2087,8 +2075,8 @@
         "close": 95.47039794921875
       },
       {
-        "date": "2026-08-28",
-        "close": 95.36000061035156
+        "date": "2026-08-31",
+        "close": 95.1520004272461
       }
     ]
   },
@@ -6133,7 +6121,7 @@
         },
         {
           "date": "2026-08-28",
-          "close": 71.80750274658203
+          "close": 71.80999755859375
         }
       ]
     },

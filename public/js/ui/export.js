@@ -93,6 +93,26 @@ export function provenanceBanner(freshness, { scopeLabel, filterLabel } = {}) {
         + 'divided by the factor BSE published, and the action and factor travel in their own columns. An empty cell is a STATED reason, '
         + 'carried in the "no reading because" column — never a zero, and never comparable with a real reading.',
     ],
+    [
+      'There are TWO relative-performance families in this file, over two different windows.',
+      'The "vs segment" columns are measured across MSCI\'s two ten-day PRICE windows — the days MSCI struck the '
+        + 'market caps that decided each review. The "since <date>" columns are measured from the day a review took '
+        + 'EFFECT and every tracking fund traded, which is roughly six weeks later, to the latest committed close. '
+        + 'Measured on the record they disagree about the SIGN for 27.8% of companies, so neither is a substitute for '
+        + 'the other and they must never be summed, averaged or compared with each other. Both are geometric — '
+        + '(1 + stock) / (1 + index) - 1, NOT the arithmetic difference of the two legs beside them, so the three '
+        + 'columns in each family will not add up and are not meant to. Both carry a direction ONLY where their own '
+        + 'robustness column says the direction survives their own uncertainty test, and both are EVIDENCE BESIDE A '
+        + 'VERDICT, never an input to one: a verdict turns on a rank by free-float market cap, which already contains '
+        + 'every price move these columns measure.',
+    ],
+    [
+      'Flow pressure is a direction, not a flow, and it forces no trade.',
+      'A rising weight forces no trade at all — an index fund holds each member in proportion to its weight, so a '
+        + 'price move changes both by the same proportion. The flow-pressure column says which way the NEXT review\'s '
+        + 'forced trade would point if the trend held; it is not money moving today and it carries no rupee figure. '
+        + 'It changes no verdict in this file.',
+    ],
     [`Rows in this file: ${scopeLabel ?? 'as filtered on screen'}.`, filterLabel ?? ''],
   ];
 }

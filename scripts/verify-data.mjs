@@ -39,8 +39,9 @@ import { METHODOLOGIES as STATE_METHODOLOGIES } from '../public/js/core/state.js
 import { inrFlow, pct, pp, signedPct, factorPct, count, cr, EM_DASH } from '../public/js/core/format.js';
 import { parseRange, withinRange } from '../public/js/core/range.js';
 import { feedRegistry } from '../public/js/data/companies.js';
-import { relativeOf, windowMean, WINDOW_STATES } from '../public/js/model/relative.js';
-import { RELATIVE_PERFORMANCE } from '../public/js/config/thresholds.mjs';
+import { relativeOf, windowMean, WINDOW_STATES, REBASE_STATES, adjustmentBetween, flowPressure } from '../public/js/model/relative.js';
+import { RELATIVE_PERFORMANCE, REBALANCE_BASELINE } from '../public/js/config/thresholds.mjs';
+import { closedReviews } from '../public/js/model/calendar.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -150,6 +151,7 @@ function loadContext() {
     nseFloat: readJson('public/data/nse-freefloat.json'),
     prices: readJson('public/data/prices.json'),
     reconciliation: readJson('public/data/share-reconciliation.json'),
+    relativeBaselines: readJson('public/data/relative-baselines.json'),
     sources: loadSources(),
     // Injected so a check can be broken by swapping the thing it verifies.
     fn: { assertBhavcopyShape, assertContinuity, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count, parseRange, withinRange },
@@ -172,6 +174,7 @@ const clone = (ctx) => ({
   master: structuredClone(ctx.master),
   prices: structuredClone(ctx.prices),
   reconciliation: structuredClone(ctx.reconciliation),
+  relativeBaselines: structuredClone(ctx.relativeBaselines),
   sources: ctx.sources.map((s) => ({ ...s })),
   fn: { ...ctx.fn },
   fixtures: { ...ctx.fixtures },
@@ -1299,6 +1302,20 @@ async function main() {
               robust: true,
               direction: sweep > 0 ? 'outperformed' : 'underperformed',
             },
+            // ⚠ BOTH READINGS ARE SWEPT. The since-rebalance one is the reading
+            // the three columns on screen show and the one the flow-pressure
+            // chip beside the verdict is derived from, so it is the likelier of
+            // the two to be wired into `assess` by a future author trying to
+            // "reflect it in the verdict". Sweeping only the other would leave
+            // exactly that change unguarded.
+            sinceRebalance: {
+              ...(company.sinceRebalance ?? {}),
+              relativePct: sweep,
+              sensitivity: [sweep - 1, sweep + 1],
+              sensitivityWidthPp: 2,
+              robust: true,
+              direction: sweep > 0 ? 'outperformed' : 'underperformed',
+            },
           };
           const verdict = assess(withReading, context).verdict;
           after[verdict] = (after[verdict] ?? 0) + 1;
@@ -1309,13 +1326,33 @@ async function main() {
           }
         }
       }
-      empty(moved, 'no value of the reading changes any verdict count', (x) => x);
-      return `swept -200..+200 pp across ${c.companies.length} companies · verdict multiset unchanged at every point`;
+      empty(moved, 'no value of either reading changes any verdict count', (x) => x);
+
+      // And the flow-pressure classification, which is what the chip beside the
+      // verdict renders, must be derivable WITHOUT a verdict — otherwise the two
+      // are entangled and a future change to one silently moves the other.
+      // It reads the verdict only to decide whether the row is worth MARKING.
+      const sample = c.companies.find((x) => x.sinceRebalance?.robust);
+      if (sample) {
+        const withVerdict = flowPressure(sample.sinceRebalance, {
+          segment: 'smallcap', verdict: 'stable', band: REBALANCE_BASELINE.bandPct,
+        });
+        const withoutVerdict = flowPressure(sample.sinceRebalance, {
+          segment: 'smallcap', band: REBALANCE_BASELINE.bandPct,
+        });
+        equal(withoutVerdict.key, withVerdict.key,
+          'the pressure direction is the same with or without a verdict — the verdict only decides whether it is MARKED');
+        equal(withoutVerdict.notable, false, 'and with no verdict there is nothing to mark');
+        equal(withVerdict.inrFlow, null,
+          'a pressure direction never carries a rupee figure — no trade has been forced (2.11, 2.16)');
+      }
+
+      return `swept -200..+200 pp across ${c.companies.length} companies, both readings · verdict multiset unchanged at every point`;
     },
     sabotage: (c) => {
       // Make the verdict depend on it, which is the change this check forbids.
       for (const company of c.companies) {
-        if (company.relativePerformance?.robust) company.assessment.verdict = 'migration-up';
+        if (company.sinceRebalance?.robust) company.assessment.verdict = 'migration-up';
       }
     },
   }, ctx);
@@ -1794,6 +1831,347 @@ async function main() {
         company.fullMcapInr = 1e15;
         company.freeFloatMcapInr = 1e14;
       }
+    },
+  }, ctx);
+
+  suite.section("The desk's baseline — since the last rebalance");
+
+  await suite.check({
+    id: 42,
+    what: 'the baseline is the rebalance EFFECTIVE date, not the price window MSCI struck its caps in',
+    clone: deepClone,
+    run: (c) => {
+      const context = c.companiesFile.sinceRebalance;
+      ok(context, 'the since-rebalance block is on the record', context ? 'present' : 'absent');
+
+      // ⚠ THIS IS THE CONFUSION THE WHOLE FEATURE TURNS ON, AND BOTH DATES ARE
+      // REAL DATES IN THIS FILE. A baseline silently taken from the price window
+      // would be six weeks early, would still produce a plausible number on every
+      // row, and nothing else would notice.
+      const history = readJson('public/data/price-history.json');
+      const priceWindowDates = new Set(history.windows.flatMap((w) => [w.from, w.to, ...w.dates]));
+      const wrong = [];
+      for (const baseline of context.baselines) {
+        const [year, month] = baseline.review.split('-').map(Number);
+        const cutoffs = reviewCutoffs(year, month);
+        if (baseline.effectiveDate >= cutoffs.price.from && baseline.effectiveDate <= cutoffs.price.to) {
+          wrong.push(`${baseline.review}: effective ${baseline.effectiveDate} sits INSIDE its own price window `
+            + `${cutoffs.price.from}..${cutoffs.price.to}`);
+        }
+        if (priceWindowDates.has(baseline.resolvedDate)) {
+          wrong.push(`${baseline.review}: baseline ${baseline.resolvedDate} is a captured price-window session`);
+        }
+        // The effective date is the last business day of the review month; the
+        // price window is in the month BEFORE it. So the baseline must be later,
+        // and by about a month.
+        const gapDays = Math.round((Date.parse(baseline.effectiveDate) - Date.parse(cutoffs.price.to)) / 86400000);
+        if (gapDays < 20) {
+          wrong.push(`${baseline.review}: only ${gapDays} day(s) after its price window closed — expected about a month`);
+        }
+      }
+      empty(wrong, 'every baseline is a rebalance date and none is a price-window date', (x) => x);
+
+      // And the set is derived from the calendar, not typed: each review's
+      // effective date must be the one closedReviews() computes for it.
+      const fromCalendar = new Map(
+        closedReviews(c.prices.tradeDate, 12).map((r) => [r.review, r.effectiveDate]),
+      );
+      const drifted = context.baselines.filter((b) => fromCalendar.get(b.review) !== b.effectiveDate);
+      empty(drifted, 'every baseline date reproduces from the review calendar',
+        (b) => `${b.review}: record ${b.effectiveDate}, calendar ${fromCalendar.get(b.review)}`);
+
+      // A baseline that walked back must SAY it did — an em dash with no reason
+      // and a date silently moved are the same failure (2.4).
+      const silent = context.baselines.filter((b) => !b.tradedOnEffectiveDate && b.walkedBackDays === null);
+      empty(silent, 'a baseline that could not be struck on its own date states how far it walked', (b) => b.review);
+
+      return `${context.baselines.length} baselines · default ${context.defaultReview} `
+        + `(${context.baselines.find((b) => b.review === context.defaultReview)?.effectiveDate}) `
+        + `-> ${context.latestDate} · price windows ${history.windows.map((w) => `${w.from}..${w.to}`).join(', ')}`;
+    },
+    sabotage: (c) => {
+      // The mistake itself: baseline the reading on MSCI's price window instead
+      // of on the day the review took effect.
+      const history = readJson('public/data/price-history.json');
+      for (const baseline of c.companiesFile.sinceRebalance.baselines) {
+        baseline.effectiveDate = history.windows[0].to;
+        baseline.resolvedDate = history.windows[0].to;
+      }
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 39,
+    what: 'a since-rebalance leg recomputes from the committed closes, and a missing leg never becomes a number',
+    clone: deepClone,
+    run: (c) => {
+      const context = c.companiesFile.sinceRebalance;
+      const history = readJson('public/data/price-history.json');
+      const actions = readJson('public/data/corporate-actions.json');
+      const dateIndex = new Map(history.dates.map((d, i) => [d, i]));
+      const baseline = history.baselines.find((b) => b.review === context.defaultReview);
+      ok(baseline, 'the default baseline was actually captured', context.defaultReview);
+
+      // ---- the coercion, again, on this reading's own arithmetic ----------
+      // `null - 4.5` is -4.5. A bare subtraction would give every company with a
+      // missing leg a mild-underperformer reading that sorts among the real ones.
+      equal(relativeOf(null, 4.5), null, 'a null stock leg yields null, not minus the index');
+      equal(relativeOf(4.5, null), null, 'a null index leg yields null');
+
+      // ---- the half-open action interval ---------------------------------
+      // The bounds here are NOT the bounds of the window-to-window reading, and
+      // getting them wrong is a silent 2x error on a bonus. A close on the ex-date
+      // is already post-action, so an action ex ON the baseline is excluded and
+      // one ex ON the latest date must be applied.
+      const bonus = (exDate) => [{ exDate, purpose: 'Bonus issue 1:1', priceFactor: 2, quantifiable: true }];
+      equal(adjustmentBetween(bonus('2026-05-29'), '2026-05-29', '2026-08-28').factor, 1,
+        'an action ex ON the baseline date is already in that close — not applied');
+      equal(adjustmentBetween(bonus('2026-08-28'), '2026-05-29', '2026-08-28').factor, 2,
+        'an action ex ON the latest date IS applied — that close is post-action and the baseline is not');
+      equal(adjustmentBetween(bonus('2026-08-29'), '2026-05-29', '2026-08-28').factor, 1,
+        'an action after the latest date is not applied');
+      equal(adjustmentBetween([{ exDate: '2026-07-01', purpose: 'Spin Off', priceFactor: null, quantifiable: false }],
+        '2026-05-29', '2026-08-28').state, 'unquantifiable-action',
+        'an action with no published ratio refuses the reading rather than assuming 1.0');
+
+      const fabricated = c.companies.filter((x) => {
+        const r = x.sinceRebalance;
+        return r && r.relativePct !== null && (r.stockPct === null || r.indexPct === null);
+      });
+      empty(fabricated, 'no company has a delta without both legs', (x) => x.name);
+
+      // ---- the delta is GEOMETRIC, not the difference of the two columns --
+      //
+      // ⚠ THIS ASSERTION WAS MISSING ON THE FIRST WRITING OF THIS CHECK, and
+      // `--prove` caught it: the sabotage replaced every delta with
+      // `stockPct - indexPct` and the check passed, because it verified both
+      // legs and never the relationship between them. A check that cannot fail
+      // is not a check (2.22).
+      //
+      // The two returns compound, so subtracting them is a different number. It
+      // is a SMALL difference on small returns, which is what makes it dangerous
+      // — it would look right on most rows and be wrong on exactly the movers
+      // the desk is reading the column for.
+      const notGeometric = [];
+      let widest = 0;
+      let widestName = null;
+      for (const company of c.companies) {
+        const r = company.sinceRebalance;
+        if (!r || r.relativePct === null) continue;
+        const expected = relativeOf(r.stockPct, r.indexPct);
+        if (Math.abs(expected - r.relativePct) > 0.005) {
+          notGeometric.push(`${company.name}: stored ${r.relativePct}, (1+s)/(1+i)-1 = ${expected.toFixed(3)}`);
+        }
+        const arithmetic = Math.abs((r.stockPct - r.indexPct) - r.relativePct);
+        if (arithmetic > widest) { widest = arithmetic; widestName = company.name; }
+      }
+      empty(notGeometric, 'every delta is (1 + stock) / (1 + index) - 1', (x) => x);
+      ok(widest > 1,
+        'and the two formulas genuinely diverge on this data, or the distinction would be untested',
+        `widest gap ${widest.toFixed(2)} pp at ${widestName}`);
+
+      const unnamed = c.companies.filter((x) => x.sinceRebalance && !REBASE_STATES[x.sinceRebalance.state]);
+      empty(unnamed, 'every state is one this model names', (x) => `${x.name}: ${x.sinceRebalance.state}`);
+      const wordless = Object.entries(REBASE_STATES).filter(([, v]) => !v.detail || !v.label);
+      empty(wordless, 'every named state carries its own explanation', ([k]) => k);
+
+      // ---- recompute the stock leg from the raw closes --------------------
+      const wrong = [];
+      let rechecked = 0;
+      for (const company of c.companies) {
+        const r = company.sinceRebalance;
+        if (!r || r.stockPct === null || company.bseScripCode == null) continue;
+        const scrip = history.scrips[String(company.bseScripCode)];
+        if (!scrip) continue;
+        const at = scrip.closes[dateIndex.get(r.baselineDate)];
+        if (!(at > 0) || !(company.priceInr > 0)) continue;
+        const from = at / (r.adjustmentFactor ?? 1);
+        const implied = ((company.priceInr - from) / from) * 100;
+        rechecked += 1;
+        if (Math.abs(implied - r.stockPct) > 0.01) {
+          wrong.push(`${company.name}: stored ${r.stockPct}, closes imply ${implied.toFixed(3)}`);
+        }
+      }
+      empty(wrong, 'every stock leg recomputes from the committed baseline close and the committed price', (x) => x);
+      ok(rechecked > 1000, 'enough legs were recomputed for that to mean something', `${rechecked} recomputed`);
+
+      // ---- and the index leg, in RUPEES, on exactly those two dates -------
+      const fx = seriesToMap(c.benchmarks.fx.series);
+      const legWrong = [];
+      let legsChecked = 0;
+      for (const company of c.companies) {
+        const r = company.sinceRebalance;
+        if (!r || r.indexPct === null) continue;
+        const fund = c.benchmarks.funds.find((f) => f.symbol === r.benchmarkSymbol);
+        if (!fund) { legWrong.push(`${company.name}: no benchmark ${r.benchmarkSymbol}`); continue; }
+        const closes = seriesToMap(fund.series);
+        // EXACT dates on both legs. A walk-back on either would difference two
+        // different windows and call the result relative performance.
+        const a = closes.get(r.baselineDate) * fx.get(r.baselineDate);
+        const b = closes.get(r.latestDate) * fx.get(r.latestDate);
+        if (!(a > 0) || !(b > 0)) { legWrong.push(`${company.name}: no exact index leg`); continue; }
+        legsChecked += 1;
+        const implied = ((b - a) / a) * 100;
+        if (Math.abs(implied - r.indexPct) > 0.01) {
+          legWrong.push(`${company.name}: stored index ${r.indexPct}, series implies ${implied.toFixed(3)}`);
+        }
+      }
+      empty(legWrong, 'every index leg recomputes in rupees from the same two dates', (x) => x);
+
+      // A blind action history must never produce a return.
+      const blind = c.companies.filter((x) => {
+        const code = x.bseScripCode != null ? String(x.bseScripCode) : null;
+        return x.sinceRebalance?.relativePct != null && code && !actions.scrips[code];
+      });
+      empty(blind, 'no return is computed for a scrip whose corporate actions could not be read', (x) => x.name);
+
+      const withReading = c.companies.filter((x) => x.sinceRebalance?.relativePct != null).length;
+      const robust = c.companies.filter((x) => x.sinceRebalance?.robust).length;
+      // If every direction shared a sign, the two legs would be struck on
+      // different dates — the same tripwire passive drift carries.
+      const up = c.companies.filter((x) => x.sinceRebalance?.direction === 'outperformed').length;
+      const down = c.companies.filter((x) => x.sinceRebalance?.direction === 'underperformed').length;
+      ok(up > 0 && down > 0,
+        'both directions occur — a universe that all outperformed its own segment would mean two different dates',
+        `${up} outperformed, ${down} underperformed`);
+
+      return `${withReading} of ${c.companies.length} have a reading · ${robust} robust `
+        + `(${up} up, ${down} down) · ${rechecked} stock legs and ${legsChecked} index legs recomputed`;
+    },
+    sabotage: (c) => {
+      // The bare subtraction, on this reading.
+      for (const company of c.companies) {
+        const r = company.sinceRebalance;
+        if (!r || r.stockPct === null) continue;
+        r.relativePct = r.stockPct - r.indexPct;
+      }
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 40,
+    what: 'the alternate baselines cover every company, share the default\'s shape, and are genuinely different readings',
+    clone: deepClone,
+    run: (c) => {
+      const context = c.companiesFile.sinceRebalance;
+      const file = c.relativeBaselines;
+
+      equal(file.defaultReview, context.defaultReview,
+        'the alternates file and the record agree on which baseline is the default');
+      ok(!(context.defaultReview in file.readings),
+        'the default is NOT duplicated into the alternates file — one copy, in companies.json',
+        Object.keys(file.readings).join(', '));
+
+      const expected = context.baselines.map((b) => b.review).filter((r) => r !== context.defaultReview);
+      equal(JSON.stringify(Object.keys(file.readings).sort()), JSON.stringify(expected.sort()),
+        'every non-default baseline on the record has readings in the file');
+
+      // ⚠ THE SHAPES MUST MATCH. The interface swaps between the inline reading
+      // and these when a reader re-bases, so a field present in one and absent
+      // in the other renders as an em dash for half the baselines only.
+      const keyOf = (x) => x.isin ?? `bse:${x.bseScripCode}`;
+      const sample = c.companies.find((x) => x.sinceRebalance?.relativePct != null);
+      const inlineKeys = Object.keys(sample.sinceRebalance).sort();
+      const shapeWrong = [];
+      for (const [review, byKey] of Object.entries(file.readings)) {
+        equal(Object.keys(byKey).length, c.companies.length,
+          `${review} carries a reading slot for every company`);
+        const alt = byKey[keyOf(sample)];
+        if (!alt) { shapeWrong.push(`${review}: no reading for ${sample.name}`); continue; }
+        if (alt.relativePct === null) continue;
+        const altKeys = Object.keys(alt).sort();
+        if (JSON.stringify(altKeys) !== JSON.stringify(inlineKeys)) {
+          shapeWrong.push(`${review}: fields ${altKeys.join(',')} vs inline ${inlineKeys.join(',')}`);
+        }
+      }
+      empty(shapeWrong, 'an alternate reading has the same fields as the inline one', (x) => x);
+
+      // And they must actually differ. Four identical baselines would be a
+      // picker that changes nothing — the failure a reader could never see.
+      const moved = [];
+      for (const [review, byKey] of Object.entries(file.readings)) {
+        let differing = 0;
+        let compared = 0;
+        for (const company of c.companies) {
+          const inline = company.sinceRebalance;
+          const alt = byKey[keyOf(company)];
+          if (!inline || !alt || inline.relativePct === null || alt.relativePct === null) continue;
+          compared += 1;
+          if (Math.abs(inline.relativePct - alt.relativePct) > 0.01) differing += 1;
+        }
+        ok(compared > 500, `${review} overlaps the default on enough companies to compare`, `${compared} compared`);
+        ok(differing > compared * 0.9,
+          `${review} is a genuinely different baseline, not a copy of the default`,
+          `${differing} of ${compared} differ`);
+        // Each baseline must be struck on ITS OWN date, not the default's.
+        const alt = byKey[keyOf(c.companies.find((x) => byKey[keyOf(x)]?.baselineDate))];
+        const meta = context.baselines.find((b) => b.review === review);
+        if (alt && alt.baselineDate !== (meta.resolvedDate ?? meta.effectiveDate)) {
+          moved.push(`${review}: readings struck on ${alt.baselineDate}, baseline says ${meta.resolvedDate}`);
+        }
+      }
+      empty(moved, 'each alternate is struck on its own rebalance date', (x) => x);
+
+      return `${Object.keys(file.readings).length} alternates (${Object.keys(file.readings).join(', ')}) `
+        + `× ${c.companies.length} companies · default ${context.defaultReview} inline`;
+    },
+    sabotage: (c) => {
+      // The picker that changes nothing: every alternate becomes a copy of the
+      // default, which is exactly what a mis-keyed lookup would produce — and
+      // the one failure a reader could never see, because every column would
+      // still be full of plausible numbers.
+      const keyOf = (x) => x.isin ?? `bse:${x.bseScripCode}`;
+      for (const review of Object.keys(c.relativeBaselines.readings)) {
+        for (const company of c.companies) {
+          c.relativeBaselines.readings[review][keyOf(company)] = company.sinceRebalance;
+        }
+      }
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 41,
+    what: 'one trading date carries one close — a duplicate bar would make every rupee return ambiguous',
+    clone: deepClone,
+    run: (c) => {
+      // ⚠ THIS CHECK EXISTS BECAUSE THE BUG IT CATCHES SHIPPED. The committed
+      // fund-benchmarks.json carried USDINR=X twice on 2026-08-28 — 95.4704 and
+      // 95.3600, 0.12% apart. Yahoo appends a live bar for the current session
+      // beside that session's daily bar and both label the same date.
+      //
+      // Every consumer builds a Map from the series, so whichever bar came last
+      // silently won. Nothing looked wrong; RELIANCE's index leg was 1.328%
+      // against the 1.445% a reader recomputing by hand would get, and there was
+      // no way to see why.
+      const series = [
+        [c.benchmarks.fx.symbol, c.benchmarks.fx.series],
+        ...c.benchmarks.funds.map((f) => [f.symbol, f.series]),
+      ];
+      const dupes = [];
+      for (const [symbol, points] of series) {
+        const seen = new Set();
+        for (const point of points) {
+          if (seen.has(point.date)) dupes.push(`${symbol}: ${point.date}`);
+          seen.add(point.date);
+        }
+      }
+      empty(dupes, 'no series carries two bars for one trading date', (x) => x);
+
+      // And the guard that is supposed to catch it must actually say so, rather
+      // than the absence being luck.
+      const withDupe = [...c.benchmarks.fx.series, { ...c.benchmarks.fx.series[0] }];
+      const verdict = assertSeriesDates(withDupe);
+      ok(!verdict.ok && verdict.problems.some((p) => /duplicate/i.test(p)),
+        'assertSeriesDates reports a duplicated date as a problem',
+        JSON.stringify(verdict.problems));
+
+      return `${series.length} series · ${series.reduce((n, [, p]) => n + p.length, 0)} bars · no date twice`;
+    },
+    sabotage: (c) => {
+      // The bug: a second bar for the newest date, at a slightly different rate,
+      // exactly as Yahoo's live bar arrives.
+      const last = c.benchmarks.fx.series[c.benchmarks.fx.series.length - 1];
+      c.benchmarks.fx.series.push({ date: last.date, close: last.close * 1.0012 });
     },
   }, ctx);
 

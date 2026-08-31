@@ -78,8 +78,8 @@ import { estimateFlows } from '../public/js/model/flows.js';
 import { nextReview, previousReview, reviewCutoffs } from '../public/js/model/calendar.js';
 import * as MSCI from '../public/js/config/msci-methodology.mjs';
 import { seriesToMap, summarise, rateOn, FUND_BENCHMARKS } from '../public/js/model/benchmarks.js';
-import { assessRelative, WINDOW_STATES } from '../public/js/model/relative.js';
-import { SEGMENT_BAND_ADJUSTMENT, RELATIVE_PERFORMANCE } from '../public/js/config/thresholds.mjs';
+import { assessRelative, assessSinceRebalance, WINDOW_STATES, REBASE_STATES } from '../public/js/model/relative.js';
+import { SEGMENT_BAND_ADJUSTMENT, RELATIVE_PERFORMANCE, REBALANCE_BASELINE } from '../public/js/config/thresholds.mjs';
 import { renderTable, num, round, CheckList } from './lib/report.mjs';
 import {
   SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
@@ -92,6 +92,16 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
 const OUT_PATH = join(REPO, 'public', 'data', 'companies.json');
+/**
+ * The alternate rebalance baselines.
+ *
+ * Kept OUT of companies.json deliberately. The default baseline's reading is
+ * on every company record and paints on first load; the alternates are only
+ * needed if a reader actually re-bases the screen, and putting four of them
+ * inline would add roughly 700 KB to a file every visitor downloads to answer
+ * a question most of them never ask.
+ */
+const BASELINES_PATH = join(REPO, 'public', 'data', 'relative-baselines.json');
 
 const rel = (p) => p.replace(`${REPO}/`, '');
 
@@ -748,6 +758,131 @@ function main() {
     };
   }
 
+  // ---- since the REBALANCE DATE — the desk's own baseline ----------------
+  //
+  // ⚠ A DIFFERENT BASELINE FROM THE BLOCK ABOVE, AND A DIFFERENT NUMBER.
+  //
+  // Above measures MSCI's price window to MSCI's price window: 17-30 April to
+  // 20-31 July for the August review. This measures from the day the May review
+  // took EFFECT — 29 May — to the latest committed close. Six weeks apart at the
+  // near end, and the desk asked for the latter.
+  //
+  // Every baseline the fetcher captured is computed, not only the default one,
+  // so the reader can re-base the whole screen onto an earlier rebalance without
+  // the browser needing the 2 MB of price history this loop reads.
+  const rebaseByReview = new Map();     // review -> Map(companyKey -> reading)
+  let rebaseContext = null;
+  if (priceHistory && corporateActions && benchmarks && (priceHistory.baselines ?? []).length > 0) {
+    const dateIndex = new Map(priceHistory.dates.map((d, i) => [d, i]));
+    const fxForBaselines = seriesToMap(benchmarks.fx?.series ?? []);
+
+    // The index leg in RUPEES on an EXACT date. `rateOn(..., 0)` means the same
+    // date or nothing: a fund close does not persist across a day the way an FX
+    // rate does, and walking either leg back would difference two different
+    // dates and call the result relative performance.
+    const indexInr = {};
+    for (const descriptor of FUND_BENCHMARKS) {
+      const fund = (benchmarks.funds ?? []).find((f) => (f.id ?? f.fundId) === descriptor.id);
+      if (!fund) continue;
+      const closes = seriesToMap(fund.series ?? []);
+      indexInr[descriptor.id] = {
+        descriptor,
+        on: (date) => {
+          const close = closes.get(date);
+          const fx = rateOn(fxForBaselines, date, 0);
+          return close > 0 && fx?.rate > 0 ? close * fx.rate : null;
+        },
+      };
+    }
+
+    const latestDate = prices.tradeDate;
+    const rebaseStates = {};
+
+    for (const baseline of priceHistory.baselines) {
+      const byKey = new Map();
+      const states = {};
+      for (const company of out) {
+        const key = keyOfCompany(company);
+        const code = company.bseScripCode != null ? String(company.bseScripCode) : null;
+        const scrip = code ? priceHistory.scrips[code] : null;
+        const actionRecord = code ? corporateActions.scrips[code] : null;
+        const benchmarkId = REBALANCE_BASELINE.benchmarkForSegment[segmentOf(company)] ?? null;
+        const leg = benchmarkId ? indexInr[benchmarkId] : null;
+
+        const reading = assessSinceRebalance({
+          hasPriceHistory: Boolean(scrip),
+          candidates: (baseline.dates ?? []).map((d) => ({
+            date: d,
+            close: scrip?.closes[dateIndex.get(d)] ?? null,
+          })),
+          baselineDate: baseline.resolvedDate,
+          // ⚠ THE LATEST END IS THE COMMITTED EOD CLOSE, NEVER A LIVE QUOTE.
+          // A live price is an NSE quote and the baseline is a BSE close, so
+          // folding one in would put an exchange change inside a return — 2.10.
+          latestClose: company.priceInr,
+          latestDate,
+          indexOn: (d) => leg?.on(d) ?? null,
+          // NULL, not [], when BSE could not be read for this scrip: unknown
+          // actions are not the same fact as no actions.
+          actions: actionRecord ? actionRecord.actions : null,
+          firstSeen: scrip?.firstSeen ?? null,
+          benchmark: leg?.descriptor ?? null,
+          band: REBALANCE_BASELINE.bandPct,
+        });
+        byKey.set(key, reading);
+        states[reading.state] = (states[reading.state] ?? 0) + 1;
+      }
+      rebaseByReview.set(baseline.review, byKey);
+      rebaseStates[baseline.review] = states;
+    }
+
+    // The default is the most recent rebalance whose date has passed, resolved
+    // against the newest session the exchange served — never against the clock.
+    const defaultReview = REBALANCE_BASELINE.defaultReview ?? priceHistory.baselines[0].review;
+    if (!rebaseByReview.has(defaultReview)) {
+      throw new Error(
+        `REBALANCE_BASELINE.defaultReview is ${defaultReview}, which has no captured baseline. `
+        + `Captured: ${priceHistory.baselines.map((b) => b.review).join(', ')}`,
+      );
+    }
+
+    rebaseContext = {
+      defaultReview,
+      latestDate,
+      latestSource: 'the committed BSE bhavcopy close — never a live quote, which would put an '
+        + 'exchange change inside a return',
+      baselines: priceHistory.baselines.map((b) => ({
+        review: b.review,
+        label: b.label,
+        effectiveDate: b.effectiveDate,
+        resolvedDate: b.resolvedDate,
+        walkedBackDays: b.walkedBackDays,
+        tradedOnEffectiveDate: b.tradedOnEffectiveDate,
+        sensitivitySpan: { from: b.from, to: b.to, sessions: b.sessions, days: b.sensitivityDays },
+        states: rebaseStates[b.review],
+      })),
+      benchmarkForSegment: REBALANCE_BASELINE.benchmarkForSegment,
+      bandPct: REBALANCE_BASELINE.bandPct,
+      basis: REBALANCE_BASELINE.basis,
+      attribution: REBALANCE_BASELINE.attribution,
+      stateMeanings: REBASE_STATES,
+      // The one thing this reading is not allowed to do, on the record and not
+      // only on the screen — it travels into the export and into anything
+      // reading the file directly.
+      doesNotMoveVerdict:
+        'This reading is evidence beside a verdict and never an input to one. A verdict turns on a '
+        + 'rank by free-float market cap, and free float is float factor x shares x price — so '
+        + "today's rank already contains this reading's price move. Letting it move the verdict "
+        + 'would count the same evidence twice.',
+      noTradeImplied:
+        'A rising weight forces no trade. An index fund holds each member in proportion to its '
+        + 'weight, so a price move changes both by the same proportion. Only a review forces a '
+        + 'trade, which is why this carries a direction and never a rupee figure.',
+      priceHistoryCapturedAt: priceHistory.capturedAt,
+      actionsCapturedAt: corporateActions.capturedAt,
+    };
+  }
+
   const assessContext = { boundary, ranks, quarantined, keyOf: keyOfCompany, segmentReturns };
   const flowContext = { flowPrimitives: flowPrimitivesByFund, segmentFloatTotals: floatTotals };
 
@@ -787,6 +922,21 @@ function main() {
     // A MEASUREMENT beside the verdict, never an input to it — see the header of
     // model/relative.js on why a rank already contains every past price move.
     company.relativePerformance = relativeByKey.get(keyOfCompany(company)) ?? null;
+    // The desk's baseline: since the last rebalance took effect. Only the
+    // DEFAULT baseline rides in companies.json; the alternates go to their own
+    // file, fetched only if a reader actually re-bases the screen.
+    // ⚠ THE SAME SHAPE AS THE ALTERNATES FILE, deliberately. The interface swaps
+    // between the two when a reader re-bases the screen, so a reading that
+    // carried its prose inline here and looked it up there would need two render
+    // paths and would drift. `state` is the key into REBASE_STATES, which the
+    // browser imports from the model — one copy of each sentence, not 1,265.
+    company.sinceRebalance = (() => {
+      if (!rebaseContext) return null;
+      const reading = rebaseByReview.get(rebaseContext.defaultReview)?.get(keyOfCompany(company));
+      if (!reading) return null;
+      const { reason, label, benchmarkName, ...lean } = reading;
+      return lean;
+    })();
     if (quarantined.has(keyOfCompany(company))) {
       const finding = reconciliation.findings.find((f) => f.isin === company.isin);
       company.shareCountQuarantine = { reason: finding?.cause ?? 'share count could not be corroborated', gapPct: finding?.gapPct ?? null };
@@ -1320,6 +1470,7 @@ function main() {
       funds: Object.values(benchmarkById),
     } : null,
     relativePerformance: relativeContext,
+    sinceRebalance: rebaseContext,
     prices: {
       tradeDate: prices.tradeDate,
       source: prices.source,
@@ -1391,6 +1542,47 @@ function main() {
 
   mkdirSync(dirname(OUT_PATH), { recursive: true });
   writeFileSync(OUT_PATH, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+
+  // ---- the alternate rebalance baselines, in their own file --------------
+  if (rebaseContext) {
+    const readings = {};
+    for (const baseline of rebaseContext.baselines) {
+      if (baseline.review === rebaseContext.defaultReview) continue;   // already inline
+      const byKey = rebaseByReview.get(baseline.review);
+      const forReview = {};
+      for (const company of out) {
+        const key = keyOfCompany(company);
+        const reading = byKey.get(key) ?? null;
+        if (!reading) { forReview[key] = null; continue; }
+        // `reason`, `label` and `benchmarkName` are the SAME prose on every row
+        // — 1,265 copies each, per baseline. They are dropped here and looked up
+        // from `stateMeanings` and `benchmarkForSegment` in this file's own
+        // header, which is where they already live. Nothing is lost: `state` is
+        // the key into them, and it stays. (Measured: 1.97 MB -> 1.15 MB.)
+        const { reason, label, benchmarkName, ...lean } = reading;
+        forReview[key] = lean;
+      }
+      readings[baseline.review] = forReview;
+    }
+    writeFileSync(BASELINES_PATH, `${JSON.stringify({
+      source: 'derived — public/data/price-history.json against public/data/fund-benchmarks.json',
+      note: 'Relative performance since each PAST rebalance date, for every baseline except the '
+        + "default one. The default rides on each company's record in companies.json; these are "
+        + 'fetched only when a reader re-bases the screen. Keyed by the same company key '
+        + 'companies.json uses (ISIN, or bse:<code> where there is none).',
+      builtAt: new Date().toISOString(),
+      defaultReview: rebaseContext.defaultReview,
+      defaultReviewNote: 'not in this file — it is inline on every company in companies.json',
+      baselines: rebaseContext.baselines,
+      bandPct: REBALANCE_BASELINE.bandPct,
+      benchmarkForSegment: REBALANCE_BASELINE.benchmarkForSegment,
+      attribution: REBALANCE_BASELINE.attribution,
+      doesNotMoveVerdict: rebaseContext.doesNotMoveVerdict,
+      stateMeanings: REBASE_STATES,
+      companyCount: out.length,
+      readings,
+    })}\n`, 'utf8');
+  }
   process.stdout.write(
     `\nAll checks passed. Wrote ${rel(OUT_PATH)} — ${num(out.length)} companies, ` +
       `${num(coverage.withFloat)} with a free-float reading, ${num(unresolvedOut.length)} unresolved rows.\n\n`,

@@ -221,6 +221,115 @@ export const RELATIVE_PERFORMANCE = {
 };
 
 /**
+ * Relative performance measured from the REBALANCE DATE — the desk's baseline.
+ *
+ * ---------------------------------------------------------------------------
+ * ⚠ THIS IS A DIFFERENT BASELINE FROM `RELATIVE_PERFORMANCE` ABOVE, ON PURPOSE
+ * ---------------------------------------------------------------------------
+ * `RELATIVE_PERFORMANCE` measures window to window: the ten days MSCI struck its
+ * market caps in for one review against the ten days it struck them in for the
+ * next. That is the window MSCI *decides* on, and it is the right window for a
+ * forecast about MSCI's next decision.
+ *
+ * It is NOT the window the desk asked about. The desk's question is "how has
+ * this stock done against the index since the last rebalance" — baselined on the
+ * day the new composition took effect and every tracking fund actually traded.
+ * For the May 2026 review those two dates are 17-30 April and 29 May: six weeks
+ * apart, and a different number.
+ *
+ * Both ship. Neither is a noisier version of the other, and each says on screen
+ * which window it measured.
+ *
+ * ---------------------------------------------------------------------------
+ * A SINGLE DAY AT EACH END, AND WHY THERE IS NO TEN-DAY MEAN HERE
+ * ---------------------------------------------------------------------------
+ * The ten-day mean upstream exists because MSCI does not publish WHICH of its
+ * ten price days it used, so no single day is privileged and the mean is the
+ * only unbiased point estimate. That reasoning does not transfer: the rebalance
+ * date is published and unambiguous. Averaging it with its neighbours would
+ * baseline the reading on a window nobody asked for.
+ *
+ * So the point estimate is struck on the rebalance date itself. What replaces
+ * the day-choice envelope is a SENSITIVITY test — if the baseline had been
+ * struck a session or two either side, would the sign survive? That is a
+ * fragility measure, not a redefinition of the baseline, and it is measured on
+ * the baseline end only: the latest close is the newest fact, not a choice
+ * anybody makes.
+ */
+export const REBALANCE_BASELINE = {
+  enabled: true,
+  basis: "the company's close on the rebalance date against its latest committed close, both from the "
+    + 'BSE bhavcopy, compared with the segment benchmark struck on the SAME two dates in rupees: '
+    + '(1 + stock) / (1 + index) - 1',
+  attribution: "the desk's own reading, and the desk's own baseline. MSCI publishes the effective date "
+    + 'of each review but no performance rule of any kind — this measures a window from a date MSCI '
+    + 'does publish and draws no conclusion MSCI would recognise.',
+  /**
+   * Which review's effective date is the baseline by default.
+   *
+   * `null` means "the most recent review whose effective date has passed",
+   * resolved against the newest session the exchange has served — never against
+   * the clock, so a build does not depend on when it ran. Set an explicit
+   * `'2026-05'` to pin it.
+   */
+  defaultReview: null,
+  /**
+   * How many past rebalance dates the reader may choose between.
+   *
+   * Bounded by the benchmark series, which carries two years of daily closes —
+   * a baseline older than that has no index leg and would produce a column of
+   * stated absences rather than a comparison.
+   */
+  offerCount: 4,
+  /**
+   * How many business days either side of the rebalance date the sensitivity
+   * test sweeps. Five candidate baselines at +/-2, which is enough to show a
+   * one-day print moving the answer and few enough to stay 20 extra bhavcopy
+   * requests rather than 200.
+   */
+  sensitivityDays: 2,
+  /**
+   * How far the reading must clear zero before a DIRECTION is claimed, in
+   * percentage points.
+   *
+   * ⚠ SET FROM THE MEASURED SENSITIVITY OF THIS READING, NOT FROM THE 15 pp
+   * BAND ABOVE. That band is the median width of a 100-pair day-choice envelope
+   * and is far too wide for a reading whose baseline date is published: it would
+   * suppress almost every direction on a measurement that is not that uncertain.
+   *
+   * Measured across the committed record, over the five candidate baselines
+   * either side of 29 May 2026:
+   *
+   *     sensitivity width  p10 1.56  MEDIAN 3.64  p75 5.66  p90 9.56  max 49.29 pp
+   *     span entirely one side of zero:  1,084 of 1,193  (90.9%)
+   *
+   * That is a far more stable reading than the window one above, and for a
+   * reason rather than by luck: the baseline date is published, so the only
+   * uncertainty is a day or two of price noise rather than 100 undisclosed
+   * (from-day, to-day) pairs. 90.9% against 68.6%.
+   *
+   * The band is set at 4 pp — the first whole number AT OR ABOVE the measured
+   * median, on the same principle as the band above: a threshold below the
+   * measured uncertainty of its own input produces state changes that are noise
+   * wearing a threshold's face. As there, the band alone is not the gate — the
+   * WHOLE sensitivity span must clear it.
+   *
+   * MEASURED CONSEQUENCE at 4 pp: 849 of 1,193 readings are robust (71.2%), and
+   * 24 of the 39 migration rows. Reported, not tuned: this gate admits most
+   * rows because this measurement genuinely is less uncertain, and the 15 pp
+   * band above admits few because that one genuinely is more.
+   */
+  bandPct: 4,
+  /**
+   * Which benchmark stands for each segment. INDEX ids, not fund ids — the fund
+   * that HOLDS a stock is not the index that decides its segment, and EEM is
+   * about 11% India. Deliberately a separate object from the two above: a future
+   * change to one must not silently move the others.
+   */
+  benchmarkForSegment: { standard: 'inda', smallcap: 'smin', outside: 'smin' },
+};
+
+/**
  * What the screener's market-cap filter is, in words.
  *
  * ---------------------------------------------------------------------------

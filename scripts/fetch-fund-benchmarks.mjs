@@ -132,15 +132,43 @@ async function fetchSeries(symbol) {
   // See tradingDate: the offset is the difference between the bar's UTC instant
   // and the date the exchange itself calls that session.
   const gmtOffset = Number(result.meta?.gmtoffset ?? 0);
-  const series = [];
+  const raw = [];
   for (let i = 0; i < timestamps.length; i += 1) {
     const close = closes[i];
     if (close === null || close === undefined || !(close > 0)) continue;
-    series.push({ date: tradingDate(timestamps[i], gmtOffset), close });
+    raw.push({ date: tradingDate(timestamps[i], gmtOffset), close });
   }
+
+  // ---- two bars for one trading date -------------------------------------
+  //
+  // ⚠ YAHOO APPENDS A LIVE BAR FOR THE CURRENT SESSION ALONGSIDE ITS DAILY ONE.
+  // Timestamps are unique; the DATES they map to are not. Measured on the
+  // committed file, USDINR=X carried 2026-08-28 twice — 95.4704 and 95.3600,
+  // 0.12% apart — and nothing said so.
+  //
+  // That is not cosmetic. `seriesToMap` builds a Map, so whichever bar came last
+  // silently won, and the two halves of a rupee product could be struck against
+  // either rate depending on iteration order. A reader recomputing a return by
+  // hand off this file finds a number that does not match and cannot see why.
+  //
+  // The later bar is kept: it is the more recent observation of the SAME date,
+  // which is what `seriesToMap` was already doing by accident. What changes is
+  // that it is now deliberate, counted, and asserted against in
+  // `assertSeriesDates` — so a future regression fails loudly instead of moving
+  // every return by a tenth of a percent.
+  const byDate = new Map();
+  let collapsed = 0;
+  for (const point of raw) {
+    if (byDate.has(point.date)) collapsed += 1;
+    byDate.set(point.date, point.close);
+  }
+  const series = [...byDate.entries()]
+    .map(([date, close]) => ({ date, close }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   return {
     ok: true,
+    duplicateDateBars: collapsed,
     symbol: result.meta?.symbol ?? symbol,
     currency: result.meta?.currency ?? null,
     instrumentType: result.meta?.instrumentType ?? null,

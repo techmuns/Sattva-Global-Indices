@@ -103,6 +103,88 @@ export const benchmarks = () => requireLoaded().benchmarks ?? null;
 export const relativeWindow = () => requireLoaded().relativePerformance ?? null;
 
 /**
+ * The rebalance-date baselines: which one is in force by default, every one the
+ * reader may switch to, and the band and attribution behind the reading.
+ *
+ * ⚠ A DIFFERENT WINDOW FROM `relativeWindow()` ABOVE. That one is measured
+ * across MSCI's ten-day PRICE windows; this one from the day each review took
+ * EFFECT. Six weeks apart at the near end, and on the committed record the two
+ * disagree about the SIGN for 27.8% of companies. Neither is a noisier version
+ * of the other, and no caller may substitute one for the other.
+ */
+export const rebalanceBaselines = () => requireLoaded().sinceRebalance ?? null;
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The alternate baselines, fetched only if a reader asks for one
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const baselineCache = new Map();     // review -> Map(companyKey -> reading)
+let baselineFilePromise = null;
+
+/**
+ * Load public/data/relative-baselines.json, once.
+ *
+ * It is 1.2 MB and answers a question most readers never ask, so it is NOT in
+ * companies.json and NOT fetched at startup. The default baseline's reading
+ * rides on every company record and paints on first load; this is only reached
+ * when the reader re-bases the screen.
+ */
+async function loadBaselineFile() {
+  if (baselineFilePromise) return baselineFilePromise;
+  baselineFilePromise = (async () => {
+    const response = await fetch('data/relative-baselines.json', { cache: 'no-cache' });
+    if (!response.ok) {
+      throw new Error(`relative-baselines.json responded ${response.status} ${response.statusText}`);
+    }
+    const json = await response.json();
+    if (!json?.readings) throw new Error('relative-baselines.json carried no readings');
+    for (const [review, byKey] of Object.entries(json.readings)) {
+      baselineCache.set(review, new Map(Object.entries(byKey)));
+    }
+    return json;
+  })();
+  return baselineFilePromise;
+}
+
+/**
+ * Make a baseline available for synchronous reading by `readingFor` below.
+ *
+ * The default one is already inline, so it resolves without a fetch. Any other
+ * pulls the file once. A failure REJECTS rather than resolving empty: a screen
+ * that silently kept the old baseline's numbers under a new baseline's heading
+ * would be the worst possible outcome here.
+ */
+export async function ensureBaseline(review) {
+  const context = rebalanceBaselines();
+  if (!context) return false;
+  if (review === context.defaultReview) return true;
+  await loadBaselineFile();
+  return baselineCache.has(review);
+}
+
+/**
+ * One company's reading under the baseline in force.
+ *
+ * Returns `undefined` — distinct from `null` — when the baseline has not been
+ * loaded yet, so a caller can tell "not fetched" from "no reading for this
+ * company". Rendering the second as the first is how a loading state becomes a
+ * statement about a company.
+ */
+export function readingFor(company, review) {
+  const context = rebalanceBaselines();
+  if (!context) return null;
+  if (!review || review === context.defaultReview) return company.sinceRebalance ?? null;
+  const byKey = baselineCache.get(review);
+  if (!byKey) return undefined;
+  return byKey.get(keyOf(company)) ?? null;
+}
+
+/** The descriptor for one baseline: its label, effective date and span. */
+export function baselineMeta(review) {
+  return rebalanceBaselines()?.baselines?.find((b) => b.review === review) ?? null;
+}
+
+/**
  * The three as-of dates, each labelled, plus which one governs.
  *
  * THEY ARE NOT COLLAPSED INTO ONE "UPDATED" TIME. They are three independent

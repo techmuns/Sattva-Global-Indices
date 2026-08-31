@@ -51,8 +51,26 @@ const listeners = new Map();
 
 const storedMethodology = readStore('methodology', DEFAULT_METHODOLOGY);
 
+/**
+ * WHICH REBALANCE DATE THE RELATIVE-PERFORMANCE COLUMNS ARE BASELINED ON.
+ *
+ * `null` means "whatever the record says the default is" — and that default is
+ * CONFIG-SET, in REBALANCE_BASELINE.defaultReview, resolved at build time
+ * against the newest session the exchange served. This is only the reader's
+ * override of it.
+ *
+ * ⚠ THE VALID SET IS NOT DUPLICATED HERE. Unlike METHODOLOGIES above, the
+ * baselines that exist depend on what the fetcher captured, so the only honest
+ * list lives in the record. This module is the storage layer and must not read
+ * it; the caller validates against `data.rebalanceBaselines().baselines` and
+ * falls back to the default, so a stored review that no longer exists degrades
+ * to the default instead of emptying three columns.
+ */
+const storedBaseline = readStore('rebalanceBaseline', null);
+
 const state = {
   methodology: METHODOLOGIES.includes(storedMethodology) ? storedMethodology : DEFAULT_METHODOLOGY,
+  rebalanceBaseline: typeof storedBaseline === 'string' ? storedBaseline : null,
   watchlist: new Set(Array.isArray(readStore('watchlist', [])) ? readStore('watchlist', []) : []),
 };
 
@@ -81,6 +99,19 @@ export function setMethodology(methodology) {
   state.methodology = next;
   writeStore('methodology', next);
   emit('methodology', next);
+  return next;
+}
+
+/** The reader's override, or null for the record's own default. */
+export const getBaseline = () => state.rebalanceBaseline;
+
+/** Pass null to go back to the config-set default. */
+export function setBaseline(review) {
+  const next = typeof review === 'string' && review ? review : null;
+  if (next === state.rebalanceBaseline) return next;
+  state.rebalanceBaseline = next;
+  writeStore('rebalanceBaseline', next);
+  emit('rebalanceBaseline', next);
   return next;
 }
 

@@ -351,3 +351,375 @@ export function trendSignal(relative, { verdict, segment, distanceToCutoffPct })
   }
   return null;
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * SINCE THE REBALANCE — the desk's baseline
+ *
+ * Everything above measures window to window: the ten days MSCI struck its
+ * market caps in for one review against the ten days it struck them in for the
+ * next. That is the window MSCI DECIDES on.
+ *
+ * It is not the window the desk asked about. The desk's baseline is the
+ * REBALANCE DATE — the day the new composition took effect and every tracking
+ * fund actually traded. For the May 2026 review those are 17-30 April (prices)
+ * and 29 May (effective): six weeks apart, and a different number.
+ *
+ * ---------------------------------------------------------------------------
+ * ⚠ ONE DAY AT EACH END, AND NO TEN-DAY MEAN
+ * ---------------------------------------------------------------------------
+ * The mean upstream exists because MSCI does not publish WHICH of its ten price
+ * days it used. That reasoning does not transfer: the rebalance date is
+ * published and unambiguous, and averaging it with its neighbours would baseline
+ * the reading on a window nobody asked for.
+ *
+ * What replaces the day-choice envelope is a SENSITIVITY test over the sessions
+ * either side — if the baseline had been struck a day or two apart, would the
+ * sign survive? It is measured on the BASELINE end only. The latest close is the
+ * newest fact, not a choice anybody makes, and a reader watches it move daily;
+ * the baseline is the fixed, invisible choice, so it is the one worth testing.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/** Every reason a since-rebalance reading can be absent, each in its own words. */
+export const REBASE_STATES = {
+  measured: {
+    label: 'measured',
+    detail: 'Both ends traded and no corporate action fell between the rebalance date and the '
+      + 'latest close.',
+  },
+  adjusted: {
+    label: 'measured, adjusted for a corporate action',
+    detail: 'A bonus, split or consolidation went ex between the rebalance date and the latest '
+      + "close. The baseline is divided by the factor BSE published, so both ends sit on the same "
+      + 'number of shares.',
+  },
+  'unquantifiable-action': {
+    label: 'a corporate action with no published ratio',
+    detail: 'A rights issue, demerger or consolidation moved the price between the two dates by an '
+      + 'amount BSE does not publish. The move is real and its size is unknown, so no return can be '
+      + 'computed across it.',
+  },
+  'no-baseline-close': {
+    label: 'the company did not trade on the rebalance date',
+    detail: 'No BSE close exists on the rebalance date or on any session in the span around it. A '
+      + 'day the scrip did not trade is not a day worth its last price.',
+  },
+  'no-latest-close': {
+    label: 'no current close for this company',
+    detail: 'The company has no close in the latest committed bhavcopy, so there is no later end to '
+      + 'measure to.',
+  },
+  'not-yet-listed': {
+    label: 'not listed on the rebalance date',
+    detail: 'The company first appears in the record after this rebalance date. A return from before '
+      + 'a company existed is not a return.',
+  },
+  'no-index-leg': {
+    label: 'the segment benchmark has no close on one of these two dates',
+    detail: 'Both legs must be struck on the same two dates. Walking the index to a different day '
+      + 'would difference two different windows and call the result relative performance.',
+  },
+  'no-benchmark': {
+    label: 'no Indian benchmark stands for this segment',
+    detail: 'A benchmark whose basket is mostly not India cannot be differenced against an Indian '
+      + 'company: the answer would be a currency and country move, not an outperformance.',
+  },
+  'no-price-history': {
+    label: 'no price history for this scrip',
+    detail: 'The company has no BSE scrip code, or did not appear in the archived bhavcopies for '
+      + 'these dates.',
+  },
+  'no-action-data': {
+    label: 'corporate-action history could not be read',
+    detail: 'BSE did not answer for this scrip. Its actions are UNKNOWN, which is not the same as '
+      + 'none — a bonus we cannot see would read as a collapse.',
+  },
+};
+
+/**
+ * The factor the BASELINE close must be divided by to sit on the latest close's
+ * share basis.
+ *
+ * ⚠ THE BOUNDS ARE NOT THE SAME AS `adjustmentFor` ABOVE, and the difference is
+ * a real bug if it is copied across. That function bounds a GAP BETWEEN two
+ * ten-day windows, so both ends are exclusive. Here both ends are single days
+ * whose closes are already struck:
+ *
+ *   - an action ex ON the baseline date  -> that day's close is already
+ *                                           post-action. Excluded.
+ *   - an action ex ON the latest date    -> that day's close is already
+ *                                           post-action while the baseline is
+ *                                           not. MUST be applied.
+ *
+ * So the interval is half-open: `baselineDate < exDate <= latestDate`.
+ */
+export function adjustmentBetween(actions, baselineDate, latestDate) {
+  const between = (actions ?? []).filter(
+    (a) => a.exDate && a.exDate > baselineDate && a.exDate <= latestDate,
+  );
+  if (between.some((a) => !a.quantifiable)) {
+    return { state: 'unquantifiable-action', factor: null, applied: between };
+  }
+  const factor = between.reduce((product, a) => product * a.priceFactor, 1);
+  return { state: between.length ? 'adjusted' : 'measured', factor, applied: between };
+}
+
+/**
+ * One company's return against its segment since a rebalance date.
+ *
+ * @param {object} input
+ *   `candidates`     [{date, close}] the stock's closes across the sensitivity
+ *                    span, ascending. The POINT ESTIMATE is the one whose date
+ *                    is `baselineDate`; the rest exist only to test it.
+ *   `baselineDate`   the resolved rebalance session — a published date, not a
+ *                    window
+ *   `latestClose` / `latestDate`   the newest committed close
+ *   `indexOn`        (date) => the benchmark's rupee close on exactly that date,
+ *                    or null. NEVER walked back — see `no-index-leg`.
+ *   `actions`        BSE's published actions, or null when they could not be
+ *                    read (which is not "none")
+ *   `firstSeen`      the first date this scrip appears at all, or null
+ *   `band`           the desk's band, in percentage points
+ */
+export function assessSinceRebalance(input) {
+  const {
+    candidates, baselineDate, latestClose, latestDate, indexOn,
+    actions, benchmark, band, hasPriceHistory = true, firstSeen = null,
+  } = input;
+
+  const absent = (state) => ({
+    state,
+    reason: REBASE_STATES[state]?.detail ?? null,
+    label: REBASE_STATES[state]?.label ?? state,
+    stockPct: null, indexPct: null, relativePct: null,
+    sensitivity: null, sensitivityWidthPp: null, candidateCount: 0,
+    robust: false, direction: null,
+    baselineDate: baselineDate ?? null, latestDate: latestDate ?? null,
+    benchmarkSymbol: benchmark?.symbol ?? null,
+    benchmarkName: benchmark?.name ?? null,
+    adjustmentFactor: null, actionsApplied: [],
+  });
+
+  if (!hasPriceHistory) return absent('no-price-history');
+  if (!benchmark) return absent('no-benchmark');
+  if (actions === null || actions === undefined) return absent('no-action-data');
+  if (!baselineDate || !latestDate) return absent('no-baseline-close');
+  // A company that did not exist on the baseline date has no return from it.
+  // Distinct from "did not trade": one is a gap, the other is a non-existence.
+  if (firstSeen && firstSeen > baselineDate) return absent('not-yet-listed');
+  if (!(latestClose > 0)) return absent('no-latest-close');
+
+  const point = (candidates ?? []).find((c) => c.date === baselineDate);
+  if (!point || !(point.close > 0)) return absent('no-baseline-close');
+
+  const indexLatest = indexOn(latestDate);
+  if (!(indexLatest > 0)) return absent('no-index-leg');
+  const indexBaseline = indexOn(baselineDate);
+  if (!(indexBaseline > 0)) return absent('no-index-leg');
+
+  const adjustment = adjustmentBetween(actions, baselineDate, latestDate);
+  if (adjustment.state === 'unquantifiable-action') return absent('unquantifiable-action');
+
+  const stockPct = pctChange(point.close / adjustment.factor, latestClose);
+  const indexPct = pctChange(indexBaseline, indexLatest);
+  const relativePct = relativeOf(stockPct, indexPct);
+  if (relativePct === null) return absent('no-index-leg');
+
+  // ---- sensitivity: would another baseline session flip the sign? ---------
+  // Each candidate carries its OWN adjustment factor. A candidate on the far
+  // side of an ex-date from the point estimate needs a different divisor, and
+  // reusing one factor across all of them would put a bonus into the spread.
+  let lo = Infinity;
+  let hi = -Infinity;
+  let counted = 0;
+  for (const candidate of candidates ?? []) {
+    if (!(candidate.close > 0)) continue;
+    const indexAt = indexOn(candidate.date);
+    if (!(indexAt > 0)) continue;
+    const adj = adjustmentBetween(actions, candidate.date, latestDate);
+    if (adj.state === 'unquantifiable-action') continue;
+    const value = relativeOf(
+      pctChange(candidate.close / adj.factor, latestClose),
+      pctChange(indexAt, indexLatest),
+    );
+    if (value === null) continue;
+    counted += 1;
+    if (value < lo) lo = value;
+    if (value > hi) hi = value;
+  }
+  const tested = counted >= 2 && Number.isFinite(lo) && Number.isFinite(hi);
+
+  // ROBUST means the WHOLE sensitivity span clears the band — the same gate as
+  // the window reading, on this reading's own measured uncertainty. A single
+  // surviving candidate is not a test, so it is not robust however large it
+  // looks: `candidateCount` is on the record so a reader can see which it was.
+  const robust = tested && (lo > band || hi < -band);
+
+  return {
+    state: adjustment.state,
+    reason: REBASE_STATES[adjustment.state]?.detail ?? null,
+    label: REBASE_STATES[adjustment.state]?.label ?? adjustment.state,
+    stockPct: round(stockPct),
+    indexPct: round(indexPct),
+    relativePct: round(relativePct),
+    sensitivity: tested ? [round(lo), round(hi)] : null,
+    sensitivityWidthPp: tested ? round(hi - lo) : null,
+    candidateCount: counted,
+    robust,
+    direction: robust ? (lo > band ? 'outperformed' : 'underperformed') : null,
+    baselineDate,
+    latestDate,
+    benchmarkSymbol: benchmark.symbol,
+    benchmarkName: benchmark.name,
+    // Six decimals for the same reason as above: a 4:3 bonus is 1.333333..., and
+    // at three the stored stock leg no longer recomputes from the record.
+    adjustmentFactor: adjustment.factor === 1 ? null : Number(adjustment.factor.toFixed(6)),
+    actionsApplied: adjustment.applied.map((a) => ({
+      exDate: a.exDate, purpose: a.purpose, priceFactor: a.priceFactor,
+    })),
+  };
+}
+
+/**
+ * Which way the next review's forced trade would point, if the trend holds.
+ *
+ * ---------------------------------------------------------------------------
+ * ⚠ "FLOW PRESSURE" IS NOT FLOW, AND THE DIFFERENCE IS CLAUDE.md 2.11
+ * ---------------------------------------------------------------------------
+ * A rising weight forces no trade. An index fund holds each member in proportion
+ * to its weight, so when a stock outperforms, the value of the fund's holding
+ * rises by exactly the same proportion as its index weight and the fund trades
+ * NOTHING. Anything on this screen that reads as "money is flowing in because
+ * the stock went up" is wrong, and wrong in the same direction for every row.
+ *
+ * What this signal says is narrower and is about a FUTURE event: at the next
+ * review, MSCI re-ranks and only then is a trade forced. A company gaining
+ * ground on its segment is moving toward the side of a boundary where that
+ * forced trade is a BUY; one losing ground is moving toward a SELL. That is
+ * pressure on a verdict, not a flow, and it carries no rupee figure — 2.16.
+ *
+ * ---------------------------------------------------------------------------
+ * AND IT NEVER MOVES THE VERDICT — 2.12.1
+ * ---------------------------------------------------------------------------
+ * The verdict turns on a rank by free-float market cap, and free float is
+ * floatFactor x shares x price. Today's rank ALREADY contains this reading's
+ * price move; letting it move the verdict would count the same evidence twice.
+ * So this is additive: it never creates, renames, withholds or destroys a
+ * verdict, and `verify-data` sweeps it to prove the verdict multiset cannot
+ * move for any value it could take.
+ *
+ * The return is a TIER-3 judgement and is shaped like one — the rule that fired,
+ * the input, the threshold and whose threshold it is all travel with it, so
+ * nothing can render it as a bare direction (2.1).
+ */
+export function flowPressure(reading, {
+  segment, verdict, distanceToCutoffPct, nearBoundaryPct, thresholdSource, band,
+} = {}) {
+  if (!reading || reading.relativePct === null) return null;
+
+  const held = segment === 'standard' || segment === 'smallcap';
+  const common = {
+    input: reading.relativePct,
+    inputLabel: `${reading.relativePct > 0 ? '+' : ''}${reading.relativePct.toFixed(1)}% against ${reading.benchmarkSymbol} since ${reading.baselineDate}`,
+    threshold: band,
+    thresholdUnit: 'pp',
+    thresholdSource: thresholdSource ?? "the desk's own band, set from this reading's measured sensitivity",
+    sensitivity: reading.sensitivity,
+    robust: reading.robust,
+    movesVerdict: false,
+  };
+
+  // A reading whose sign does not survive the sensitivity test claims no
+  // direction. Rendering one as pressure would be a direction the measurement
+  // does not support — the same failure the band exists to prevent.
+  if (!reading.robust) {
+    return {
+      ...common,
+      // Never a chip: no direction is claimed, so there is nothing to mark.
+      notable: false,
+      notableReason: null,
+      notableKind: null,
+      key: 'neutral',
+      direction: 'in-line',
+      label: 'Moving with its segment',
+      detail: reading.sensitivity
+        ? `Within the desk's ${band} pp band, or the sign does not survive shifting the baseline a `
+          + `session either side (${reading.sensitivity[0].toFixed(1)} to ${reading.sensitivity[1].toFixed(1)}). `
+          + 'No direction is claimed.'
+        : 'The baseline could not be varied, so the reading has not been tested for fragility and no '
+          + 'direction is claimed.',
+      implication: 'No pressure on the next review\'s verdict either way.',
+    };
+  }
+
+  const up = reading.direction === 'outperformed';
+
+  // ---- is this worth a mark BESIDE THE VERDICT? --------------------------
+  //
+  // The classification above is computed for every row and belongs in the
+  // column, the drill and the export. A CHIP is different: it is an exception
+  // marker, and a marker that fires on most rows teaches readers to ignore it.
+  // On the committed record 849 of 1,193 readings are robust — two rows in
+  // three — so "robust" cannot be the bar.
+  //
+  // A mark is earned only where the reading says something the verdict does
+  // not, and each case is named so a reader can see which one fired:
+  const near = distanceToCutoffPct !== null
+    && distanceToCutoffPct !== undefined
+    && nearBoundaryPct !== null
+    && nearBoundaryPct !== undefined
+    && Math.abs(distanceToCutoffPct) <= nearBoundaryPct;
+
+  let notableReason = null;
+  // `notableKind` exists so the interface never has to parse the prose above to
+  // decide how to paint a chip. A renderer that greps a sentence for a keyword
+  // breaks silently the first time the sentence is reworded.
+  let notableKind = null;
+  if (verdict === 'migration-up' && !up) {
+    notableReason = 'The size rule calls a migration up; the trend since the rebalance runs the other way.';
+    notableKind = 'contradicts';
+  } else if (verdict === 'migration-down' && up) {
+    notableReason = 'The size rule calls a migration down; the trend since the rebalance runs the other way.';
+    notableKind = 'contradicts';
+  } else if ((verdict === 'likely-inclusion' || verdict === 'possible-inclusion') && !up) {
+    notableReason = 'An inclusion candidate that has been LOSING ground to the segment it would have to enter.';
+    notableKind = 'contradicts';
+  } else if ((verdict === 'exclusion-risk' || verdict === 'likely-exclusion') && up) {
+    notableReason = 'Inside the exclusion band on size, but gaining on its segment since the rebalance.';
+    notableKind = 'contradicts';
+  } else if (verdict === 'stable' && near) {
+    notableReason = up
+      ? 'Stable on size today, but close enough to the rank cutoff that a trend this strong could carry it across by the next review.'
+      : 'Stable on size today, but close enough to the rank cutoff that a trend this weak could carry it across by the next review.';
+    notableKind = 'approaching';
+  }
+
+  return {
+    ...common,
+    notable: notableReason !== null,
+    notableReason,
+    notableKind,
+    key: up ? 'positive' : 'negative',
+    direction: up ? 'outperforming' : 'underperforming',
+    label: up ? 'Positive flow pressure' : 'Negative flow pressure',
+    detail: `${up ? 'Outperforming' : 'Underperforming'} ${reading.benchmarkSymbol} by `
+      + `${Math.abs(reading.relativePct).toFixed(1)}% since the ${reading.baselineDate} rebalance, and the `
+      + `whole sensitivity span (${reading.sensitivity[0].toFixed(1)} to ${reading.sensitivity[1].toFixed(1)}) `
+      + `clears the desk's ${band} pp band, so the direction survives shifting the baseline a session either side.`,
+    implication: up
+      ? (segment === 'smallcap'
+        ? 'Gaining on the Small Cap segment — pressure toward the Standard boundary, where small-cap funds sell and EM funds buy.'
+        : segment === 'standard'
+          ? 'Gaining on the Standard segment — pressure away from the Small Cap boundary.'
+          : 'Gaining on the segment it would enter — pressure toward inclusion.')
+      : (segment === 'standard'
+        ? 'Losing ground to the Standard segment — pressure toward the Small Cap boundary, where EM funds sell and small-cap funds buy.'
+        : segment === 'smallcap'
+          ? 'Losing ground to the Small Cap segment — pressure toward the exclusion band.'
+          : 'Losing ground to the segment it would have to enter — pressure away from inclusion.'),
+    // ⚠ NO RUPEE FIGURE, EVER. Only a trade-implying VERDICT gets one (2.16),
+    // and this is not a verdict. A pressure direction multiplied by AUM would be
+    // a forced trade that nothing has forced.
+    inrFlow: null,
+    heldToday: held,
+  };
+}

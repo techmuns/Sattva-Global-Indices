@@ -74,7 +74,8 @@ import { dirname, join } from 'node:path';
 
 import { renderTable, num } from './lib/report.mjs';
 import { bhavcopyUrl, assertBhavcopyShape, parseBhavcopy } from './lib/bhavcopy.mjs';
-import { reviewCutoffs, REVIEW_MONTHS } from '../public/js/model/calendar.js';
+import { reviewCutoffs, REVIEW_MONTHS, closedReviews } from '../public/js/model/calendar.js';
+import { REBALANCE_BASELINE } from '../public/js/config/thresholds.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
@@ -166,6 +167,54 @@ function closedWindows(latestSessionDate, explicitReview) {
   return closed.slice(-2);
 }
 
+/** `n` business days either side of `date`, inclusive of `date` itself. */
+function businessDaysAround(date, n) {
+  const step = (from, direction) => {
+    const cursor = new Date(`${from}T00:00:00Z`);
+    let counted = 0;
+    while (counted < n) {
+      cursor.setUTCDate(cursor.getUTCDate() + direction);
+      const day = cursor.getUTCDay();
+      if (day !== 0 && day !== 6) counted += 1;
+    }
+    return cursor.toISOString().slice(0, 10);
+  };
+  return { from: step(date, -1), to: step(date, +1) };
+}
+
+/**
+ * The REBALANCE-DATE baselines — a different question from the price windows.
+ *
+ * `closedWindows` above returns the ten-day windows MSCI struck its market caps
+ * in. These are the days the resulting composition took EFFECT and every
+ * tracking fund actually traded. For the May 2026 review that is 29 May against
+ * 17-30 April: six weeks apart, and the desk's question is baselined on the
+ * former.
+ *
+ * Each baseline carries a span of business days either side of the effective
+ * date. That is NOT a widening of the baseline — the point estimate is struck on
+ * the effective date itself. It is the input to a sensitivity test: if the
+ * baseline had been a session or two either side, would the sign survive?
+ */
+function baselineSpans(latestSessionDate) {
+  const reviews = closedReviews(latestSessionDate, REBALANCE_BASELINE.offerCount);
+  return reviews
+    .filter((r) => r.effectiveDate <= latestSessionDate)
+    .map((r) => {
+      const around = businessDaysAround(r.effectiveDate, REBALANCE_BASELINE.sensitivityDays);
+      return {
+        review: r.review,
+        label: r.label,
+        effectiveDate: r.effectiveDate,
+        from: around.from,
+        // A sensitivity day AFTER the newest served session does not exist yet.
+        // Clamping keeps the span honest rather than recording a phantom date.
+        to: around.to > latestSessionDate ? latestSessionDate : around.to,
+        sensitivityDays: REBALANCE_BASELINE.sensitivityDays,
+      };
+    });
+}
+
 async function fetchSession(date) {
   let response;
   try {
@@ -206,8 +255,10 @@ async function run() {
   // closed. Anchored on the committed prices file, not on the clock.
   const prices = JSON.parse(readFileSync(join(REPO, 'public/data/prices.json'), 'utf8'));
   const windows = closedWindows(prices.tradeDate, args.review);
+  const baselines = baselineSpans(prices.tradeDate);
   process.stdout.write(
-    `  windows:  ${windows.map((w) => `${w.review} (${w.from}..${w.to})`).join('  ->  ')}\n`
+    `  windows:   ${windows.map((w) => `${w.review} (${w.from}..${w.to})`).join('  ->  ')}\n`
+    + `  baselines: ${baselines.map((b) => `${b.review} eff ${b.effectiveDate} (${b.from}..${b.to})`).join('  ·  ')}\n`
     + `  anchored on the newest committed trade date ${prices.tradeDate}, not on the clock\n\n`,
   );
 
@@ -216,8 +267,21 @@ async function run() {
   // detector was wrong (see the header) and the 53 sessions between the windows
   // bought nothing. 20 requests, about a minute.
   const windowDates = new Set(windows.flatMap((w) => businessDates(w.from, w.to)));
-  let span = [...windowDates].sort();
+  // The baseline spans are fetched on the SAME pass. Kept as their own set so a
+  // guard can tell which of the two a failed session belongs to: a hole in a
+  // price window and a hole in a sensitivity span are different problems.
+  const baselineDates = new Set(baselines.flatMap((b) => businessDates(b.from, b.to)));
+  const keptDates = new Set([...windowDates, ...baselineDates]);
+  let span = [...keptDates].sort();
   if (args.limit) span = span.slice(0, args.limit);
+
+  // Every contiguous stretch continuity may be asserted across. Comparing two
+  // sessions from different spans would compare across a gap of weeks and fail
+  // on every scrip, which would mean nothing.
+  const spans = [
+    ...windows.map((w) => ({ from: w.from, to: w.to })),
+    ...baselines.map((b) => ({ from: b.from, to: b.to })),
+  ];
 
   // ---- walk the span, in order ------------------------------------------
   const closesByScrip = new Map();      // scripCode -> Map(date -> close)
@@ -252,7 +316,7 @@ async function run() {
     // would fail on every scrip and mean nothing.
     const adjacent = previousDate !== null
       && sessions.length > 0
-      && windows.some((w) => previousDate >= w.from && date <= w.to);
+      && spans.some((w) => previousDate >= w.from && date <= w.to);
     let breaksToday = 0;
 
     for (const row of rows) {
@@ -261,7 +325,7 @@ async function run() {
       if (!meta.has(row.scripCode)) {
         meta.set(row.scripCode, { symbol: row.symbol, isin: row.isin, name: row.name });
       }
-      if (windowDates.has(date)) {
+      if (keptDates.has(date)) {
         if (!closesByScrip.has(row.scripCode)) closesByScrip.set(row.scripCode, new Map());
         closesByScrip.get(row.scripCode).set(date, row.close);
       }
@@ -289,10 +353,10 @@ async function run() {
 
     previousCloses = closesNow;
     previousDate = date;
-    sessions.push({ date, rows: rows.length, inWindow: windowDates.has(date) });
+    sessions.push({ date, rows: rows.length, inWindow: windowDates.has(date), inBaseline: baselineDates.has(date) });
     process.stdout.write(
       `  ${date}  ${String(rows.length).padStart(5)} scrips`
-      + `${windowDates.has(date) ? '  [window]' : '         '}`
+      + `${windowDates.has(date) ? '  [window]  ' : baselineDates.has(date) ? '  [baseline]' : '           '}`
       + `${breaksToday ? `  ${breaksToday} CONTINUITY BREAK(S)` : ''}\n`,
     );
   }
@@ -301,6 +365,26 @@ async function run() {
   const perWindow = windows.map((w) => {
     const dates = sessions.filter((s) => s.date >= w.from && s.date <= w.to).map((s) => s.date);
     return { ...w, dates, sessions: dates.length };
+  });
+
+  const perBaseline = baselines.map((b) => {
+    const dates = sessions.filter((s) => s.date >= b.from && s.date <= b.to).map((s) => s.date);
+    // ⚠ THE EFFECTIVE DATE MAY NOT BE AN INDIAN SESSION. MSCI's effective date
+    // is a global index date and the Indian market can be shut on it. The
+    // baseline then resolves to the nearest EARLIER session in the span, and
+    // `resolvedDate`/`walkedBackDays` say so — never silently.
+    const onOrBefore = dates.filter((d) => d <= b.effectiveDate);
+    const resolved = onOrBefore.length ? onOrBefore[onOrBefore.length - 1] : null;
+    return {
+      ...b,
+      dates,
+      sessions: dates.length,
+      resolvedDate: resolved,
+      walkedBackDays: resolved
+        ? Math.round((Date.parse(b.effectiveDate) - Date.parse(resolved)) / 86400000)
+        : null,
+      tradedOnEffectiveDate: resolved === b.effectiveDate,
+    };
   });
 
   process.stdout.write('\n');
@@ -350,6 +434,23 @@ async function run() {
   check(failedInWindow.length === 0, 'no session inside a price window failed to fetch',
     failedInWindow.map((f) => `${f.date}: ${f.reason}`).join(' | ') || 'none');
 
+  // A baseline is a SINGLE day, so a hole in it is not a thinner mean — it is a
+  // missing baseline. The span either side exists to test sensitivity, and a
+  // sensitivity test over one surviving candidate is not a test.
+  for (const b of perBaseline) {
+    check(b.resolvedDate !== null,
+      `${b.review}'s rebalance date resolves to a session`,
+      b.resolvedDate
+        ? `${b.effectiveDate} -> ${b.resolvedDate}${b.tradedOnEffectiveDate ? '' : ` (walked back ${b.walkedBackDays}d — India was shut)`}`
+        : `no session on or before ${b.effectiveDate} inside ${b.from}..${b.to}`);
+    check(b.sessions >= 3,
+      `${b.review}'s sensitivity span has at least 3 sessions`,
+      `${b.sessions} session(s) in ${b.from}..${b.to}`);
+  }
+  const failedInBaseline = failed.filter((f) => baselineDates.has(f.date));
+  check(failedInBaseline.length === 0, 'no session inside a rebalance baseline span failed to fetch',
+    failedInBaseline.map((f) => `${f.date}: ${f.reason}`).join(' | ') || 'none');
+
   check(continuityBreaks.length === 0,
     'no session inside a window carries a row copied from the session before it',
     continuityBreaks.slice(0, 3).map((b) => `${b.symbol ?? b.scripCode} on ${b.date}`).join(' | ') || 'none');
@@ -381,7 +482,7 @@ async function run() {
   }
 
   // ---- assemble ----------------------------------------------------------
-  const dates = perWindow.flatMap((w) => w.dates).sort();
+  const dates = [...new Set([...perWindow, ...perBaseline].flatMap((w) => w.dates))].sort();
   const scrips = {};
   for (const [code, byDate] of closesByScrip) {
     const info = meta.get(code) ?? {};
@@ -423,6 +524,26 @@ async function run() {
       note: w.note,
       source: w.source,
     })),
+    /**
+     * The rebalance-date baselines — the day each review's composition took
+     * EFFECT, which is not the window its market caps were struck in. See
+     * REBALANCE_BASELINE in public/js/config/thresholds.mjs.
+     */
+    baselines: perBaseline.map((b) => ({
+      review: b.review,
+      label: b.label,
+      effectiveDate: b.effectiveDate,
+      resolvedDate: b.resolvedDate,
+      walkedBackDays: b.walkedBackDays,
+      tradedOnEffectiveDate: b.tradedOnEffectiveDate,
+      from: b.from,
+      to: b.to,
+      dates: b.dates,
+      sessions: b.sessions,
+      sensitivityDays: b.sensitivityDays,
+      note: 'The point estimate is struck on resolvedDate. The other dates in this span exist only '
+        + 'to test how fragile the answer is to that choice — they do not widen the baseline.',
+    })),
     dates,
     scripCount: Object.keys(scrips).length,
     scrips,
@@ -444,7 +565,9 @@ async function run() {
   mkdirSync(dirname(OUT_PATH), { recursive: true });
   writeFileSync(OUT_PATH, `${JSON.stringify(payload)}\n`, 'utf8');
   process.stdout.write(
-    `\nWrote ${OUT_PATH.replace(REPO + '/', '')} — ${num(payload.scripCount)} scrips × ${dates.length} window sessions.\n\n`,
+    `\nWrote ${OUT_PATH.replace(REPO + '/', '')} — ${num(payload.scripCount)} scrips × ${dates.length} sessions `
+    + `(${perWindow.reduce((n, w) => n + w.sessions, 0)} in price windows, `
+    + `${perBaseline.reduce((n, b) => n + b.sessions, 0)} in rebalance baselines).\n\n`,
   );
 }
 
