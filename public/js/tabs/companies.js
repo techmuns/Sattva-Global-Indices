@@ -1582,9 +1582,14 @@ function relativeColumns() {
           + ` discount to NAV. The benchmark is chosen by segment: INDA for Standard, SMIN for Small Cap`
           + ` and for a company outside the index, because the fund that HOLDS a stock is not the index`
           + ` that decides its segment.`;
-        return `<span class="inline-flex items-center justify-end gap-1" title="${escapeHtml(title)}">`
+        // ⚠ INLINE FLOW, NOT `inline-flex`. A cell whose whole content is one
+        // atomic inline box has nothing for `text-overflow` to replace, so a
+        // squeezed column cuts it clean rather than ellipsising — a wrong
+        // number that looks like a right one. Measured; see the column-layout
+        // header in ui/screener.js and CLAUDE.md 2.29.
+        return `<span class="whitespace-nowrap" title="${escapeHtml(title)}">`
           + `<span class="font-semibold text-slate-700">${escapeHtml(signedPct(reading.indexPct, 1))}</span>`
-          + `<span class="rounded bg-slate-100 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-slate-500">${escapeHtml(reading.benchmarkSymbol)}</span>`
+          + `<span class="ml-1 rounded bg-slate-100 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-slate-500">${escapeHtml(reading.benchmarkSymbol)}</span>`
           + '</span>';
       },
     },
@@ -1604,10 +1609,11 @@ function relativeColumns() {
               + ` — the baseline close is divided by ${reading.adjustmentFactor} so both ends sit on the same`
               + ' number of shares. BSE publishes closes unadjusted, so without this a bonus reads as a collapse.'
             : ' No corporate action fell between the two dates.');
-        return `<span class="inline-flex items-center justify-end gap-1" title="${escapeHtml(title)}">`
+        // Inline flow, not `inline-flex` — see the Index return column above.
+        return `<span class="whitespace-nowrap" title="${escapeHtml(title)}">`
           + `<span class="font-semibold text-slate-900">${escapeHtml(signedPct(reading.stockPct, 1))}</span>`
           + (reading.adjustmentFactor
-            ? '<span class="text-[10px] text-amber-600" title="adjusted for a corporate action">adj</span>'
+            ? '<span class="ml-1 text-[10px] text-amber-600" title="adjusted for a corporate action">adj</span>'
             : '')
           + '</span>';
       },
@@ -1643,11 +1649,12 @@ function relativeColumns() {
         const tone = !reading.robust
           ? 'text-slate-500'
           : reading.relativePct > 0 ? 'text-emerald-700' : 'text-rose-700';
-        return `<span class="inline-flex items-center justify-end gap-1" title="${escapeHtml(title)}">`
+        // Inline flow, not `inline-flex` — see the Index return column above.
+        return `<span class="whitespace-nowrap" title="${escapeHtml(title)}">`
           + `<span class="${tone} font-semibold">${escapeHtml(signedPct(reading.relativePct, 1))}</span>`
           + (reading.robust
             ? ''
-            : '<span class="text-[10px] text-slate-400" title="the sign does not survive shifting the baseline a session either side">±</span>')
+            : '<span class="ml-1 text-[10px] text-slate-400" title="the sign does not survive shifting the baseline a session either side">±</span>')
           + '</span>';
       },
     },
@@ -1955,8 +1962,13 @@ export function renderCompanies(host, { onStatusChange } = {}) {
             + `${view.staleDays > 0 ? ` — carried forward ${view.staleDays} day(s); this stock did not trade` : ''}`
             + `. ${view.basis ?? ''}`
             + `. Published at capture: ${row.freeFloatMcapAtCaptureInr === null ? 'no reading' : `₹${cr(row.freeFloatMcapAtCaptureInr)} Cr`}.`;
+          // ⚠ INLINE FLOW, NOT `inline-flex`. A cell whose whole content is one
+          // atomic inline box has nothing for `text-overflow` to replace, so a
+          // squeezed column cuts it clean: `10,99,757` renders as `10,99,75`,
+          // which is a wrong number that looks like a right one. Measured; see
+          // the column-layout header in ui/screener.js.
           return (
-            `<span class="inline-flex items-center justify-end gap-1" title="${escapeHtml(title)}">`
+            `<span class="whitespace-nowrap" title="${escapeHtml(title)}">`
             + `<span class="font-semibold ${view.live ? 'text-emerald-700' : 'text-slate-900'}">${escapeHtml(cr(view.freeFloatMcapInr))}</span>`
             + sourceChip(row.floatSource) + priceChip(view) + '</span>'
           );
@@ -2050,8 +2062,11 @@ export function renderCompanies(host, { onStatusChange } = {}) {
               title: `Held by the ${data.fundCoverage(id)?.shortName ?? id} fund`,
             }),
           );
+          // Inline flow, not `flex` — a squeezed flex box wraps to a second line
+          // and drops a fund chip with nothing to say it did. Losing a chip is
+          // losing the fact that a fund holds the company.
           return chips.length
-            ? `<span class="flex flex-wrap gap-1">${chips.join('')}</span>`
+            ? `<span class="whitespace-nowrap">${chips.join(' ')}</span>`
             : '<span class="text-[11px] text-slate-400" title="Not held by any of the three funds — a candidate, not a position">candidate</span>';
         },
       },
@@ -2090,6 +2105,10 @@ export function renderCompanies(host, { onStatusChange } = {}) {
       nameHeading: 'Company',
       nameAfter: (row) => watchStar(data.keyOf(row)),
       stickyHead: 'max(320px, calc(100vh - 320px))',
+      // Column widths and hidden columns persist under this key. Eleven
+      // columns is more than most desks read at once, and a reader who never
+      // touches the controls gets exactly the layout that shipped.
+      columnsKey: 'companies',
       initialSort: { key: 'Free float (₹ Cr)', dir: 'desc' },
       initialView: lastView,
       exportName: 'sattva-companies',

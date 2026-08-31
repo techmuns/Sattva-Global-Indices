@@ -850,7 +850,7 @@ localStorage and survives a reload; the file lives in memory and does not, and t
 `ensureBaseline` was the picker's own change handler. So a reader who re-based yesterday came back to
 the baseline they picked named in the heading and **1,265 em dashes underneath — the loading state,
 permanently true**. Measured before the fix: 0 flow chips after a reload on the August 2025 baseline,
-against 15 up and 36 down before it. `verify-ui` check 48 reloads on an alternate baseline and
+against 15 up and 36 down before it. `verify-ui` check 52 reloads on an alternate baseline and
 asserts the numbers come back and that not one row is left saying "still loading".
 
 ### `flowPressure()` — how it is reflected in the verdict
@@ -891,7 +891,7 @@ of 1,194 rows on correct arithmetic.
 
 The **flow chip beside the verdict is emerald up and rose down** — the same ramp the delta column
 uses, because two meanings on one pair of colours in a single row teaches a reader to distrust both.
-`verify-ui` check 47 asserts the mapping, that both directions actually occur on screen, and that
+`verify-ui` check 51 asserts the mapping, that both directions actually occur on screen, and that
 each chip's arrow agrees with the delta on its own row.
 
 That colour used to key on `notableKind` — amber where the reading contradicts the verdict, sky where
@@ -927,8 +927,8 @@ output would be checkable** — that is the whole difference between it and a nu
 Two commands. Neither needs the other, and both exit non-zero if any check failed.
 
 ```bash
-node scripts/verify-data.mjs                                   # 21 checks, no browser, no network
-node scripts/verify-ui.mjs                                     # 21 checks vs http://127.0.0.1:8080
+node scripts/verify-data.mjs                                   # 42 checks, no browser, no network
+node scripts/verify-ui.mjs                                     # 30 checks vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live  # vs `npx wrangler dev`
 node scripts/verify-data.mjs --prove                           # break each check; it must go red
 ```
@@ -987,6 +987,11 @@ that undoing the fix turns something red:
 | 39b | a tick repaints only changed rows | a rebuild throwing away the reader's search and sort |
 | 40 | the token appears in zero **served** files | checking the repo instead of what is served |
 | 41 | Worker unreachable ⇒ EOD, "Last close" | claiming live when no byte arrived |
+| 44 | a typed range reads grouped digits and names an entry it cannot read | `parseFloat("3,000")` → `3`, filtering confidently on a wrong number |
+| 47 | a squeezed column dissolves what it cuts | ₹10,99,757 Cr rendered as `10,99,75` at 70px — a clean, wrong number |
+| 48 | figure cells stay in inline flow | one `inline-flex` wrapper, which Chrome cuts with no ellipsis |
+| 49 | a hidden column is named, and a sort on one says so | rows in an order whose basis is off-screen |
+| 50 | widths and hidden columns survive a reload; Reset restores the shipped layout | a layout that has to be rebuilt every morning, and one with no way back |
 
 Three checks in `verify-data` cover the second methodology (`public/js/model/gimi.js`):
 

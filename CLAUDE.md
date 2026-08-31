@@ -860,6 +860,87 @@ The rest is §2.3 and §2.4 applied to a control rather than to a number:
   them.
 - **What the entry was read as is on screen**, in the reader's sight line, and the same sentence
   travels into row 1 of any export — including when it says the range could not be read.
+### 2.29 A column width can manufacture a wrong number, and it looks exactly like a right one
+
+The reader can drag any column's right edge, put away columns they do not need, and both choices
+persist. Thirteen columns is more than most desks read at once, so this is a real ask — and it opens a
+route to a false figure that no formatter guard can see.
+
+**Measured, before the guard existed.** With `table-layout: fixed` and the Free float column dragged
+to 70px, HDFC Bank's **₹10,99,757 Cr rendered as `10,99,75`** — not blank, not an em dash, a clean and
+plausible ten-times-wrong number on the largest bank in the country, with nothing on screen saying it
+had been cut. That is **§2.20 at the layout layer**: a formatter may never round a real value to
+something that reads as nothing, and a column width may never truncate one into something that reads
+as a different value.
+
+So a narrowed column must make its own clipping visible, and which mechanism does that had to be
+measured rather than assumed. Chrome draws a `text-overflow` ellipsis by replacing trailing items on
+the line, so a line box holding exactly **one atomic inline** — an `inline-flex` or `inline-block`
+wrapper around the whole cell — has nothing to replace and is simply cut:
+
+| cell content | squeezed, renders as | |
+| --- | --- | --- |
+| plain text | `12,34…` | ellipsis |
+| inline flow + chips | `10,9…` | ellipsis |
+| two or more chips | `SMIN …` | ellipsis |
+| **one atomic inline box** | `10,99,75` | **no ellipsis** |
+
+Wrapping the atomic box in a plain `<span>` does not rescue it. A trailing zero-width space does not
+either, and a leading one puts the ellipsis first and eats the whole cell. Both were tried.
+
+Hence **two mechanisms, not one**, in `public/js/ui/screener.js`:
+
+1. **`text-overflow: ellipsis` on every body cell**, which covers every cell whose content is inline
+   flow. Cell renderers must stay inside that shape — Free float, Funds and the three rebalance
+   columns in `tabs/companies.js` each lost a single flex wrapper for this, and `sourceChip` is
+   spaced by its own `ml-1` rather than by a flex gap on whatever holds it.
+2. **A fade mask on the clipped edge**, which needs no cooperation from the cell's markup at all. It
+   is exactly the cell's own padding wide, so content that *fits* — which stops at the padding edge —
+   is never touched, and content that is *cut* — which runs to the border edge — always is. That is
+   the backstop for the lone-atomic case and for any renderer written later.
+
+And the rest of the rules the feature carries:
+
+- **`MIN_COL_PX` is 48 and `MAX_COL_PX` is 900.** Below the floor a column is invisible while still
+  sorting the table, which is a control whose effect the reader cannot see; above the ceiling a
+  runaway drag strands every other column off-screen.
+- **The table's width is the sum of its columns, never `100%`.** Under `table-layout: fixed` a table
+  told to be 100% wide redistributes the slack, so every width the reader set comes out as something
+  else and dragging one column silently moves its neighbours.
+- **Widths are keyed by column label, never by position.** A stored `{ 3: 210 }` would follow the
+  third column wherever a later release moves it, so a reader who widened Free float would come back
+  to a widened Float %.
+- **A hidden column is collapsed by CSS, not removed from the tree**, so headings and cells stay
+  index-aligned and every index-addressed assertion in `verify-ui` keeps addressing the column it
+  means.
+- **The name column cannot be hidden.** A row nobody can identify makes the rest of the line
+  meaningless.
+- **What the reader put away is stated where they put it away.** The control reads "9 of 13", the
+  note names every hidden column, and **a sort whose column is hidden says so in words** — otherwise
+  the rows sit in an order whose basis is off-screen, which reads as no order at all on the one table
+  where the order *is* the finding.
+- **Hiding changes this screen only.** The CSV export carries every field whatever is on screen,
+  and check 49 tests that against the file rather than repeating the claim.
+- **Reset returns the layout the table ships with** — automatic widths, every column — not a
+  different set of fixed numbers. A reader who never touches the controls gets exactly what shipped.
+- **Geometry this code measures is set inline, never left to Tailwind.** The play CDN generates
+  classes *asynchronously*, so a `w-72` panel measured in the tick it was appended is still
+  `width: auto`. The column menu's off-screen check read that phantom box, decided the panel was fine
+  and did nothing — and at 390px the real panel then sat 37px off the left edge, where the
+  `overflow-x: hidden` backstop makes it unreachable rather than merely ugly. Measured. Only the
+  paint is left to the CDN.
+
+Checks 47–50 in `scripts/verify-ui.mjs` cover the four claims. **Three of the four sabotages were
+survived on the first `--prove` run**, and both reasons generalise:
+
+- **A MutationObserver sabotage loses the race against a synchronous read.** Checks 47 and 49 squeeze
+  or hide and then read inside one `page.evaluate`; an observer fires on a microtask, after that
+  evaluate has finished. Both now sabotage statically — an `!important` override for the fade, and a
+  swallowed `textContent` setter for the note.
+- **A computed-style assertion measures the CDN, not the code.** Check 48 read
+  `getComputedStyle(el).display` to find a lone atomic box; with Tailwind unreachable an
+  `inline-flex` wrapper computes to plain `inline` and the check saw nothing wrong. It now tests the
+  class contract as well, so it holds in both environments.
 
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
@@ -1348,7 +1429,7 @@ scripts/
   fetch-corporate-actions.mjs      BSE's own action history → public/data/corporate-actions.json
   build-companies.mjs              everything → public/data/companies.json
   verify-data.mjs                  42 data assertions; no browser, no network
-  verify-ui.mjs                    28 interface assertions; the served site
+  verify-ui.mjs                    32 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
@@ -1430,7 +1511,7 @@ node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
 node scripts/verify-data.mjs           # 42 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 28 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 32 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 
