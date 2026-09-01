@@ -232,3 +232,43 @@ export function closedReviews(asOfDate, count = 4) {
   out.sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate));
   return out.slice(0, count);
 }
+
+/**
+ * Which captured rebalance the relative columns are baselined on, and which
+ * ones have happened but cannot be measured yet.
+ *
+ * ---------------------------------------------------------------------------
+ * "THE DATE HAS PASSED" IS NOT THE TEST. "THERE IS A SESSION AFTER IT" IS.
+ * ---------------------------------------------------------------------------
+ * A baseline whose date IS the newest committed close gives a window of zero
+ * length, and every company then reads +0.0% against its index on three columns
+ * at once. That is not a return of zero; it is the absence of any elapsed time,
+ * and printing it as a number would say "nothing has moved since the rebalance"
+ * when it means "nothing has happened yet" — the same lie as a fabricated zero,
+ * arriving by a different route (CLAUDE.md §2.3).
+ *
+ * So the default walks back to the newest baseline with a session strictly
+ * after it, and the ones it stepped over come back in `awaitingSession` so the
+ * screen can say a rebalance has happened that it cannot speak to. On the next
+ * build that has a later session, the default moves on its own — there is no
+ * date to edit anywhere.
+ *
+ * Both dates come from the record. NOTHING HERE READS THE CLOCK: a build must
+ * not depend on when it ran.
+ *
+ * @param {Array<{review: string, effectiveDate: string, resolvedDate?: string}>} baselines
+ *        newest first, as captured
+ * @param {string} latestDate the newest committed close, ISO
+ * @returns {{defaultReview: string|null, awaitingSession: Array, measurable: Array}}
+ */
+export function chooseBaseline(baselines, latestDate) {
+  const dated = (b) => b.resolvedDate ?? b.effectiveDate;
+  const ordered = [...(baselines ?? [])].sort((a, b) => dated(b).localeCompare(dated(a)));
+  const measurable = ordered.filter((b) => dated(b) < latestDate);
+  const awaitingSession = ordered.filter((b) => dated(b) >= latestDate);
+  return {
+    defaultReview: measurable[0]?.review ?? null,
+    awaitingSession,
+    measurable,
+  };
+}

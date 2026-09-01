@@ -424,10 +424,40 @@ Both ends are single days whose closes are already struck, so `baselineDate < ex
 an action ex *on* the baseline is already in that close, one ex *on* the latest date must be applied.
 Copying `adjustmentFor`'s bounds across is a silent 2× error on a bonus.
 
-**The default baseline is config-set** — `REBALANCE_BASELINE.defaultReview`, resolved at build time
-against the newest session the exchange served, never against the clock. The reader may override it
-from the screener; the alternates live in `public/data/relative-baselines.json` and are fetched only
-when someone actually re-bases.
+**The default baseline follows the calendar on its own.** `REBALANCE_BASELINE.defaultReview` is
+`null`, and `chooseBaseline()` in `calendar.js` picks the newest captured rebalance at build time,
+resolved against the newest session the exchange served and never against the clock. There is no date
+to edit when a review takes effect: the first build with a later session moves it. The reader may
+still override it from the screener; the alternates live in `public/data/relative-baselines.json` and
+are fetched only when someone actually re-bases.
+
+> ### ⚠ "The date has passed" is the wrong test. "There is a session after it" is the right one
+>
+> A rebalance whose date IS the newest committed close gives a window of **zero length**, and every
+> company then reads **+0.0%** against its index on three columns at once. That is not a return of
+> zero — it is the absence of any elapsed time — and a reader takes it as *nothing has moved since
+> the rebalance* when it means *nothing has happened yet*. Same lie as a fabricated zero (§2.3),
+> arriving by arithmetic on two identical dates rather than by a null.
+>
+> So the default walks back to the newest baseline with a session **strictly** after it, judged on
+> the date it RESOLVED to — a baseline walked back to the session before a market holiday does have a
+> session after it. The reviews stepped over come back in `sinceRebalance.awaitingSession`.
+>
+> The August 2026 review is the live case: it takes effect on **31 Aug 2026**, and the first session
+> that can measure anything from it is **1 Sep**. verify-data 43 proves the walk-back on those exact
+> dates rather than only against whatever the committed record happens to contain.
+
+**A rebalance that has happened is never silent, even when it cannot be measured.** Between a review's
+effective date and the next successful refresh, the screen would otherwise show the *previous*
+rebalance's baseline with nothing to say that the funds have already traded. The strip carries an
+amber chip — *"August 2026 rebalanced 31 Aug 2026 · not measurable yet"* — naming the review, its
+assumed effective date (§2.18), what is being measured instead, and why.
+
+> **This is the one place the clock is read**, and only to produce that sentence. Every *figure* is
+> still resolved against the newest session on the record, because a build must not depend on when it
+> ran — but whether a rebalance has happened *since* that session cannot be answered from the record,
+> which is exactly the thing that is behind. verify-ui 53 asserts the chip appears when the calendar
+> says it should and is absent when it should not, so it cannot rot into a hard-coded warning.
 
 ### 2.12.4 "Flow pressure" is a direction, and §2.11 is why it is not a flow
 
@@ -969,7 +999,7 @@ survived on the first `--prove` run**, and both reasons generalise:
   `inline-flex` wrapper computes to plain `inline` and the check saw nothing wrong. It now tests the
   class contract as well, so it holds in both environments.
 
-### 2.29 A standing paragraph is not provenance, and a control is not a caption
+### 2.30 A standing paragraph is not provenance, and a control is not a caption
 
 Three blocks of explanatory chrome have now been removed from above the table, and the argument was
 the same every time:
@@ -994,6 +1024,49 @@ came from and what it does not say.
 > date they measure to, and the means to change the first — carrying the long form on its `title`.
 > Deleting a requested control because it shared a box with prose would answer a question about
 > layout by removing a feature.
+
+### 2.31 A repaint is not a rebuild, and a fresh table is not one somebody scrolled to the end of
+
+Changing the rebalance baseline used to block the reader's main thread for **1,092 ms**. Three
+separate things were wrong, and only the third is about performance in the ordinary sense.
+
+**1. It rebuilt what it is forbidden to change.** A baseline switch called `build()`, which re-derives
+every verdict, every rule, every flow and every GIMI assessment for 1,265 companies — while §2.12.4
+guarantees not one verdict can come out different. The only possible effect of that work was a defect.
+What actually moves is the flow-pressure classification and three columns, so `rebasePressures()`
+recomputes the pressures in place and the table's row markup is invalidated. Measured: the model
+rebuild that used to run on every switch is **64–86 ms** of the cost; parsing the 1.2 MB alternates
+file is **8 ms**. Neither was the freeze.
+
+> ### ⚠ A FRESHLY PAINTED TABLE LOOKS LIKE ONE SOMEBODY HAS SCROLLED TO THE END OF
+>
+> **2.** The table streams rows in after first paint, and a scroll listener flushed the rest when the
+> reader reached the painted edge. Its test was
+> `scrollTop + clientHeight >= scrollHeight - 400` — which, with 80 of 1,265 rows painted, is true
+> **before anybody has scrolled at all**, because `scrollHeight` is barely taller than the box. The
+> listener was on `window` as well as the scroller, so the very next scroll event anywhere on the
+> page — *including the `scrollTop = 0` the repaint performs itself* — painted 1,185 rows in one
+> synchronous block.
+>
+> A guard now returns early while the painted rows do not fill the box, and a genuine edge scroll
+> paints a bounded burst instead of everything. `flushRemaining()` survives for the callers that
+> really mean all of it now: the End key, the export, and the verification harness.
+
+**3. A budget that bounds the loop does not bound the slice.** The idle fill sliced adaptively while
+`deadline.timeRemaining() > 4` — a promise about how much idle time is *left*, not about how long the
+work takes — so one generous idle window painted hundreds of rows in a single task. Replacing the
+deadline with a fixed 12 ms budget was not enough either: the loop checked the clock *between*
+slices, and one `appendSlice(600)` is a single uninterruptible block. Each slice is now sized from a
+**measured** rows-per-millisecond rate against the budget that is actually left.
+
+Measured after all three: the switch is visible in **~100 ms**, the idle callbacks are **5–12 ms** of
+script each, and the remaining frame time is the browser laying out a growing table — the same cost
+first paint has always had, not something the switch introduced.
+
+> **The check that watched this had to move too.** verify-ui 45 waited for the table NODE to be
+> replaced, which was the old rebuild's signature; the table now survives a switch, which is the
+> point. The wait is `__setBaseline`, on the baseline strip being re-rendered — a signal only the
+> switch produces, and produced by different code from the cells the check reads.
 
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
@@ -1481,8 +1554,8 @@ scripts/
                                    -> public/data/price-history.json
   fetch-corporate-actions.mjs      BSE's own action history → public/data/corporate-actions.json
   build-companies.mjs              everything → public/data/companies.json
-  verify-data.mjs                  42 data assertions; no browser, no network
-  verify-ui.mjs                    33 interface assertions; the served site
+  verify-data.mjs                  43 data assertions; no browser, no network
+  verify-ui.mjs                    34 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
@@ -1564,7 +1637,7 @@ node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
 node scripts/verify-data.mjs           # 42 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 33 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 34 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 

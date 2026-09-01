@@ -346,6 +346,37 @@ export const FIRST_PAINT_ROWS = 80;
  */
 const RANGE_DEBOUNCE_MS = 160;
 
+/**
+ * How close to the painted edge counts as "at the edge", and how long a single
+ * scroll-triggered burst of row-painting may take.
+ *
+ * The burst budget is deliberately under one frame at 60 Hz: a reader racing
+ * the fill gets rows on every scroll event, and no single event costs them a
+ * dropped frame.
+ */
+const EDGE_MARGIN_PX = 400;
+const SCROLL_BURST_MS = 12;
+
+/**
+ * How much row-painting one idle callback may do.
+ *
+ * Under one frame at 60 Hz, so the fill never costs a dropped frame; large
+ * enough that the whole table arrives in about a second. The rows a reader can
+ * actually see are painted synchronously by `repaint` before any of this runs.
+ */
+const FILL_BUDGET_MS = 12;
+
+/**
+ * The bounds on one slice, and the starting guess at how fast rows build.
+ *
+ * The rate is measured and smoothed as the fill runs; it only has to be
+ * roughly right, and starting LOW is the safe direction — an underestimate
+ * costs an extra callback, an overestimate costs a dropped frame.
+ */
+const MIN_FILL_SLICE = 16;
+const MAX_FILL_SLICE = 400;
+let rowsPerMs = 1.5;
+
 const collator = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
 
 /** Missing sorts to its own group at the END, in either direction. */
@@ -956,11 +987,68 @@ export function scoreTable(config) {
     }
   }
 
-  /** The reader has scrolled to the painted edge — stop being clever. */
+  /**
+   * The reader has scrolled to the painted edge — paint ahead of them.
+   *
+   * ⚠ TWO TRAPS HERE, AND THE FIRST ONE WAS THE BASELINE-SWITCH FREEZE.
+   *
+   * 1. A FRESHLY PAINTED TABLE LOOKS LIKE ONE SOMEBODY HAS SCROLLED TO THE END
+   *    OF. After a repaint only FIRST_PAINT_ROWS are in the DOM, so
+   *    `scrollHeight` is barely taller than the box and
+   *    `scrollTop + clientHeight >= scrollHeight - 400` is true before anybody
+   *    has scrolled at all. The listener is on `window` as well as the
+   *    scroller, so the very next scroll event anywhere on the page — including
+   *    the `scrollTop = 0` the repaint performs itself — painted every
+   *    remaining row in ONE synchronous block.
+   *
+   *    Measured: an 870 ms task on an idle machine and 1,092 ms under load,
+   *    every time the reader changed the rebalance baseline. It was never the
+   *    model: rebuilding every verdict, rule, flow and pressure for all 1,265
+   *    companies measures 64–86 ms, and parsing the 1.2 MB alternates file
+   *    measures 8 ms. It was 1,185 rows of markup built between two frames.
+   *
+   * 2. EVEN A GENUINE EDGE SCROLL MUST NOT PAINT EVERYTHING AT ONCE. Scroll
+   *    events fire many times a second, so one small burst per event keeps
+   *    ahead of a reader without ever blocking a frame. `flushRemaining` still
+   *    exists for the callers that genuinely mean "all of it, now" — the End
+   *    key, the export, and the verification harness.
+   */
   function onScrollFlush() {
-    if (!scrollEl) return;
-    const nearEnd = scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - 400;
-    if (nearEnd) flushRemaining();
+    if (!scrollEl || fillFrom >= currentRows.length) return;
+    // Nothing to be at the end OF yet: the painted rows do not fill the box.
+    if (scrollEl.scrollHeight <= scrollEl.clientHeight + EDGE_MARGIN_PX) return;
+    const nearEnd = scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight - EDGE_MARGIN_PX;
+    if (!nearEnd) return;
+    appendWithin(SCROLL_BURST_MS);
+    setPending();
+  }
+
+  /**
+   * Append rows for about `budgetMs`, and never much longer.
+   *
+   * ⚠ THE BUDGET HAS TO BOUND THE SLICE, NOT JUST THE LOOP. Checking the clock
+   * between slices is not enough: one `appendSlice(600)` is a single
+   * uninterruptible block, so a loop that checks before it and then hands over
+   * 600 rows has already lost. Measured, that is a 420 ms task inside a 12 ms
+   * budget.
+   *
+   * So each slice is sized from the MEASURED rate — rows per millisecond,
+   * smoothed across calls so the first slice of a callback is sized from
+   * experience rather than from a guess — against the budget that is actually
+   * left.
+   */
+  function appendWithin(budgetMs) {
+    const started = performance.now();
+    while (fillFrom < currentRows.length) {
+      const remaining = budgetMs - (performance.now() - started);
+      if (remaining <= 0) break;
+      const slice = Math.max(MIN_FILL_SLICE, Math.min(MAX_FILL_SLICE, Math.round(remaining * rowsPerMs)));
+      const at = performance.now();
+      const appended = appendSlice(slice);
+      if (appended === 0) break;
+      const elapsed = Math.max(performance.now() - at, 0.2);
+      rowsPerMs = (rowsPerMs + appended / elapsed) / 2;
+    }
   }
 
   function attachScrollFlush() {
@@ -986,17 +1074,17 @@ export function scoreTable(config) {
     attachScrollFlush();
     // Timeout, so a backgrounded tab (where idle callbacks never fire) still
     // completes rather than leaving a half-painted table behind.
-    fillHandle = onIdle((deadline) => {
+    //
+    // ⚠ THE BUDGET BOUNDS THE CALLBACK, NOT THE IDLE DEADLINE. This used to
+    // keep slicing while `deadline.timeRemaining() > 4`, which is a promise
+    // about how much idle time is LEFT, not about how long the work takes — so
+    // one generous idle window painted hundreds of rows in a single task (378 ms
+    // measured, on top of the 870 ms the scroll-flush trap was already
+    // producing). A fixed budget per callback is predictable in the only unit
+    // that matters to a reader: the length of the frame they are waiting on.
+    fillHandle = onIdle(() => {
       fillHandle = null;
-      let slice = 150;
-      do {
-        const started = performance.now();
-        const appended = appendSlice(slice);
-        if (appended === 0) break;
-        const elapsed = performance.now() - started;
-        // Adaptive: aim at roughly 6ms of work per chunk.
-        slice = Math.max(50, Math.min(1200, Math.round((slice * 6) / Math.max(elapsed, 0.6))));
-      } while (fillFrom < currentRows.length && (deadline?.timeRemaining?.() ?? 0) > 4);
+      appendWithin(FILL_BUDGET_MS);
       scheduleFill();
     }, 200);
   }
@@ -1864,6 +1952,22 @@ export function scoreTable(config) {
     },
     /** Re-run filters and sort — used when external state (watchlist) filters rows. */
     refresh(options) {
+      if (root) repaint(options ?? {});
+    },
+    /**
+     * Every row's MARKUP is stale — drop the caches and repaint from scratch.
+     *
+     * `refresh()` moves existing nodes, which is what makes a sort instant and
+     * exactly wrong when the cells themselves have changed. `updateRows()` is
+     * the other half and is wrong at this size: it rebuilds each row
+     * synchronously, so handing it 1,265 keys is the 870 ms block this table
+     * spent months producing. This drops both caches and lets `repaint` do what
+     * it does on first paint — a screenful now, the rest in bounded idle
+     * slices.
+     */
+    invalidate(options) {
+      htmlCache.clear();
+      nodeCache.clear();
       if (root) repaint(options ?? {});
     },
     rows: () => currentRows,

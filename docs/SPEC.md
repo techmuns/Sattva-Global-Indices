@@ -170,11 +170,39 @@ standard segment and the two small-cap funds track small caps, so a company is i
 and never both. An option that can only return an empty table has to say so where the reader picks
 it, or the empty table reads as a finding about the companies.
 
+**The rebalance baseline follows the calendar.** The line under the heading reads *"Returns measured
+since [May 2026 — 29 May 2026] to the close on 28 Aug 2026"*, and the date is chosen, not configured:
+`chooseBaseline()` takes the newest captured rebalance **with a session strictly after it**, so the
+first build that has one moves the baseline on its own. A rebalance whose date is the newest close
+would give a zero-length window, and three columns of +0.0% read as "nothing has moved" when they
+mean "nothing has happened yet".
+
+Between a review taking effect and the next successful refresh there is a gap, and the screen names
+it rather than sitting quietly on the older baseline: an amber chip reads *"August 2026 rebalanced
+31 Aug 2026 · not measurable yet"*, with the review, its assumed effective date, what is being
+measured instead and why on its title. That sentence is the only thing on the page derived from the
+clock; every figure is still resolved against the newest session on the record.
+
 **Table behaviour**: sort by any column, ascending and descending, with **missing values sorting last
-in both directions** — a null is not a zero and must not rank as one. Rows stream in so 1,202 rows do
+in both directions** — a null is not a zero and must not rank as one. Rows stream in so 1,265 rows do
 not block the main thread, and `data-rows-pending` clears when the fill completes; that attribute is
 what the test suite waits on, never a sleep. A live price tick repaints **only the rows whose price
 moved** and leaves the reader's search, filters, sort and watchlist untouched.
+
+The streaming has two rules that were each learned by breaking them (CLAUDE.md §2.31). Each idle
+callback gets a **12 ms budget**, and every slice inside it is sized from a *measured* rows-per-ms
+rate against the budget that is left — bounding the loop is not enough, because one `appendSlice(600)`
+is a single uninterruptible block. And the scroll-to-the-edge flush **returns early while the painted
+rows do not fill the box**: with 80 of 1,265 rows in the DOM the near-edge test is true before anyone
+has scrolled, and the listener is on `window`, so the `scrollTop = 0` of a repaint used to paint
+every remaining row at once — a 1,092 ms block, which is what made changing the rebalance baseline
+feel like a freeze.
+
+**A baseline switch repaints; it does not rebuild.** §2.12.4 guarantees no verdict can move, so
+re-deriving 1,265 verdicts to change a baseline was work whose only possible outcome was a defect.
+`rebasePressures()` recomputes the flow-pressure classification in place, the strip re-renders, and
+the table's row markup is invalidated — the reader's search, sort, filters and column widths survive
+because the table instance does. Switching is visible in about 100 ms.
 
 **Wide content scrolls inside its own container**; the page body never scrolls sideways. Measured
 with the stylesheet in force: body 1440/1440, 1024/1024, 390/390, with the table scrolling internally

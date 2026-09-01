@@ -75,7 +75,7 @@ import { observedBoundary, rankByFreeFloat } from '../public/js/model/thresholds
 import { segmentOf, assertDisjoint, segmentFloatTotals } from '../public/js/model/segments.js';
 import { assess, verdictFromRules, VERDICTS, DISCLOSURE } from '../public/js/model/assess.js';
 import { estimateFlows } from '../public/js/model/flows.js';
-import { nextReview, previousReview, reviewCutoffs } from '../public/js/model/calendar.js';
+import { nextReview, previousReview, reviewCutoffs, chooseBaseline } from '../public/js/model/calendar.js';
 import * as MSCI from '../public/js/config/msci-methodology.mjs';
 import { seriesToMap, summarise, rateOn, FUND_BENCHMARKS } from '../public/js/model/benchmarks.js';
 import { assessRelative, assessSinceRebalance, WINDOW_STATES, REBASE_STATES } from '../public/js/model/relative.js';
@@ -836,9 +836,45 @@ function main() {
       rebaseStates[baseline.review] = states;
     }
 
-    // The default is the most recent rebalance whose date has passed, resolved
-    // against the newest session the exchange served — never against the clock.
-    const defaultReview = REBALANCE_BASELINE.defaultReview ?? priceHistory.baselines[0].review;
+    /*
+     * THE DEFAULT IS THE MOST RECENT REBALANCE THERE IS SOMETHING TO MEASURE
+     * FROM, resolved against the newest session the exchange served — never
+     * against the clock, so a build does not depend on when it ran.
+     *
+     * ⚠ "PASSED" IS NOT ENOUGH: A BASELINE NEEDS A SESSION AFTER IT.
+     *
+     * A review whose effective date IS the newest committed close gives a
+     * window of zero length, and a zero-length window is not a zero return —
+     * but it prints as one. Every company would read +0.0% against its index,
+     * on three columns at once, and a reader would take that as "nothing has
+     * moved since the rebalance" when it means "nothing has happened yet"
+     * (CLAUDE.md §2.3, by the same route as a fabricated zero).
+     *
+     * That is not hypothetical: the August 2026 review takes effect on
+     * 31 Aug 2026, and the first session that can measure anything from it is
+     * 1 Sep. So the default walks back to the newest baseline with at least one
+     * session strictly after it, and RECORDS the one it skipped and why —
+     * `awaitingSession` travels to the screen, which says a rebalance has
+     * happened that these columns cannot speak to yet. The moment a later
+     * session lands, the next build moves the default on its own.
+     */
+    const choice = chooseBaseline(priceHistory.baselines, latestDate);
+    const measurable = choice.measurable;
+    const awaitingSession = choice.awaitingSession.map((b) => ({
+      review: b.review,
+      label: b.label,
+      effectiveDate: b.effectiveDate,
+      resolvedDate: b.resolvedDate ?? b.effectiveDate,
+      reason: 'the rebalance date is the newest committed close, so there is no session after it to '
+        + 'measure a return over — a window of zero length is not a return of zero',
+    }));
+    if (!measurable.length) {
+      throw new Error(
+        'No captured baseline has a session after it, so nothing can be measured from any rebalance. '
+        + `Latest close ${latestDate}; captured ${priceHistory.baselines.map((b) => `${b.review}@${b.resolvedDate ?? b.effectiveDate}`).join(', ')}`,
+      );
+    }
+    const defaultReview = REBALANCE_BASELINE.defaultReview ?? choice.defaultReview;
     if (!rebaseByReview.has(defaultReview)) {
       throw new Error(
         `REBALANCE_BASELINE.defaultReview is ${defaultReview}, which has no captured baseline. `
@@ -848,6 +884,9 @@ function main() {
 
     rebaseContext = {
       defaultReview,
+      // Captured, in effect, and still not measurable — see above. Empty on
+      // every ordinary build; non-empty for the few days after a rebalance.
+      awaitingSession,
       latestDate,
       latestSource: 'the committed BSE bhavcopy close — never a live quote, which would put an '
         + 'exchange change inside a return',

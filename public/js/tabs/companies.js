@@ -25,7 +25,7 @@ import { observedBoundary, rankByFreeFloat, THRESHOLD_SOURCE } from '../model/th
 import { segmentOf, segmentFloatTotals, SEGMENTS } from '../model/segments.js';
 import { assess, VERDICTS, DISCLOSURE, TRADE_IMPLYING } from '../model/assess.js';
 import { estimateFlows } from '../model/flows.js';
-import { nextReview, reviewCutoffs } from '../model/calendar.js';
+import { nextReview, reviewCutoffs, closedReviews } from '../model/calendar.js';
 import { gimiCutoffs, assessGimi, reviewWindow, METHODOLOGIES } from '../model/gimi.js';
 import { trendSignal, flowPressure, WINDOW_STATES, REBASE_STATES } from '../model/relative.js';
 
@@ -225,6 +225,52 @@ export function rebuildModel() {
     boundary, ranks, floatTotals, assessments, gimiAssessments, flows, trendSignals, pressures,
     baseline, cutoffs, window, builtAt: new Date(),
   };
+  return modelState;
+}
+
+/**
+ * A BASELINE SWITCH IS NOT A REBUILD, and treating it as one was a bug with a
+ * performance symptom.
+ *
+ * §2.12.4 is absolute: changing the rebalance baseline moves all three relative
+ * columns and moves NO verdict. Every other thing `rebuildModel` computes —
+ * every verdict, every rule, every flow, every GIMI assessment, every trend
+ * signal against the price-window reading — is by construction unchanged, so
+ * recomputing them could only ever produce a difference that was a defect.
+ *
+ * What genuinely moves is the flow-pressure classification, because it reads
+ * the since-rebalance reading. That is what this recomputes, in place, over the
+ * model that is already built.
+ *
+ * ⚠ `undefined` AND `null` ARE DIFFERENT ANSWERS HERE, exactly as they are in
+ * the full build: undefined means the alternate baseline has not finished
+ * loading and must render as a loading state, null means this company has no
+ * reading from that date and must render its own stated reason. Collapsing them
+ * would turn a fetch in flight into a fact about a company.
+ */
+export function rebasePressures() {
+  if (!modelState) return null;
+  const baseline = activeBaseline();
+  const cutoff = modelState.boundary?.rankCutoffInr ?? null;
+  const context = data.rebalanceBaselines();
+  for (const company of data.forScope(state.SCOPE)) {
+    const key = data.keyOf(company);
+    const assessment = modelState.assessments.get(key);
+    if (!assessment) continue;
+    const reading = data.readingFor(company, baseline);
+    const distanceToCutoffPct = cutoff > 0 && company.freeFloatMcapInr != null
+      ? ((company.freeFloatMcapInr - cutoff) / cutoff) * 100
+      : null;
+    modelState.pressures.set(key, reading === undefined ? undefined : flowPressure(reading, {
+      segment: assessment.segment,
+      verdict: assessment.verdict,
+      distanceToCutoffPct,
+      nearBoundaryPct: RELATIVE_PERFORMANCE.nearBoundaryPct,
+      band: context?.bandPct ?? REBALANCE_BASELINE.bandPct,
+      thresholdSource: context?.attribution ?? REBALANCE_BASELINE.attribution,
+    }));
+  }
+  modelState.baseline = baseline;
   return modelState;
 }
 
@@ -1522,6 +1568,46 @@ function relativeColumns() {
  * the clock. This is only the reader's override of it: it changes what the three
  * columns MEASURE, and it changes no verdict and no row.
  */
+/**
+ * A rebalance that HAS HAPPENED and that these columns cannot measure yet.
+ *
+ * Two ways to be in this state, and a reader has to be told about both,
+ * because in each the screen is measuring from a rebalance that is no longer
+ * the latest one:
+ *
+ *   NOT ON THE RECORD. The review took effect after the newest committed
+ *   close, so the pipeline has not seen it. Today: the August 2026 review took
+ *   effect on 31 Aug and the newest bhavcopy on the record is 28 Aug.
+ *
+ *   ON THE RECORD, NOT YET MEASURABLE. The effective date IS the newest close,
+ *   so the window has zero length. The build records these in
+ *   `awaitingSession` rather than defaulting to them, because three columns of
+ *   +0.0% read as "nothing has moved" when they mean "nothing has happened
+ *   yet".
+ *
+ * ⚠ THE CLOCK IS READ HERE, AND NOWHERE THAT PRODUCES A NUMBER. Every figure
+ * on this screen is resolved against the newest session the exchange served, so
+ * that a build does not depend on when it ran (§2.12.3). But whether a
+ * rebalance has happened SINCE that session is a question about the calendar,
+ * and it cannot be answered from the record at all — the record is precisely
+ * what is behind. The date is MSCI's convention as this project assumes it
+ * (§2.18), and the note says so.
+ */
+function pendingRebalance(context) {
+  const today = new Date().toISOString().slice(0, 10);
+  const newest = closedReviews(today, 1)[0];
+  if (!newest || newest.review <= context.defaultReview) return null;
+  const awaiting = (context.awaitingSession ?? []).find((b) => b.review === newest.review);
+  return {
+    ...newest,
+    onTheRecord: Boolean(awaiting),
+    reason: awaiting
+      ? awaiting.reason
+      : `the newest close on the record is ${context.latestDate}, which is before it — the daily refresh `
+        + 'has not read a session on or after the rebalance yet',
+  };
+}
+
 function baselineStrip(rows) {
   const context = data.rebalanceBaselines();
   if (!context) {
@@ -1537,6 +1623,9 @@ function baselineStrip(rows) {
   const active = activeBaseline();
   const meta = data.baselineMeta(active);
   const isDefault = active === context.defaultReview;
+  // Only against the default. A reader who deliberately chose an older baseline
+  // is not behind on anything, and nagging them about it would be noise.
+  const pending = isDefault ? pendingRebalance(context) : null;
 
   // A baseline that is still fetching is a NAMED state, not an absence. Each
   // cell says so itself; this says how many at once, because three columns of
@@ -1579,6 +1668,14 @@ function baselineStrip(rows) {
     + `${options}</select></label>`
     + `<span class="whitespace-nowrap font-normal text-slate-400">to the close on ${escapeHtml(shortDate(context.latestDate))}</span>`
     + '<span class="whitespace-nowrap font-normal text-slate-400">· evidence beside a verdict, never an input to one</span>'
+    + (pending
+      ? `<span class="whitespace-nowrap rounded-md bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-800 ring-1 ring-inset ring-amber-200" title="${escapeHtml(
+        `The ${pending.label} review took effect on ${shortDate(pending.effectiveDate)} — an assumed date: MSCI reviews `
+        + 'quarterly in February, May, August and November and this project derives the effective date as the last '
+        + `business day of the month (CLAUDE.md §2.18). These columns still measure from ${shortDate(meta?.resolvedDate ?? meta?.effectiveDate ?? '')} because `
+        + `${pending.reason}. They move to the newer rebalance on their own, on the first build that has a session after it.`,
+      )}">${escapeHtml(pending.label)} rebalanced ${escapeHtml(shortDate(pending.effectiveDate))} · not measurable yet</span>`
+      : '')
     + (isDefault
       ? ''
       : '<button type="button" data-baseline-reset class="rounded-lg bg-white px-2 py-1 text-[10px] font-semibold text-indigo-700 shadow-sm ring-1 ring-slate-200 transition hover:ring-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">'
@@ -1629,6 +1726,7 @@ export function renderCompanies(host, { onStatusChange } = {}) {
   let table = null;
   let lastView = null;
   let statsHost = null;
+  let baselineHost = null;
   const refreshHeaderStatus = () => onStatusChange?.();
   /** The strip counts verdicts, so a verdict flip makes it stale. */
   const repaintStats = () => {
@@ -1663,7 +1761,8 @@ export function renderCompanies(host, { onStatusChange } = {}) {
       }),
     );
 
-    host.append(baselineStrip(rows));
+    baselineHost = el('div', {}, [baselineStrip(rows)]);
+    host.append(baselineHost);
 
     statsHost = el('div', { class: 'mb-6' }, [buildStats(rows)]);
     host.append(statsHost);
@@ -2299,10 +2398,26 @@ export function renderCompanies(host, { onStatusChange } = {}) {
   // pressure and every chip beside a verdict are measured from it. No VERDICT
   // moves — that is the point — but every number that depends on the baseline
   // does, and a partial repaint would leave the two disagreeing on screen.
+  /**
+   * A baseline switch repaints; it does NOT rebuild.
+   *
+   * It used to call `build()`, which re-derives every verdict, rule, flow and
+   * GIMI assessment for 1,265 companies and constructs a whole new table — and
+   * §2.12.4 guarantees not one verdict can come out different. The measured
+   * cost of that guarantee was a 1,092 ms block on the reader's main thread.
+   *
+   * What actually changes is the flow-pressure classification and the three
+   * relative columns, so: recompute the pressures in place, re-render the one
+   * line that names the baseline, and invalidate the table's row markup — which
+   * repaints a screenful now and streams the rest in bounded idle slices. The
+   * reader's search, sort, filters and column widths are untouched, because the
+   * table instance itself survives.
+   */
   state.on('rebalanceBaseline', () => {
     closeDrill();
-    lastView = table?.view ? { q: table.view.q, sort: table.view.sort, filters: { ...table.view.filters } } : null;
-    build();
+    rebasePressures();
+    baselineHost?.replaceChildren(baselineStrip(data.forScope(state.SCOPE)));
+    table?.invalidate({ resetScroll: false });
   });
 
   return {

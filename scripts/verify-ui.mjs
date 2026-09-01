@@ -26,6 +26,7 @@ import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 
 import { Suite, parseArgs, ok, equal, empty, skip } from './lib/assert.mjs';
+import { closedReviews } from '../public/js/model/calendar.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -283,6 +284,38 @@ async function main() {
        * would sail through the window before the keystroke was consumed and
        * measure the previous filter.
        */
+      /**
+       * Switch the rebalance baseline and wait for the switch to have LANDED.
+       *
+       * ⚠ NEITHER `__set` NOR THE SELECT'S OWN VALUE IS A USABLE WAIT HERE.
+       * `__set` assigns the value synchronously and then waits for the CURRENT
+       * table to settle, but a switch fetches a 1.2 MB file before it repaints,
+       * so both return long before anything has changed. Waiting on the select's
+       * value is worse: the harness set it itself, so the condition is true the
+       * instant it is asked.
+       *
+       * The condition only the switch can satisfy is the BASELINE STRIP being
+       * re-rendered — `baselineHost.replaceChildren(...)` detaches the old
+       * control, and that happens after `ensureBaseline` has resolved and the
+       * state has moved. It is not circular with what these checks assert: the
+       * control and the table cells are produced by different code.
+       *
+       * This wait used to be "the table node was replaced", which was true only
+       * while a baseline switch rebuilt the whole table. It stopped rebuilding
+       * it on 1 Sep 2026 — that was the freeze fix — and the wait had to move to
+       * a signal the new behaviour actually produces.
+       */
+      window.__setBaseline = async (review) => {
+        const previous = document.querySelector('[data-baseline]');
+        previous.value = review;
+        previous.dispatchEvent(new Event('change', { bubbles: true }));
+        for (let i = 0; i < 1800; i += 1) {
+          const now = document.querySelector('[data-baseline]');
+          if (now && now !== previous && now.value === review) break;
+          await frame();
+        }
+        return filled();
+      };
       window.__setRange = async (id, min, max) => {
         const wrap = document.querySelector(`[data-range="${id}"]`);
         if (!wrap) throw new Error(`no range control "${id}"`);
@@ -1439,32 +1472,12 @@ async function main() {
         'the baseline picker offers more than one rebalance date, or there is nothing to switch to',
         JSON.stringify(before.options));
 
-      // ⚠ NEITHER `__set` NOR THE SELECT'S OWN VALUE IS A USABLE WAIT HERE.
-      //
-      // `__set` assigns `select.value` synchronously and then waits for the
-      // CURRENT table to settle — but switching a baseline fetches a 1.2 MB file
-      // and only then rebuilds, so both return long before anything has changed.
-      // Waiting on the select's value is worse still: the harness set it itself,
-      // so the condition is true the instant it is asked.
-      //
-      // The condition only the rebuild can satisfy is the TABLE NODE being
-      // replaced — `build()` calls `host.replaceChildren()`, which detaches the
-      // old one. It is also not circular with what this check asserts: the table
-      // element and the cell text are produced by different code.
-      //
-      // This check passed on a race before the screener's toolbar was reworked,
-      // and went red at "0 of 60 rows moved" the moment the timing shifted.
+      // The wait lives in `__setBaseline`, and why it is the strip rather than
+      // the table is written out there. This check passed on a race once
+      // already, and went red at "0 of 60 rows moved" the moment the timing
+      // shifted — so the signal has to be one only the switch can produce.
       const other = before.options.find((o) => o !== before.baseline);
-      await c.page.evaluate(() => { window.__previousTable = document.querySelector('[data-score-table]'); });
-      await c.page.evaluate((value) => {
-        const select = document.querySelector('[data-baseline]');
-        select.value = value;
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-      }, other);
-      await c.page.waitForFunction(
-        () => window.__previousTable && !window.__previousTable.isConnected, null, { timeout: 30000 },
-      );
-      await c.page.evaluate(() => window.__settle());
+      await c.page.evaluate((value) => window.__setBaseline(value), other);
       const after = await c.page.evaluate(read);
 
       equal(after.baseline, other, 'the picker switched to the baseline asked for');
@@ -1504,16 +1517,7 @@ async function main() {
       equal(blank.bad, 0, 'under the new baseline every absence is still an em dash with a stated reason');
 
       // Back to the default, so the rest of the suite sees the shipped state.
-      await c.page.evaluate(() => { window.__previousTable = document.querySelector('[data-score-table]'); });
-      await c.page.evaluate((value) => {
-        const select = document.querySelector('[data-baseline]');
-        select.value = value;
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-      }, before.baseline);
-      await c.page.waitForFunction(
-        () => window.__previousTable && !window.__previousTable.isConnected, null, { timeout: 30000 },
-      );
-      await c.page.evaluate(() => window.__settle());
+      await c.page.evaluate((value) => window.__setBaseline(value), before.baseline);
 
       return `${before.baseline} -> ${other}: ${legsMoved} of ${before.keys.length} rows re-measured, `
         + `0 verdicts moved, ${blank.dashes} absences still stated`;
@@ -1634,6 +1638,78 @@ async function main() {
   }, ctx);
 
   await suite.check({
+    id: 53,
+    what: 'a rebalance the record cannot measure yet is named on screen — and is NOT named when there is none',
+    run: async (c) => {
+      // ⚠ ASSERTED AS A RULE, NOT AS A STATE. Whether a review is pending
+      // depends on today's date against the newest committed close, so a check
+      // that simply expected the chip would pass this week and fail after the
+      // next refresh — and a check that expected its absence would do the
+      // reverse. Both sides are asserted against the condition itself.
+      const ctx = await c.page.evaluate(() => {
+        const context = window.__sattva.data.rebalanceBaselines();
+        const strip = document.querySelector('[data-baseline]')?.closest('div')?.parentElement;
+        return {
+          defaultReview: context?.defaultReview ?? null,
+          latestDate: context?.latestDate ?? null,
+          awaiting: (context?.awaitingSession ?? []).map((b) => b.review),
+          active: document.querySelector('[data-baseline]')?.value ?? null,
+          text: strip?.innerText ?? '',
+          // The CHIP's own title, found by its own text — not the first title
+          // in the strip, which belongs to the line as a whole and also says
+          // "took effect".
+          chipTitle: [...(strip?.querySelectorAll('span[title]') ?? [])]
+            .find((n) => /not measurable yet/i.test(n.textContent))?.getAttribute('title') ?? '',
+        };
+      });
+      ok(ctx.defaultReview, 'the record must name a default baseline');
+      equal(ctx.active, ctx.defaultReview, 'this check reads the default view, not an override');
+
+      // The calendar's own answer, computed here rather than read off the page.
+      const newest = closedReviews(new Date().toISOString().slice(0, 10), 1)[0] ?? null;
+      const shouldName = Boolean(newest && newest.review > ctx.defaultReview);
+      const names = /not measurable yet/i.test(ctx.text);
+
+      equal(names, shouldName, shouldName
+        ? `the ${newest.label} review took effect on ${newest.effectiveDate} and the screen must say these columns cannot measure it yet`
+        : 'no review has taken effect since the default baseline, so nothing may claim one has');
+
+      if (shouldName) {
+        ok(ctx.text.includes(newest.label), 'the chip must name the review', ctx.text.slice(0, 160));
+        ok(/still measure from/i.test(ctx.chipTitle) && /assumed/i.test(ctx.chipTitle),
+          'and must say what IS being measured from, and that the effective date is assumed',
+          ctx.chipTitle.slice(0, 200));
+        // The one thing it must never do is pretend to have the reading.
+        ok(!ctx.awaiting.includes(ctx.defaultReview), 'the default may not itself be a baseline awaiting a session');
+      }
+
+      return shouldName
+        ? `${newest.label} in effect ${newest.effectiveDate}, record measures from ${ctx.defaultReview} to ${ctx.latestDate} — said on screen`
+        : `default ${ctx.defaultReview}, latest close ${ctx.latestDate}, no newer review in effect — and nothing claims one`;
+    },
+    sabotage: persistent(`(() => {
+      // Flip whichever side is true: hide the chip where there is one, invent
+      // one where there is not. Either way the screen stops agreeing with the
+      // calendar, which is the only thing this check is about.
+      const flip = () => {
+        const select = document.querySelector('[data-baseline]');
+        const strip = select?.closest('div')?.parentElement;
+        if (!strip) return;
+        const chip = [...strip.querySelectorAll('span')].find((n) => /not measurable yet/i.test(n.textContent));
+        if (chip) { chip.remove(); return; }
+        if (strip.dataset.sabotaged) return;
+        strip.dataset.sabotaged = '1';
+        const fake = document.createElement('span');
+        fake.textContent = 'November 2099 rebalanced 30 Nov 2099 · not measurable yet';
+        strip.append(fake);
+      };
+      flip();
+      new MutationObserver(flip).observe(document.body, { childList: true, subtree: true });
+    })()`),
+    restore: restoreByReload,
+  }, ctx);
+
+  await suite.check({
     id: 52,
     what: 'a chosen baseline survives a reload WITH ITS NUMBERS — not a heading over a column of em dashes',
     run: async (c) => {
@@ -1656,16 +1732,7 @@ async function main() {
         JSON.stringify(context.options));
       const other = context.options.find((o) => o !== context.value);
 
-      await c.page.evaluate(() => { window.__previousTable = document.querySelector('[data-score-table]'); });
-      await c.page.evaluate((value) => {
-        const select = document.querySelector('[data-baseline]');
-        select.value = value;
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-      }, other);
-      await c.page.waitForFunction(
-        () => window.__previousTable && !window.__previousTable.isConnected, null, { timeout: 30000 },
-      );
-      await c.page.evaluate(() => window.__settle());
+      await c.page.evaluate((value) => window.__setBaseline(value), other);
 
       const readings = () => c.page.evaluate(() => {
         const heads = [...document.querySelectorAll('thead th')].map((h) => h.textContent.trim());

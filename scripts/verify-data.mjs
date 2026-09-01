@@ -41,7 +41,7 @@ import { parseRange, withinRange } from '../public/js/core/range.js';
 import { feedRegistry } from '../public/js/data/companies.js';
 import { relativeOf, windowMean, WINDOW_STATES, REBASE_STATES, adjustmentBetween, flowPressure } from '../public/js/model/relative.js';
 import { RELATIVE_PERFORMANCE, REBALANCE_BASELINE } from '../public/js/config/thresholds.mjs';
-import { closedReviews } from '../public/js/model/calendar.js';
+import { closedReviews, chooseBaseline } from '../public/js/model/calendar.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -154,7 +154,7 @@ function loadContext() {
     relativeBaselines: readJson('public/data/relative-baselines.json'),
     sources: loadSources(),
     // Injected so a check can be broken by swapping the thing it verifies.
-    fn: { assertBhavcopyShape, assertContinuity, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count, parseRange, withinRange },
+    fn: { assertBhavcopyShape, assertContinuity, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count, parseRange, withinRange, chooseBaseline },
     fixtures: {
       spaShell: readText('scripts/fixtures/bhavcopy-spa-shell.html'),
       bhavToday: readText('scripts/fixtures/bhavcopy-sample-20260819.csv'),
@@ -1590,6 +1590,79 @@ async function main() {
   }, ctx);
 
   /* ── MSCI's own published rules ─────────────────────────────────────────*/
+  await suite.check({
+    id: 43,
+    what: 'the baseline is the newest rebalance with a SESSION AFTER IT, and one that has none is named rather than defaulted to',
+    clone: deepClone,
+    run: (c) => {
+      const context = c.companiesFile.sinceRebalance ?? null;
+      ok(context, 'the record must carry its rebalance-baseline context');
+      const chosen = context.baselines.find((b) => b.review === context.defaultReview);
+      ok(chosen, 'the default baseline must be one of the captured ones', context.defaultReview);
+
+      // On the committed record: the window has to have a length.
+      const baselineDate = chosen.resolvedDate ?? chosen.effectiveDate;
+      ok(baselineDate < context.latestDate,
+        'the default baseline must have at least one session after it — a zero-length window prints as +0.0% '
+        + 'on every company and reads as "nothing moved" when it means "nothing has happened yet"',
+        `baseline ${baselineDate} vs latest close ${context.latestDate}`);
+
+      // And no captured baseline that IS measurable was passed over for it.
+      const newerMeasurable = context.baselines.filter(
+        (b) => (b.resolvedDate ?? b.effectiveDate) < context.latestDate
+          && (b.resolvedDate ?? b.effectiveDate) > baselineDate,
+      );
+      empty(newerMeasurable, 'the default must be the NEWEST measurable rebalance, not merely a measurable one',
+        (b) => `${b.review} @ ${b.resolvedDate ?? b.effectiveDate} is newer and measurable`);
+
+      // ⚠ THE RULE ITSELF, ON DATES THIS RECORD DOES NOT HAPPEN TO CONTAIN.
+      // The committed data has no rebalance sitting on the newest close, so
+      // asserting only against it would leave the walk-back — the whole reason
+      // the rule exists — untested until the day it fires in production. These
+      // are the August 2026 dates: the review takes effect on 31 Aug, and the
+      // first session that can measure anything from it is 1 Sep.
+      const captured = [
+        { review: '2026-08', effectiveDate: '2026-08-31', resolvedDate: '2026-08-31' },
+        { review: '2026-05', effectiveDate: '2026-05-29', resolvedDate: '2026-05-29' },
+        { review: '2026-02', effectiveDate: '2026-02-27', resolvedDate: '2026-02-27' },
+      ];
+      const onTheDay = c.fn.chooseBaseline(captured, '2026-08-31');
+      equal(onTheDay.defaultReview, '2026-05',
+        'on the rebalance day itself the baseline must stay on the previous review — there is nothing to measure yet');
+      equal(onTheDay.awaitingSession.map((b) => b.review).join(','), '2026-08',
+        'and the review it stepped over must be named, so the screen can say a rebalance has happened');
+
+      const dayAfter = c.fn.chooseBaseline(captured, '2026-09-01');
+      equal(dayAfter.defaultReview, '2026-08',
+        'one session later the baseline must move on its own — no date is edited anywhere to make this happen');
+      equal(dayAfter.awaitingSession.length, 0, 'and nothing is left awaiting');
+
+      // A walked-back baseline is judged on the date it RESOLVED to, not the
+      // published one: India was shut on the effective date and the reading is
+      // struck on the session before it.
+      const walked = c.fn.chooseBaseline(
+        [{ review: '2026-08', effectiveDate: '2026-08-31', resolvedDate: '2026-08-28' }, ...captured.slice(1)],
+        '2026-08-31',
+      );
+      equal(walked.defaultReview, '2026-08',
+        'a baseline that walked back to an earlier session HAS a session after it, and must be used');
+
+      return `default ${context.defaultReview} @ ${baselineDate} vs latest ${context.latestDate} · `
+        + `${context.awaitingSession?.length ?? 0} awaiting a session · walk-back proved on 31 Aug/1 Sep 2026`;
+    },
+    sabotage: (c) => {
+      // The version that only asks whether the date has passed. It defaults to
+      // a rebalance struck on the newest close, and every reading it produces
+      // is a zero that is not a zero.
+      c.fn.chooseBaseline = (baselines, latestDate) => {
+        const dated = (b) => b.resolvedDate ?? b.effectiveDate;
+        const ordered = [...baselines].sort((a, b) => dated(b).localeCompare(dated(a)));
+        const measurable = ordered.filter((b) => dated(b) <= latestDate);
+        return { defaultReview: measurable[0]?.review ?? null, awaitingSession: [], measurable };
+      };
+    },
+  }, ctx);
+
   suite.section("MSCI's published methodology");
 
   await suite.check({
