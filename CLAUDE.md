@@ -925,6 +925,15 @@ And the rest of the rules the feature carries:
 - **The table's width is the sum of its columns, never `100%`.** Under `table-layout: fixed` a table
   told to be 100% wide redistributes the slack, so every width the reader set comes out as something
   else and dragging one column silently moves its neighbours.
+- **Putting a column away re-shares its width across the rest**, so the table still fills the screen.
+  Subtracting it is what the sum rule above does on its own, and it left the reader — who removed a
+  column to give the others more room — looking at a band of white where it had been: measured,
+  hiding Funds at 1,320px left the table 1,206px and 114px of nothing. The obvious fix is the one
+  forbidden above, so the widths are re-shared in proportion instead and the table stays equal to
+  their sum. **A drag is not re-shared** — narrowing a column by hand and watching its neighbours
+  grow back into the space would make the table impossible to shrink. And a table the reader has
+  deliberately dragged *wider* than the screen keeps its widths and keeps scrolling: closing a gap is
+  one thing, overruling a stretch is another. Check 53, whose sabotage is the re-share deleted.
 - **Widths are keyed by column label, never by position.** A stored `{ 3: 210 }` would follow the
   third column wherever a later release moves it, so a reader who widened Free float would come back
   to a widened Float %.
@@ -948,7 +957,7 @@ And the rest of the rules the feature carries:
   `overflow-x: hidden` backstop makes it unreachable rather than merely ugly. Measured. Only the
   paint is left to the CDN.
 
-Checks 47–50 in `scripts/verify-ui.mjs` cover the four claims. **Three of the four sabotages were
+Checks 47–50 and 53 in `scripts/verify-ui.mjs` cover the claims. **Three of the four sabotages were
 survived on the first `--prove` run**, and both reasons generalise:
 
 - **A MutationObserver sabotage loses the race against a synchronous read.** Checks 47 and 49 squeeze
@@ -1473,7 +1482,7 @@ scripts/
   fetch-corporate-actions.mjs      BSE's own action history → public/data/corporate-actions.json
   build-companies.mjs              everything → public/data/companies.json
   verify-data.mjs                  42 data assertions; no browser, no network
-  verify-ui.mjs                    32 interface assertions; the served site
+  verify-ui.mjs                    33 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
@@ -1555,7 +1564,7 @@ node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
 node scripts/verify-data.mjs           # 42 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 32 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 33 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 

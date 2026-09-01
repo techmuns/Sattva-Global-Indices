@@ -1336,9 +1336,71 @@ export function scoreTable(config) {
     persistColumns();
   }
 
+  /** The width the table has to play with: the scroll box, less any scrollbar. */
+  const availableWidth = () => (root ? $('[data-table-scroll]', root)?.clientWidth ?? 0 : 0);
+
+  const visibleWidthTotal = () =>
+    visibleColumns().reduce((sum, entry) => sum + (widths.get(entry.label) ?? 0), 0);
+
+  /**
+   * Share the visible columns out across `available` px, keeping their
+   * proportions.
+   *
+   * Called only when a column is put away or brought back. Under fixed layout
+   * the table is the SUM of its columns, so putting one away simply subtracts
+   * its width — and the reader, who removed a column to give the others more
+   * room, gets a band of empty white instead. Measured on the committed record:
+   * hiding Funds at 1,320px left the table 1,206px wide and 114px of nothing.
+   *
+   * ⚠ THE ALTERNATIVE — `width: 100%` — IS THE ONE THING THIS MUST NOT DO.
+   * A fixed-layout table told to be 100% wide distributes the slack itself, so
+   * every width the reader set renders as something else and dragging one
+   * column visibly shifts its neighbours. Re-sharing the widths keeps the table
+   * equal to their sum, so each one still means exactly what it says.
+   *
+   * NOT called on a drag. Narrowing a column by hand and watching its
+   * neighbours grow back into the space would make the table impossible to
+   * shrink; there the reader is setting a width, and the width is what they get.
+   */
+  function refitVisibleWidths(available) {
+    const sized = visibleColumns().filter((entry) => widths.has(entry.label));
+    if (sized.length === 0 || !Number.isFinite(available) || available <= 0) return false;
+    const before = sized.reduce((sum, entry) => sum + widths.get(entry.label), 0);
+    if (before === available) return false;
+
+    const scale = available / before;
+    for (const entry of sized) widths.set(entry.label, clamp(Math.round(widths.get(entry.label) * scale)));
+
+    // The scale is fractional and a width is a whole number of pixels, so the
+    // rounded set almost never sums to the target. Those few pixels have to
+    // land somewhere or they come back as the very gap this exists to close.
+    // Widest first, and never through a column's own floor or ceiling.
+    const order = [...sized].sort((a, b) => widths.get(b.label) - widths.get(a.label));
+    let residual = available - order.reduce((sum, entry) => sum + widths.get(entry.label), 0);
+    for (let pass = 0; residual !== 0 && pass < 8; pass += 1) {
+      let moved = false;
+      for (const entry of order) {
+        if (residual === 0) break;
+        const step = residual > 0 ? 1 : -1;
+        const next = widths.get(entry.label) + step;
+        if (next < MIN_COL_PX || next > MAX_COL_PX) continue;
+        widths.set(entry.label, next);
+        residual -= step;
+        moved = true;
+      }
+      // Every column is against a clamp. What is left is the clamps' doing and
+      // is left visible rather than forced.
+      if (!moved) break;
+    }
+    return true;
+  }
+
   function setColumnHidden(label, isHidden) {
     const entry = colFor(label);
     if (!entry?.hideable) return;
+    const available = availableWidth();
+    const totalBefore = visibleWidthTotal();
+
     if (isHidden) hidden.add(label);
     else hidden.delete(label);
     // A column coming back needs a width or fixed layout has nothing to size it
@@ -1350,6 +1412,18 @@ export function scoreTable(config) {
       const measured = measureNaturalWidths();
       widths.set(label, measured.get(label) ?? MIN_COL_PX * 3);
     }
+
+    // Re-share the width across what is left, in two cases and no others:
+    // the columns would now leave empty space, or they filled the screen
+    // before and a returning column has just pushed them past it. A table the
+    // reader has deliberately dragged wider than the screen keeps its widths
+    // and keeps scrolling — closing a gap is one thing, overruling a reader's
+    // stretch is another.
+    if (widths.size > 0 && available > 0) {
+      const totalAfter = visibleWidthTotal();
+      if (totalAfter < available || totalBefore <= available) refitVisibleWidths(available);
+    }
+
     applyColumnLayout();
     persistColumns();
   }

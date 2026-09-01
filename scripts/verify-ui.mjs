@@ -2405,8 +2405,13 @@ async function main() {
 
       await c.page.evaluate(() => {
         const table = window.__sattva.view.table();
-        table.columns.setWidth('Full mcap (₹ Cr)', 210);
+        // HIDE FIRST, THEN SET THE WIDTH. Putting a column away re-shares the
+        // freed width across the rest (check 53), so a width set before the
+        // hide is legitimately a different number afterwards — and this check
+        // is about persistence, not about that. Doing it in this order leaves
+        // exactly one thing under test.
         table.columns.setHidden('Float %', true);
+        table.columns.setWidth('Full mcap (₹ Cr)', 210);
       });
       await c.reload();
       const after = await c.page.evaluate(() => {
@@ -2471,6 +2476,117 @@ async function main() {
       Storage.prototype.setItem = function (key, value) {
         if (String(key).includes('columns.')) return undefined;
         return real.call(this, key, value);
+      };
+    })()`),
+    restore: restoreColumns,
+  }, ctx);
+
+  await suite.check({
+    id: 53,
+    what: 'putting a column away gives its width to the others, and never leaves a band of empty screen',
+    run: async (c) => {
+      // The reader removes a column to give the others more room. Under fixed
+      // layout the table is the SUM of its columns, so removing one simply
+      // subtracted its width and left white space where it had been — measured
+      // at 1,320px, hiding Funds left the table 1,206px and 114px of nothing.
+      //
+      // ⚠ THE FIX THAT LOOKS OBVIOUS IS THE ONE THIS MUST NOT BE. Telling a
+      // fixed-layout table to be `width: 100%` closes the gap by handing the
+      // slack to the browser — and then every width the reader set renders as
+      // something else and dragging one column shifts its neighbours. So the
+      // assertion is BOTH: no gap, AND the table still equal to the sum of its
+      // own column widths.
+      await clearColumnPrefs(c);
+      const m = await c.page.evaluate(() => {
+        const table = window.__sattva.view.table();
+        const sec = document.querySelector('[data-score-table]');
+        const scroller = sec.querySelector('[data-table-scroll]');
+        // Is Tailwind here? Without it the table falls back to
+        // `border-collapse: separate`, and its rendered box is the sum of its
+        // columns PLUS the browser's border spacing — a reading about the CDN,
+        // not about the layout. The SUM is the code's own contract and is
+        // asserted either way. Same reasoning as checks 33, 42 and 50.
+        const probe = document.createElement('table');
+        probe.className = 'border-collapse';
+        document.body.append(probe);
+        const styled = getComputedStyle(probe).borderCollapse === 'collapse';
+        probe.remove();
+        const measure = () => {
+          const widths = table.columns.widths();
+          const shown = table.columns.layout().filter((col) => !table.columns.hidden().includes(col.label));
+          return {
+            rendered: Math.round(sec.querySelector('table').getBoundingClientRect().width),
+            available: scroller.clientWidth,
+            sum: shown.reduce((total, col) => total + (widths[col.label] ?? 0), 0),
+            shown: shown.length,
+          };
+        };
+        // Any width at all puts the table under explicit widths, which is the
+        // only state where the gap can appear.
+        table.columns.setWidth('Company', 250);
+        const before = measure();
+        const hiddenWidth = table.columns.widths()['Funds'] ?? 0;
+        table.columns.setHidden('Funds', true);
+        const afterHide = measure();
+        table.columns.setHidden('Funds', false);
+        const afterShow = measure();
+
+        // And a table the reader has deliberately dragged WIDER than the screen
+        // keeps its widths and keeps scrolling: closing a gap is one thing,
+        // overruling a reader's stretch is another.
+        table.columns.reset();
+        table.columns.setWidth('Company', 900);
+        table.columns.setWidth('Verdict', 400);
+        const wide = measure();
+        table.columns.setHidden('Funds', true);
+        const wideAfterHide = measure();
+        return { styled, before, afterHide, afterShow, hiddenWidth, wide, wideAfterHide };
+      });
+
+      ok(m.hiddenWidth > 0, 'the column being put away must have had a width, or there is no gap to close',
+        `Funds was ${m.hiddenWidth}px`);
+      ok(m.before.shown - m.afterHide.shown === 1, 'exactly one column must come off', `${m.before.shown} → ${m.afterHide.shown}`);
+
+      // THE LOAD-BEARING PAIR, and it is a pair on purpose. The first says the
+      // gap is closed; the second says it was closed by re-sharing the WIDTHS.
+      // A table that filled the box without its columns adding up to the box is
+      // `width: 100%` doing it, which unsettles every width the reader set.
+      equal(m.afterHide.sum, m.afterHide.available,
+        'with a column put away, the remaining widths must add up to the screen — no band of white, and no slack left to the browser');
+      if (m.styled) {
+        equal(m.afterHide.rendered, m.afterHide.available,
+          'and the table must actually render that wide');
+      }
+
+      // Bringing it back is the same promise in the other direction.
+      equal(m.afterShow.sum, m.afterShow.available, 'and a column coming back must not push the table off the screen');
+      if (m.styled) equal(m.afterShow.rendered, m.afterShow.available, 'still, as rendered');
+
+      // The reader's own stretch survives untouched.
+      ok(m.wide.sum > m.wide.available, 'a deliberately stretched table must actually be wider than the screen',
+        `${m.wide.sum} vs ${m.wide.available}`);
+      ok(m.wideAfterHide.sum > m.wideAfterHide.available,
+        'putting a column away must not shrink a table the reader stretched on purpose',
+        `${m.wideAfterHide.sum} vs ${m.wideAfterHide.available}`);
+
+      await clearColumnPrefs(c);
+      return `${m.hiddenWidth}px of Funds re-shared: the columns went ${m.before.sum} → ${m.afterHide.sum} in a ${m.afterHide.available}px box`
+        + ` and back to ${m.afterShow.sum} · a stretched ${m.wide.sum}px table stayed ${m.wideAfterHide.sum}px and kept scrolling`
+        + (m.styled ? ' · rendered widths agree' : ' · rendered width NOT compared: no Tailwind here, so the table adds border spacing to the sum');
+    },
+    // Undo the re-share: put every width back exactly as it was before the
+    // hide. That is the code with the refit deleted, which is the change a
+    // future author makes when the arithmetic looks like a complication.
+    // Static, not observed — the check hides and reads inside one evaluate.
+    sabotage: persistent(`(() => {
+      const columns = window.__sattva?.view?.table?.()?.columns;
+      if (!columns || columns.__unshared) return;
+      columns.__unshared = true;
+      const real = columns.setHidden;
+      columns.setHidden = (label, isHidden) => {
+        const before = columns.widths();
+        real(label, isHidden);
+        for (const [key, px] of Object.entries(before)) columns.setWidth(key, px);
       };
     })()`),
     restore: restoreColumns,

@@ -305,7 +305,7 @@ the previous fix was already in place.
 
 ## 7. Verification
 
-**72 assertions.** 42 over the committed data with no browser and no network; 30 against the served
+**75 assertions.** 42 over the committed data with no browser and no network; 33 against the served
 site in a real browser. Both exit non-zero on any failure. Every assertion is a trap that actually
 happened — the full mapping from assertion to trap is the table in `docs/DATA-CONTRACTS.md`.
 
