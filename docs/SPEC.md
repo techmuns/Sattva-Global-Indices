@@ -194,7 +194,12 @@ And a width can lie in a way a formatter guard cannot see: squeezed to 70px, a f
 ₹10,99,757 Cr renders as `10,99,75`, which is a wrong number that looks like a right one. Every body
 cell therefore ellipsises, and every cell additionally carries a **fade exactly its own padding
 wide** on the clipped edge — a no-op where content fits, and an unmistakable dissolve where it is
-cut. §2.29 in CLAUDE.md carries the measurements; checks 47–50 hold it.
+cut. §2.29 in CLAUDE.md carries the measurements; checks 47–50 and 53 hold it.
+
+**Putting a column away re-shares its width across the rest**, so the table goes on filling the
+screen instead of leaving a band of white where the column had been. Dragging does not: there the
+reader is setting a width and the width is what they get, or the table could never be made
+narrower. A table dragged wider than the screen keeps its widths and keeps scrolling.
 
 ---
 
