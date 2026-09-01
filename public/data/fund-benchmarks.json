@@ -3,16 +3,16 @@
   "note": "The ETF, not the index. An ETF carries tracking error and trades at a premium or discount to NAV, so this is a close PROXY for the index it tracks, never the index itself. MSCI index levels are licensed and this project has no entitlement to them.",
   "returnBasis": "PRICE return, dividends not reinvested — a free-float market cap moves with price, not with a distribution paid out in cash.",
   "currencyNote": "Funds quote in USD. A rupee return is price_usd × usdinr on each date, both halves from the same date. Measured 20 Aug 2026, ignoring this would have put SMIN's 1-year move at -3.62% instead of +5.44% — the wrong sign.",
-  "capturedAt": "2026-08-31T10:54:20.104Z",
-  "asOf": "2026-08-31",
+  "capturedAt": "2026-09-01T23:41:16.685Z",
+  "asOf": "2026-09-01",
   "range": "2y",
   "fx": {
     "symbol": "USDINR=X",
     "currency": "INR",
     "meaning": "INR per USD",
     "firstClose": "2024-09-02",
-    "lastClose": "2026-08-31",
-    "points": 516,
+    "lastClose": "2026-09-01",
+    "points": 517,
     "series": [
       {
         "date": "2024-09-02",
@@ -2076,7 +2076,11 @@
       },
       {
         "date": "2026-08-31",
-        "close": 95.1520004272461
+        "close": 95.38030242919922
+      },
+      {
+        "date": "2026-09-01",
+        "close": 95.1144027709961
       }
     ]
   },
@@ -2093,18 +2097,10 @@
       "instrumentType": "ETF",
       "exchange": "NYSEArca",
       "timezone": "America/New_York",
-      "firstClose": "2024-08-29",
-      "lastClose": "2026-08-28",
+      "firstClose": "2024-09-03",
+      "lastClose": "2026-09-01",
       "points": 501,
       "series": [
-        {
-          "date": "2024-08-29",
-          "close": 43.279998779296875
-        },
-        {
-          "date": "2024-08-30",
-          "close": 43.369998931884766
-        },
         {
           "date": "2024-09-03",
           "close": 42.5099983215332
@@ -4100,6 +4096,14 @@
         {
           "date": "2026-08-28",
           "close": 67.13999938964844
+        },
+        {
+          "date": "2026-08-31",
+          "close": 67.0199966430664
+        },
+        {
+          "date": "2026-09-01",
+          "close": 66.7699966430664
         }
       ]
     },
@@ -4115,18 +4119,10 @@
       "instrumentType": "ETF",
       "exchange": "Cboe US",
       "timezone": "America/New_York",
-      "firstClose": "2024-08-29",
-      "lastClose": "2026-08-28",
+      "firstClose": "2024-09-03",
+      "lastClose": "2026-09-01",
       "points": 501,
       "series": [
-        {
-          "date": "2024-08-29",
-          "close": 83.22000122070312
-        },
-        {
-          "date": "2024-08-30",
-          "close": 84.41000366210938
-        },
         {
           "date": "2024-09-03",
           "close": 84
@@ -6122,6 +6118,14 @@
         {
           "date": "2026-08-28",
           "close": 71.80999755859375
+        },
+        {
+          "date": "2026-08-31",
+          "close": 71.87999725341797
+        },
+        {
+          "date": "2026-09-01",
+          "close": 71.69000244140625
         }
       ]
     },
@@ -6137,18 +6141,10 @@
       "instrumentType": "ETF",
       "exchange": "NYSEArca",
       "timezone": "America/New_York",
-      "firstClose": "2024-08-29",
-      "lastClose": "2026-08-28",
+      "firstClose": "2024-09-03",
+      "lastClose": "2026-09-01",
       "points": 501,
       "series": [
-        {
-          "date": "2024-08-29",
-          "close": 61.650001525878906
-        },
-        {
-          "date": "2024-08-30",
-          "close": 61.93000030517578
-        },
         {
           "date": "2024-09-03",
           "close": 61.0099983215332
@@ -8144,6 +8140,14 @@
         {
           "date": "2026-08-28",
           "close": 76.5199966430664
+        },
+        {
+          "date": "2026-08-31",
+          "close": 76.31999969482422
+        },
+        {
+          "date": "2026-09-01",
+          "close": 75.89299774169922
         }
       ]
     },
@@ -8159,18 +8163,10 @@
       "instrumentType": "ETF",
       "exchange": "Cboe US",
       "timezone": "America/New_York",
-      "firstClose": "2024-08-29",
-      "lastClose": "2026-08-28",
+      "firstClose": "2024-09-03",
+      "lastClose": "2026-09-01",
       "points": 501,
       "series": [
-        {
-          "date": "2024-08-29",
-          "close": 57.27000045776367
-        },
-        {
-          "date": "2024-08-30",
-          "close": 57.720001220703125
-        },
         {
           "date": "2024-09-03",
           "close": 57.279998779296875
@@ -10166,6 +10162,14 @@
         {
           "date": "2026-08-28",
           "close": 49.560001373291016
+        },
+        {
+          "date": "2026-08-31",
+          "close": 49.70000076293945
+        },
+        {
+          "date": "2026-09-01",
+          "close": 49.58000183105469
         }
       ]
     }
