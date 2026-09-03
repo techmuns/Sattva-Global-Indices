@@ -30,9 +30,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { execFile } from 'node:child_process';
 
-import {
-  assertBhavcopyShape, parseBhavcopy, assertContinuity, bhavcopyUrl,
-} from './lib/bhavcopy.mjs';
+import { assertBhavcopyShape, parseBhavcopy, assertContinuity, bhavcopyUrl, continuityRecord } from './lib/bhavcopy.mjs';
 import { renderTable, num, CheckList } from './lib/report.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -452,12 +450,9 @@ async function main() {
     carriedForwardCount: carriedForward.length,
     missingCount: missing.length,
     coveragePct: Number(coveragePct.toFixed(3)),
-    continuity: {
-      against: continuity.against,
-      compared: continuity.compared,
-      failures: continuity.failures,
-      noCounterpart: continuity.skipped,
-    },
+    // THE WHOLE RECORD, NOT A HAND-PICKED FOUR FIELDS — see continuityRecord's
+    // header for what the whitelist that used to be here cost.
+    continuity: continuityRecord(continuity),
     carriedForward,
     missing,
     prices,
