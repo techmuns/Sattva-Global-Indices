@@ -33,7 +33,7 @@
  */
 
 import { REVIEW_THRESHOLDS, THRESHOLD_SOURCE, toCrore } from './thresholds.js';
-import { SEGMENT_BAND_ADJUSTMENT } from '../config/thresholds.mjs';
+import { SEGMENT_BAND_ADJUSTMENT, ASM_FLOW_CONSTRAINT } from '../config/thresholds.mjs';
 import { segmentOf, isSampledByEmSmallCap } from './segments.js';
 
 /** The verdicts, in the order a summary should read them. */
@@ -303,14 +303,62 @@ function distanceTo(value, threshold) {
   return ((value - threshold) / threshold) * 100;
 }
 
+/**
+ * The ASM qualifier for a company's assessment — the desk's judgement that a
+ * forced flow is not mandated on a name under NSE surveillance.
+ *
+ * It NEVER changes the verdict (that is size, which ASM does not touch). It is
+ * `binding` only where a trade is actually implied — a `stable` company under ASM
+ * has no flow to constrain, so the stage is recorded but nothing is qualified.
+ * Returns null when the company is not under ASM or the qualifier is switched off.
+ */
+function asmConstraintFor(company, verdict) {
+  const cfg = ASM_FLOW_CONSTRAINT;
+  if (!cfg.enabled || !company.asm) return null;
+  const severity = cfg.severeStages.includes(company.asm.stage) ? 'severe' : 'entry';
+  const base = {
+    stage: company.asm.stage,
+    survCode: company.asm.survCode,
+    category: company.asm.category,
+    severity,
+    attribution: cfg.attribution,
+  };
+  if (!TRADE_IMPLYING.has(verdict)) {
+    // Under ASM, but no forced flow is implied, so there is nothing to constrain.
+    return { ...base, binding: false, implication: null, timingNote: null };
+  }
+  return { ...base, binding: true, implication: cfg.implication, timingNote: cfg.timingNote };
+}
+
 function finish(verdict, rulesFired, distancePct, segment, company, distanceRuleKey) {
   const notes = [];
   if (TRADE_IMPLYING.has(verdict) && segment !== 'standard' && !isSampledByEmSmallCap(company)) {
     notes.push('EM Small-Cap does not currently sample this company, so it has no basis for an EM SC flow estimate.');
   }
+
+  // ---- NSE ASM: a qualifier on the forced flow, never on the verdict --------
+  // When a trade is implied AND the company is under ASM, the desk's judgement is
+  // that the flow is not mandated. This fires as a rule so the derivation shows
+  // it, but it is INERT to `verdictFromRules` (which knows no such key), so the
+  // verdict and its replay are untouched — ASM qualifies, it never decides.
+  const asm = asmConstraintFor(company, verdict);
+  if (asm?.binding) {
+    rulesFired.push(rule(
+      'asm-flow-constraint', 'Under NSE ASM — forced flow not mandated',
+      asm.survCode, null, 'desk', 'flow not mandated',
+      asm.implication, null, 'stage',
+    ));
+    notes.push(
+      `Under NSE ASM (${asm.survCode}). ${asm.implication} The flow size below is the mechanical `
+      + 'estimate; it is not a mandated forced trade, and days-of-ADV understates the time to implement. '
+      + `This is ${asm.attribution}`,
+    );
+  }
+
   return {
     verdict,
     segment,
+    asm,
     rulesFired,
     distancePct: distancePct === null ? null : Number(distancePct.toFixed(3)),
     // Which rule the distance was measured against.

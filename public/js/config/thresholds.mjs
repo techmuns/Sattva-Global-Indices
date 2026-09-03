@@ -413,3 +413,42 @@ export const FLOAT_SOURCE_RULE = {
     + 'wherever BSE has no reading at all',
   attribution: "the desk's rule, not a published methodology from either exchange or from MSCI",
 };
+
+/**
+ * NSE's Additional Surveillance Measure, as a QUALIFIER ON A FORCED FLOW.
+ *
+ * This is the desk's judgement and it is NOT MSCI's. MSCI publishes no ASM
+ * carve-out from rebalancing, and this file must never imply one (§2.25). ASM is
+ * NSE's own surveillance framework for volatile or manipulation-prone stocks, and
+ * the desk's position is that a passive fund is NOT MANDATED to rebalance a name
+ * under ASM on the review schedule: the restrictions (widened margins, tightened
+ * price bands, and at the top stages trade-to-trade settlement with no intraday
+ * netting) mean a forced trade may be deferred, stretched over more sessions, or
+ * not undertaken at all.
+ *
+ * So a trade-implying verdict on an ASM name KEEPS its mechanical size figure —
+ * that is a real derived quantity and hiding it would be its own dishonesty (§2.6)
+ * — but the flow is marked NOT MANDATED, and days-of-ADV is flagged as
+ * understated, because ASM shrinks the volume a fund can actually work through. It
+ * NEVER changes the size-based verdict: the verdict answers "is this company big
+ * or small enough", which ASM does not touch. verify-data proves the verdict
+ * multiset is unmoved by ASM.
+ */
+export const ASM_FLOW_CONSTRAINT = {
+  enabled: true,
+  // Any ASM listing weakens the "mandated" premise, so the constraint fires for
+  // every stage. Severity is surfaced, not acted on: Stage I is added friction;
+  // the higher stages reach trade-to-trade.
+  applies: 'any-asm-stage',
+  severeStages: ['Stage II', 'Stage III', 'Stage IV'],
+  implication:
+    'A passive fund is not mandated to rebalance a name under ASM on the review schedule, and higher '
+    + 'stages restrict how much can be traded per session, so the forced flow may be deferred, '
+    + 'stretched over more sessions, or not undertaken.',
+  timingNote:
+    'Days-of-ADV understates the time to implement: ASM shrinks the volume a fund can work through, and '
+    + 'trade-to-trade settlement removes intraday netting.',
+  attribution:
+    "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI "
+    + 'publishes no ASM carve-out from rebalancing.',
+};

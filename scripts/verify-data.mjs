@@ -2339,6 +2339,75 @@ async function main() {
     },
   }, ctx);
 
+  await suite.check({
+    id: 46,
+    what: 'ASM qualifies the forced FLOW and never the verdict — only where a trade is implied, attributed to the desk',
+    clone: deepClone,
+    run: (c) => {
+      const TRADE = new Set(['likely-inclusion', 'possible-inclusion', 'migration-up', 'migration-down', 'exclusion-risk', 'likely-exclusion']);
+      const misplaced = [];   // the constraint present where it must not be, or absent where it must be
+      const notInert = [];    // the asm rule changed the verdict its replay recovers
+      const claimsMsci = [];  // the qualifier presented as MSCI's rule (§2.25)
+      const flowsUnmarked = [];
+      let binding = 0;
+
+      for (const co of c.companies) {
+        const a = co.assessment;
+        if (!a) continue;
+        const rules = a.rulesFired ?? [];
+        const asmRule = rules.find((r) => r.key === 'asm-flow-constraint') ?? null;
+        const constraint = co.flowEstimate?.asmConstraint ?? null;
+        const isBinding = a.asm?.binding === true;
+
+        if (isBinding) {
+          binding += 1;
+          if (!co.asm) misplaced.push(`${co.name}: binding but not under ASM`);
+          if (!TRADE.has(a.verdict)) misplaced.push(`${co.name}: binding but verdict "${a.verdict}" implies no trade`);
+          if (!asmRule) misplaced.push(`${co.name}: binding but no asm-flow-constraint rule`);
+          if (!constraint) misplaced.push(`${co.name}: binding but the flow carries no asmConstraint`);
+          else {
+            if (constraint.mandated !== false) misplaced.push(`${co.name}: asmConstraint.mandated is not false`);
+            if (constraint.survCode !== co.asm.survCode) misplaced.push(`${co.name}: constraint survCode ${constraint.survCode} != ${co.asm.survCode}`);
+            if (/\bMSCI\b/.test(constraint.attribution ?? '') && !/not an MSCI/i.test(constraint.attribution ?? '')) {
+              claimsMsci.push(`${co.name}: constraint attributes MSCI`);
+            }
+          }
+          for (const f of co.flowEstimate?.flows ?? []) {
+            if (f && f.constrainedByAsm !== true) flowsUnmarked.push(`${co.name}/${f.fundId}`);
+          }
+        } else {
+          if (constraint) misplaced.push(`${co.name}: NOT binding but the flow carries an asmConstraint`);
+          if (asmRule) misplaced.push(`${co.name}: NOT binding but carries an asm-flow-constraint rule`);
+        }
+
+        // The rule must be INERT to the verdict: the size verdict is recovered
+        // with the rule present AND with it removed. This is the honesty core —
+        // ASM annotates the flow, it never moves the verdict (§2.16).
+        if (asmRule) {
+          if (asmRule.thresholdSource === 'msci') claimsMsci.push(`${co.name}: asm rule sourced to MSCI`);
+          const without = rules.filter((r) => r.key !== 'asm-flow-constraint');
+          if (verdictFromRules(rules) !== a.verdict || verdictFromRules(without) !== a.verdict) {
+            notInert.push(`${co.name}: the asm rule alters the replayed verdict`);
+          }
+        }
+      }
+
+      empty(misplaced, 'the ASM flow constraint rides only on ASM names with a trade implied, and always on those', (x) => x);
+      empty(flowsUnmarked, 'every flow on an ASM-constrained name is marked constrainedByAsm', (x) => x);
+      empty(claimsMsci, 'the ASM qualifier is the desk\'s, never presented as MSCI\'s rule', (x) => x);
+      empty(notInert, 'the ASM rule is inert to the verdict — it qualifies the flow, it never decides the verdict', (x) => x);
+      ok(binding > 0, 'at least one ASM name carries a bound forced-flow constraint', String(binding));
+      return `${binding} ASM names with a bound forced flow · verdict unmoved by the ASM rule · attributed to the desk`;
+    },
+    sabotage: (c) => {
+      // Present an ASM-restricted flow as a mandated one — the exact lie the
+      // qualifier exists to prevent: a rupee flow that reads as a clean forced
+      // trade when the desk's judgement is that it is not mandated.
+      const victim = c.companies.find((co) => co.assessment?.asm?.binding && co.flowEstimate?.asmConstraint);
+      victim.flowEstimate.asmConstraint.mandated = true;
+    },
+  }, ctx);
+
   process.exit(suite.report([
     `Sources scanned: ${ctx.sources.length} .js/.mjs files under ${SCAN_ROOTS.join(', ')}`,
     `Record under test: ${ctx.companies.length} companies, built ${ctx.companiesFile.builtAt}`,

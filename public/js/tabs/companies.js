@@ -451,15 +451,26 @@ function asmCell(company) {
   // Stage I is the entry stage; II and above are the restrictive ones. NSE gives
   // the indicator as "Stage I" / "Stage II" / …, so key the colour on that.
   const tone = asm.stage === 'Stage I' ? ASM_TONE.entry : ASM_TONE.high;
+  // Does this ASM name also have a forced flow to qualify? When a trade is implied
+  // at the coming review, the desk's judgement is that the flow is NOT mandated —
+  // a marker links the column to that constraint (detail in the drill).
+  const bindsFlow = assessmentFor(company)?.asm?.binding === true;
   const title =
     `${asm.survDesc ?? asm.survCode ?? 'Under ASM'} — NSE Additional Surveillance Measure`
     + `${asm.asmDate ? `, effective ${asm.asmDate}` : ''}. `
     + 'A surveillance framework for volatile or manipulation-prone stocks; higher stages tighten price '
-    + "bands and margins and can force trade-to-trade settlement. NSE's own figure, carried unchanged.";
+    + "bands and margins and can force trade-to-trade settlement. NSE's own figure, carried unchanged."
+    + (bindsFlow
+      ? ' A trade is implied at the coming review, but under ASM that forced passive flow is not mandated '
+        + 'and its timing is uncertain — open the row for detail.'
+      : '');
   return (
     '<span class="inline-flex items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10px] '
     + `font-semibold ring-1 ring-inset ${tone}" title="${escapeHtml(title)}">`
     + `${escapeHtml(shortLabel || asm.stage || 'ASM')}</span>`
+    + (bindsFlow
+      ? '<sup class="ml-0.5 text-[9px] font-bold text-amber-600" title="Forced flow not mandated — this name is under ASM. See the row detail.">*</sup>'
+      : '')
   );
 }
 
@@ -1069,9 +1080,26 @@ function assessmentSectionHtml(company) {
   }
 
   // ---- the flows ----
-  const { flows, notSampled, shape } = flowsFor(company);
+  const { flows, notSampled, shape, asmConstraint } = flowsFor(company);
   if (flows.length || notSampled.length) {
     html += `<h4 class="mt-4 mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">Estimated flow${shape === 'migration' ? ' — a migration is two flows, never netted' : ''}</h4>`;
+    // ── ASM: the flow is not a mandated forced trade ──────────────────────
+    // Shown ABOVE the figures, because it changes how every one of them should
+    // be read: the sizes are real, but a fund under ASM is not obliged to
+    // rebalance on schedule, and the days-of-volume timing understates reality.
+    // The desk's judgement, not MSCI's (config ASM_FLOW_CONSTRAINT).
+    if (asmConstraint) {
+      const severe = asmConstraint.severity === 'severe';
+      html +=
+        `<div class="mb-3 rounded-xl ${severe ? 'bg-rose-50 ring-1 ring-rose-200' : 'bg-amber-50 ring-1 ring-amber-200'} p-3">`
+        + `<div class="mb-1 flex items-center gap-2">${asmCell(company)}`
+        + `<span class="text-[11px] font-bold uppercase tracking-wide ${severe ? 'text-rose-800' : 'text-amber-900'}">Flow not mandated — under NSE ASM</span></div>`
+        + `<p class="text-[11px] leading-relaxed ${severe ? 'text-rose-900' : 'text-amber-900'}">`
+        + `${escapeHtml(asmConstraint.implication)} `
+        + `<span class="opacity-80">${escapeHtml(asmConstraint.timingNote)}</span> `
+        + '<span class="opacity-70">The rupee sizes below are the mechanical estimate — real, but not a '
+        + `mandated forced trade. This is ${escapeHtml(asmConstraint.attribution)}</span></p></div>`;
+    }
     for (const flow of flows) {
       const buying = flow.direction === 'buy';
       html +=
@@ -1086,8 +1114,9 @@ function assessmentSectionHtml(company) {
             'Days of volume',
             flow.daysOfAdv === null
               ? missing('no average daily volume on record — this is not zero days')
-              : `${escapeHtml(num(flow.daysOfAdv, 2))} days`,
-            { title: flow.advSource ? `Average daily volume from ${flow.advSource}` : '' },
+              : `${escapeHtml(num(flow.daysOfAdv, 2))} days${flow.constrainedByAsm ? ' <span class="text-amber-700">· understated (ASM)</span>' : ''}`,
+            { title: (flow.advSource ? `Average daily volume from ${flow.advSource}.` : '')
+              + (flow.constrainedByAsm && flow.timingNote ? ` ${flow.timingNote}` : '') },
           )
         + drillRow('Target weight', `${escapeHtml(num(flow.targetWeightPp, 5))} pp`)
         + '</dl>'
@@ -2374,6 +2403,13 @@ export function renderCompanies(host, { onStatusChange } = {}) {
               label: `${data.fundCoverage(id)?.shortName ?? id} flow days of volume`,
               value: (r) => flowsFor(r).flows.find((f) => f.fundId === id)?.daysOfAdv ?? '',
             })),
+            // 2.7: the ASM qualifier must survive an export. A rupee flow next to a
+            // blank ASM cell would read as a clean mandated trade; the caveat and
+            // its attribution travel with the figure.
+            { label: 'Flow constrained by ASM (not mandated — desk\'s judgement)',
+              value: (r) => (flowsFor(r).asmConstraint ? `yes — ${flowsFor(r).asmConstraint.survCode}` : '') },
+            { label: 'ASM flow implication', value: (r) => flowsFor(r).asmConstraint?.implication ?? '' },
+            { label: 'ASM timing caveat (days-of-volume understated)', value: (r) => flowsFor(r).asmConstraint?.timingNote ?? '' },
             { label: 'Flow basis', value: (r) => flowsFor(r).flows.map((f) => `${f.fundShortName} ${f.direction}: ${f.certainty}`).join(' | ') },
             { label: 'Not sampled by', value: (r) => flowsFor(r).notSampled.map((n) => n.fundShortName).join(' | ') },
             ...FUND_ORDER.map((id) => ({

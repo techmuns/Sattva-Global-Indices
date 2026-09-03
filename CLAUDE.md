@@ -551,6 +551,20 @@ certain each is:
 `daysOfAdv` is the number a trader acts on. Where `advQty` is unknown it is **`null`** and renders an
 em dash — never zero, never "instant".
 
+#### ⚠ NSE ASM qualifies a forced flow; it never suppresses it and never moves the verdict
+
+A trade-implying verdict on a company under NSE's Additional Surveillance Measure is the desk's one
+case where a forced flow is **not mandated**: a passive fund is not obliged to rebalance an ASM name on
+the review schedule, and the severe stages (trade-to-trade, no intraday netting) stretch or defer
+execution. So a flow on such a name keeps its **mechanical rupee size** — that figure is a real derived
+quantity and hiding it is its own dishonesty (§2.6) — but it is marked `constrainedByAsm`, carries an
+`asmConstraint` naming the stage and the caveat, and its `daysOfAdv` is called **understated**. This is
+`ASM_FLOW_CONSTRAINT` in `config/thresholds.mjs`, it is **the desk's assumption and never MSCI's**
+(§2.25 — MSCI publishes no ASM carve-out), and it **never changes the verdict**: ASM fires an
+`asm-flow-constraint` rule that is inert to `verdictFromRules`, because the verdict is a size question
+and ASM is not a size fact. `verify-data` 46 proves the rule cannot move the verdict; `verify-ui` 55
+proves the figure is shown-with-caveat, not suppressed.
+
 ### 2.17 A suspect input produces `unknown`, not a confident answer
 
 `sharesOutstanding` feeds free-float market cap, which decides every verdict. A wrong share count
@@ -1555,8 +1569,8 @@ scripts/
                                    -> public/data/price-history.json
   fetch-corporate-actions.mjs      BSE's own action history → public/data/corporate-actions.json
   build-companies.mjs              everything → public/data/companies.json
-  verify-data.mjs                  45 data assertions; no browser, no network
-  verify-ui.mjs                    35 interface assertions; the served site
+  verify-data.mjs                  46 data assertions; no browser, no network
+  verify-ui.mjs                    36 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
@@ -1638,9 +1652,9 @@ node scripts/verify-data.mjs           # the data assertions; run before committ
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 45 assertions; no browser, no network
+node scripts/verify-data.mjs           # 46 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 35 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 36 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 

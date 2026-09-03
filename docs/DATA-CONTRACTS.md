@@ -593,6 +593,15 @@ daysOfAdv  = flowShares / advQty        // null, never 0, where advQty is unknow
 record carries both). A migration produces **two** flows with opposite signs, never netted.
 `notSampled[]` records a fund that has no basis for an estimate rather than emitting a zero.
 
+**ASM qualifies a flow; it never suppresses or nets one.** When a trade-implying verdict lands on a
+company under NSE's Additional Surveillance Measure, the desk's judgement is that the forced flow is
+**not mandated** (`ASM_FLOW_CONSTRAINT` in `config/thresholds.mjs`). The mechanical rupee size stays —
+it is a real derived quantity — but every flow carries `constrainedByAsm: true` and a `timingNote`,
+the estimate carries an `asmConstraint` summary (`{ survCode, severity, mandated: false, implication,
+timingNote, attribution }`), and `daysOfAdv` is named as **understated**. It is attributed to the
+desk, never to MSCI (§2.25), and it **never touches the verdict** — verify-data 46 asserts the ASM
+rule is inert to `verdictFromRules`.
+
 ### `calendar.js` — assumed dates
 
 Quarterly Feb/May/Aug/Nov is public. The effective date and snapshot convention are **not cited**;
@@ -603,8 +612,8 @@ Quarterly Feb/May/Aug/Nov is public. The effective date and snapshot convention 
 | Field | Meaning |
 | --- | --- |
 | `segment` | `standard` \| `smallcap` \| `outside`, derived |
-| `assessment` | `{ verdict, distancePct, rulesFired, notes, disclosure, basis }` |
-| `flowEstimate` | `{ shape, flows[], notSampled[] }`, or `null` |
+| `assessment` | `{ verdict, distancePct, rulesFired, notes, disclosure, basis, asm }`. `asm` is the ASM qualifier: `{ stage, survCode, category, severity, binding, implication, timingNote, attribution }`, or `null`. `binding` is true only where a trade is implied — it fires an `asm-flow-constraint` rule that is inert to the verdict. |
+| `flowEstimate` | `{ shape, flows[], notSampled[], asmConstraint }`, or `null`. `asmConstraint` is non-null only when an ASM name has a forced flow; each `flows[]` entry then carries `constrainedByAsm` and a `timingNote`. |
 | `shareCountQuarantine` | `{ reason, gapPct }` when the share count could not be corroborated |
 
 Top level gains `model` — segment counts, the observed boundary, verdict counts, the next review, and
@@ -1315,6 +1324,19 @@ where the window reading averages ten. The sensitivity span says how fragile the
 median 3.64 pp — but says nothing about the *latest* end, deliberately, because "today" is not a
 choice. A company whose last print was an outlier carries that outlier into the delta with nothing
 on screen marking it.
+
+### 14. The ASM flow constraint is a binary desk judgement, not a modelled trading cost
+
+A trade-implying verdict on a name under NSE ASM is marked **not mandated**, and its days-of-volume is
+called understated — the desk's position that a passive fund is not obliged to rebalance an ASM name on
+schedule (`ASM_FLOW_CONSTRAINT`). Three things this does not yet do. It does **not quantify** the
+effect: the rupee size is unchanged and the timing caveat is words, not a widened days-of-ADV — the
+severe stages (trade-to-trade, no intraday netting) genuinely shrink executable volume, and that
+shrinkage is not modelled. It treats **every stage alike** as binding, surfacing severity but not
+acting on it. And the premise itself is **unbacked by MSCI**: MSCI publishes no ASM carve-out, so
+whether — and how much — a tracking fund actually defers an ASM name is the desk's read, not a measured
+base rate. On the committed record 11 of the trade-implying verdicts carry the constraint, so the blast
+radius is small, but where it fires it changes how a flow should be acted on.
 
 ### What would move the needle most
 

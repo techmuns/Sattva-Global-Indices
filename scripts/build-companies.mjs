@@ -971,12 +971,16 @@ function main() {
       replayFailures.push(`${company.name}: assess() said ${assessment.verdict}, replay said ${replayed}`);
     }
 
-    const { flows, notSampled, shape } = estimateFlows(company, assessment, flowContext);
+    const { flows, notSampled, shape, asmConstraint } = estimateFlows(company, assessment, flowContext);
 
     company.segment = assessment.segment;
     company.assessment = {
       verdict: assessment.verdict,
       distancePct: assessment.distancePct,
+      // The NSE ASM qualifier: the stage, and whether it BINDS a forced flow.
+      // A qualifier on the flow, never on the verdict (§2.16 / config ASM_FLOW_
+      // CONSTRAINT). Allowlisted here or it would exist only on screen.
+      asm: assessment.asm,
       // ⚠ AN ALLOWLIST SILENTLY DROPS WHAT IT DOES NOT NAME. These two were
       // computed by assess() and thrown away here, so nothing reading
       // companies.json could tell which threshold a distance was measured
@@ -993,7 +997,7 @@ function main() {
       basis: 'end-of-day price; the interface re-assesses against a live price when one is in force',
     };
     company.flowEstimate = flows.length || notSampled.length
-      ? { shape, flows, notSampled }
+      ? { shape, flows, notSampled, asmConstraint: asmConstraint ?? null }
       : null;
     // A MEASUREMENT beside the verdict, never an input to it — see the header of
     // model/relative.js on why a rank already contains every past price move.

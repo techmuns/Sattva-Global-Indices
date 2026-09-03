@@ -3087,6 +3087,69 @@ async function main() {
     restore: restoreByReload,
   }, ctx);
 
+  await suite.check({
+    id: 55,
+    what: "an ASM name's forced flow is shown but marked 'not mandated', with days-of-volume flagged understated",
+    run: async (c) => {
+      await c.settle();
+      const target = await c.page.evaluate(() => {
+        const S = window.__sattva;
+        const TRADE = new Set(['likely-inclusion', 'possible-inclusion', 'migration-up', 'migration-down', 'exclusion-risk', 'likely-exclusion']);
+        const co = S.data.all().find((x) => x.assessment?.asm?.binding && x.flowEstimate?.asmConstraint && TRADE.has(x.assessment.verdict));
+        return co ? { name: co.name, survCode: co.asm.survCode, verdict: co.assessment.verdict } : null;
+      });
+      ok(target, 'a trade-implying ASM company must exist to inspect', JSON.stringify(target));
+
+      const m = await c.page.evaluate(async (name) => {
+        const search = document.querySelector('input[type="search"], input[placeholder*="Search"]');
+        search.value = name;
+        search.dispatchEvent(new Event('input', { bubbles: true }));
+        await window.__settleSearch(name);
+        const row = document.querySelector('[data-score-table] tbody tr');
+        row.click();
+        await window.__until(
+          () => document.querySelector('[data-drill-body]')?.innerText.includes('Estimated flow'),
+          'the drill flow section',
+        );
+        const text = document.querySelector('[data-drill-body]').innerText;
+        const i = text.indexOf('Estimated flow');
+        // Wide enough to clear the (long) ASM banner and reach the flow card. The
+        // banner carries no ₹ (it says "rupee sizes" in words), so any ₹ here is
+        // the flow figure itself.
+        const region = i >= 0 ? text.slice(i, i + 1800) : '';
+        return {
+          banner: /Flow not mandated — under NSE ASM/.test(text),
+          // The desk chose to SHOW the mechanical size, marked — not suppress it.
+          // So the flow region must still carry a rupee figure.
+          figureShown: /₹/.test(region),
+          timingMarked: /understated \(ASM\)/.test(text),
+          notMandatedText: /not mandated to rebalance/i.test(text),
+        };
+      }, target.name);
+
+      ok(m.banner, "the drill flags an ASM name's forced flow as not mandated", JSON.stringify(m));
+      ok(m.figureShown, 'the mechanical flow size is still shown (shown-with-caveat, not suppressed)', JSON.stringify(m));
+      ok(m.timingMarked, 'days-of-volume is marked understated under ASM', JSON.stringify(m));
+      ok(m.notMandatedText, 'the drill states the desk\'s "not mandated to rebalance" judgement', JSON.stringify(m));
+      await c.page.keyboard.press('Escape');
+      return `${target.name} (${target.verdict}, ${target.survCode}): banner + figure shown + timing marked`;
+    },
+    // Blank the banner on the drill as it renders. A one-shot DOM edit would lose
+    // the race against the condition-based wait, so this re-applies on every
+    // mutation until the phrase is gone (§2.22, mirroring check 35).
+    sabotage: persistent(`(() => {
+      const root = document.querySelector('#drill-root') ?? document.body;
+      const strip = () => {
+        const body = document.querySelector('[data-drill-body]');
+        if (!body || !/Flow not mandated/.test(body.innerHTML)) return;
+        body.innerHTML = body.innerHTML.replace(/Flow not mandated — under NSE ASM/g, 'Flow (ordinary)');
+      };
+      strip();
+      new MutationObserver(strip).observe(root, { childList: true, subtree: true });
+    })()`),
+    restore: restoreByReload,
+  }, ctx);
+
   await browser.close();
 
   process.exit(suite.report([
