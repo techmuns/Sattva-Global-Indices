@@ -188,6 +188,57 @@ has **no reading**, which is not the same as having no free float, and must rend
 
 ---
 
+## `public/data/nse-asm.json`
+
+NSE's list of securities under the **Additional Surveillance Measure**, with the surveillance stage
+for each. This is the source the desk pointed at as `dhan.co/nse-asm-list`; dhan mirrors this same NSE
+feed, and NSE is where it comes from — it carries the ISIN this project keys everything on, and the
+report is the complete list in one call (no pagination).
+
+| | |
+| --- | --- |
+| **Produced by** | `node scripts/scrape-nse-asm.mjs` |
+| **Upstream source** | `https://www.nseindia.com/api/reportASM` |
+| **Transport** | **curl, not `fetch`** — the same Akamai fingerprinting that blocks `fetch` on the pre-open endpoint applies here (§3.7). |
+| **Tier** | 1 — NSE's own figures, carried through unchanged. |
+| **Cadence** | Attempted every trading day, allowed to fail; guaranteed weekly. |
+| **Failure mode** | A blocked read goes to `failed[]`; the last good snapshot is kept, never overwritten with an outage. Exits non-zero on a total, partial, or halving read unless `--allow-shrink`. |
+
+### Top level
+
+| Field | Meaning |
+| --- | --- |
+| `source`, `note`, `endpoint` | Provenance, carried into `companies.json` and the sources modal. |
+| `capturedAt` | ISO 8601 UTC — when **we** fetched. |
+| `asOf` | string, e.g. `"03-Sep-2026"` — **NSE's own effective date** for the list, carried verbatim, never restamped to `capturedAt`. |
+| `totalFlagged` | Securities on NSE's list (with an ISIN plus any without). |
+| `withIsin` | How many carry an ISIN to join on. |
+| `categories` | Per-category (`longterm`, `shortterm`) row counts and a `byStage` breakdown of NSE's own `survCode` values. |
+| `companies` | Company[] — the joinable rows, sorted by symbol. |
+| `noIsin` | Rows NSE published with **no ISIN** — counted and kept, but not joinable (§3.9 keys on ISIN; a symbol guess is never made). |
+| `failed` | `{ category, reason }`. Empty only when every category was genuinely read. |
+
+### `companies[]`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `isin` | string | The identity key. The join to the universe is on this and nothing else. |
+| `symbol` | string \| null | NSE's symbol on the ASM row. Some rows carry `null` here; the join never depends on it. |
+| `companyName` | string | NSE's name for the security. |
+| `category` | `"longterm"` \| `"shortterm"` | Long Term (LTASM) or Short Term (STASM) surveillance. |
+| `stage` | string, e.g. `"Stage I"` | NSE's `asmSurvIndicator`, unchanged. |
+| `survCode` | string, e.g. `"LTASM - I (13)"` | NSE's own code — the exact string dhan shows. Carried verbatim; never re-banded. |
+| `survDesc` | string | NSE's full description of the stage. |
+| `asmDate` | string, e.g. `"03-Sep-2026"` | NSE's effective date for this row. |
+
+**Not under ASM is not the same as unknown.** A company absent from this list is **not under
+surveillance** — a checked negative. A company whose stage cannot be established because the whole
+feed did not load is **unknown**. The `companies.json` top-level `asm.available` flag is the only
+thing that tells those two apart, and every surface consults it before rendering a `null` as "clear"
+(§2.4).
+
+---
+
 ## `public/data/bse-scrip-master.json`
 
 The listed-equity universe. One request, and the file that turns "the 261 names NSE's pre-open API
@@ -307,7 +358,8 @@ The join, and the only file the interface should read.
 | --- | --- |
 | `asOf` | The as-of stamp of **every** input, separately. They are different moments and are never collapsed into one. |
 | `thresholds` | The values used, with the attribution that they are the desk's, not MSCI's. |
-| `coverage` | **Every denominator the interface prints comes from here.** Nothing on screen may hand-type a count. |
+| `coverage` | **Every denominator the interface prints comes from here.** Nothing on screen may hand-type a count. Includes `asmFlagged` — tracked companies under ASM, `null` when the feed did not load. |
+| `asm` | The NSE ASM meta: `available`, `source`, `publisher`, `endpoint`, `capturedAt`, `asOf` (NSE's effective date), `totalFlagged` (NSE's whole list), `flaggedInUniverse` (the part inside the universe), the measured `stagesInUniverse` legend and per-category breakdown. **`available` is load-bearing** — it tells whether a `null` `asm` on a company means "not flagged" or "we could not check" (§2.4). |
 | `resolutionMethodCounts` | Histogram of how each holding row was resolved. |
 | `floatFactorDisagreement` | Median, worst, everything over the review threshold, and the ten largest gaps. |
 | `handCheckedMappings` | The `CONFIRMED` table, with who checked each and why. |
@@ -339,6 +391,7 @@ The join, and the only file the interface should read.
 | `freeFloatMcapInr` | number \| null, ₹ | **Tier 2** — `floatFactor × fullMcapInr`. |
 | `held` | boolean | Whether any fund holds it. |
 | `funds` | object | `{ eem, smin, eems }`. **`null` means NOT HELD by that fund. It is never `0`** — a 0% weight and an absent holding are different facts that sort differently. |
+| `asm` | object \| null | **Tier 1, NSE** — the surveillance stage, carried through unchanged: `{ category, stage, survCode, survDesc, asmDate }`. `null` means **not under ASM** when the top-level `asm.available` is true, and **unknown** (feed did not load) when it is false — the two are never the same fact (§2.4). Joined on ISIN alone (§3.9), never a symbol match. |
 | `resolution` | object | `{ method, via, confidence }`. |
 
 **How `floatFactorNse` avoids mixing prices:**

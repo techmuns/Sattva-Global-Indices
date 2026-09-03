@@ -100,6 +100,22 @@ jobs:
                "and a shrink guard was refusing to write. A warning that names the wrong cause is"\
                "worse than none, because it stops anyone looking."
 
+      # Same posture as the pre-open scrape: NSE, so soft. The scraper refuses to
+      # overwrite a good snapshot with an outage, and the dashboard marks ASM
+      # status UNKNOWN — never "not under ASM" — when the feed is genuinely
+      # unavailable, so a throttle is never rendered as "everyone is clear".
+      - name: NSE Additional Surveillance Measure list (soft — NSE throttles datacentre IPs)
+        id: asm
+        continue-on-error: true
+        run: node scripts/scrape-nse-asm.mjs
+
+      - name: Say so when the NSE ASM list was unreachable
+        if: steps.asm.outcome == 'failure'
+        run: |
+          echo "::warning title=NSE ASM step failed::The NSE ASM step did not complete. The previous"\
+               "nse-asm.json is unchanged and the build carries the last good surveillance list."\
+               "ASM status is marked unknown, not 'clear', when the feed is truly unavailable."
+
       # ---- BSE: the primary source. Hard. --------------------------------
       - name: BSE per-scrip free float
         if: github.event.inputs.skip-float != 'true'

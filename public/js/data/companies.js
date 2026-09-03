@@ -87,6 +87,16 @@ export const flowPrimitives = () => requireLoaded().flowPrimitives ?? {};
 export const disagreement = () => requireLoaded().floatFactorDisagreement ?? {};
 
 /**
+ * The NSE Additional Surveillance Measure metadata block.
+ *
+ * `available` is the load-bearing field: a company's null `asm` means NOT UNDER
+ * ASM when it is true, and UNKNOWN when it is false (the feed did not load). A
+ * caller must consult it before rendering a null as "clear", or an outage would
+ * paint every company as unflagged — the §2.4 lie. `null` only before load.
+ */
+export const asm = () => requireLoaded().asm ?? null;
+
+/**
  * How each fund's own basket has moved, and the band adjustment derived from it.
  *
  * `null` when fund-benchmarks.json was not built — the bands then stand raw and
@@ -297,6 +307,18 @@ export function feedRegistry(asOf = {}) {
       cadence: 'every trading day, guaranteed weekly',
       staleAfterDays: 9,
     },
+    {
+      id: 'asm',
+      label: 'NSE ASM list',
+      raw: asOf.asmAsOf ?? null,
+      detail: "NSE's published Additional Surveillance Measure stages — the date NSE says the list took effect",
+      // Attempted daily and allowed to fail, like every NSE feed: the edge
+      // throttles a datacentre IP unpredictably (§3.7). Past about a fortnight a
+      // surveillance stage on screen may name a stock that has since moved off
+      // the list — a stale flag is worth surfacing.
+      cadence: 'attempted every trading day, guaranteed weekly',
+      staleAfterDays: 12,
+    },
   ];
   return feeds.map((feed) => ({ ...feed, date: parseFeedDate(feed.raw) }));
 }
@@ -463,6 +485,24 @@ export function sourceRegistry() {
       status: meta.quoteStatsCapturedAt ? 'ok' : 'missing',
       count: requireLoaded().quoteStats?.companyCount ?? null,
       countLabel: 'companies with a statistics row',
+    },
+    {
+      id: 'asm',
+      name: 'NSE Additional Surveillance Measure',
+      publisher: 'National Stock Exchange of India',
+      what:
+        'The published list of securities under Additional Surveillance Measure, with the surveillance '
+        + 'stage for each — carried through unchanged and joined to the universe by ISIN. dhan.co/nse-asm-list '
+        + 'mirrors this same NSE feed. A company not on the list is NOT under ASM; when the feed is '
+        + 'unavailable the stage is unknown, never silently "clear".',
+      tier: 'measured',
+      asOf: meta.asmAsOf ?? null,
+      asOfDate: parseFeedDate(meta.asmAsOf ?? null),
+      cadence: byId.asm?.cadence ?? null,
+      staleAfterDays: byId.asm?.staleAfterDays ?? null,
+      status: asm()?.available ? 'ok' : 'missing',
+      count: asm()?.flaggedInUniverse ?? null,
+      countLabel: 'tracked companies under ASM',
     },
   ];
 }

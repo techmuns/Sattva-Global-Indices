@@ -149,6 +149,7 @@ function loadContext() {
     universeSeed: readJson('public/data/universe.json'),
     benchmarks: readJson('public/data/fund-benchmarks.json'),
     nseFloat: readJson('public/data/nse-freefloat.json'),
+    asm: readJson('public/data/nse-asm.json'),
     prices: readJson('public/data/prices.json'),
     reconciliation: readJson('public/data/share-reconciliation.json'),
     relativeBaselines: readJson('public/data/relative-baselines.json'),
@@ -172,6 +173,7 @@ const clone = (ctx) => ({
   universeSeed: structuredClone(ctx.universeSeed),
   benchmarks: structuredClone(ctx.benchmarks),
   master: structuredClone(ctx.master),
+  asm: structuredClone(ctx.asm),
   prices: structuredClone(ctx.prices),
   reconciliation: structuredClone(ctx.reconciliation),
   relativeBaselines: structuredClone(ctx.relativeBaselines),
@@ -2245,6 +2247,95 @@ async function main() {
       // exactly as Yahoo's live bar arrives.
       const last = c.benchmarks.fx.series[c.benchmarks.fx.series.length - 1];
       c.benchmarks.fx.series.push({ date: last.date, close: last.close * 1.0012 });
+    },
+  }, ctx);
+
+  suite.section('NSE Additional Surveillance Measure');
+
+  await suite.check({
+    id: 44,
+    what: "every ASM stage on a company is NSE's own, joined by ISIN and carried through unchanged",
+    clone: deepClone,
+    run: (c) => {
+      // The join key is ISIN and nothing else (§3.9). A stage carried on a
+      // company must be byte-identical to what NSE published for that ISIN — no
+      // re-banding, no re-wording, no symbol-matched guess.
+      const bySrcIsin = new Map((c.asm.companies ?? []).map((r) => [r.isin, r]));
+      const meta = c.companiesFile.asm;
+      ok(meta && meta.available === true,
+        'the record declares the ASM feed available so a null means "not flagged", not "unknown"',
+        JSON.stringify(meta?.available));
+
+      const wrongStage = [];   // flagged, but not what NSE published for this ISIN
+      const missedJoin = [];   // ISIN is in NSE's list but the company is not flagged
+      let flagged = 0;
+      for (const co of c.companies) {
+        if (co.asm) {
+          flagged += 1;
+          const src = bySrcIsin.get(co.isin);
+          if (!src
+            || src.survCode !== co.asm.survCode
+            || src.stage !== co.asm.stage
+            || src.survDesc !== co.asm.survDesc
+            || src.category !== co.asm.category) {
+            wrongStage.push(`${co.isin} ${co.name}: record ${JSON.stringify(co.asm.survCode)} vs source ${JSON.stringify(src?.survCode ?? null)}`);
+          }
+        } else if (co.isin && bySrcIsin.has(co.isin)) {
+          missedJoin.push(`${co.isin} ${co.name}`);
+        }
+      }
+      empty(wrongStage, 'no company carries an ASM stage that differs from NSE\'s own', (x) => x);
+      empty(missedJoin, 'no company whose ISIN is on NSE\'s ASM list was left unflagged', (x) => x);
+      return `${flagged} of ${c.companies.length} companies flagged · ${bySrcIsin.size} in NSE's list · joined by ISIN`;
+    },
+    sabotage: (c) => {
+      // Re-band a flagged company's stage to something NSE never published: a
+      // fabricated stage that looks authoritative is exactly the tier-1 lie.
+      const victim = c.companies.find((co) => co.asm);
+      victim.asm.survCode = 'LTASM - IX (99)';
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 45,
+    what: 'the ASM coverage meta is MEASURED from the records — the count and the stage legend, never typed',
+    clone: deepClone,
+    run: (c) => {
+      const meta = c.companiesFile.asm;
+      ok(meta, 'the record carries an ASM meta block', JSON.stringify(meta));
+      // flaggedInUniverse must equal the rows actually flagged — a hand-typed
+      // count would go stale the moment the roster moves.
+      const actualFlagged = c.companies.filter((co) => co.asm).length;
+      equal(meta.flaggedInUniverse, actualFlagged, 'flaggedInUniverse equals the number of flagged companies');
+
+      // The stage legend must be measured too, and must sum to the flagged count.
+      const legend = meta.stagesInUniverse ?? {};
+      const legendSum = Object.values(legend).reduce((a, n) => a + n, 0);
+      equal(legendSum, actualFlagged, 'the stage legend sums to the flagged count');
+      const recomputed = {};
+      for (const co of c.companies) {
+        if (!co.asm) continue;
+        const code = co.asm.survCode ?? co.asm.stage ?? '(unknown stage)';
+        recomputed[code] = (recomputed[code] ?? 0) + 1;
+      }
+      const mismatched = Object.keys({ ...legend, ...recomputed })
+        .filter((k) => (legend[k] ?? 0) !== (recomputed[k] ?? 0));
+      empty(mismatched, 'every stage in the legend matches the count of rows carrying it',
+        (k) => `${k}: legend ${legend[k] ?? 0} vs actual ${recomputed[k] ?? 0}`);
+
+      // available tells "not flagged" apart from "unknown" (§2.4): a null stage
+      // under an available feed is a checked negative, and totalFlagged (NSE's
+      // whole list) is at least as large as the part that lands in the universe.
+      ok(typeof meta.available === 'boolean', 'available is a boolean', JSON.stringify(meta.available));
+      ok(meta.totalFlagged >= meta.flaggedInUniverse,
+        "NSE's whole list is at least as large as the part inside the universe",
+        `${meta.totalFlagged} < ${meta.flaggedInUniverse}`);
+      return `${actualFlagged} flagged in-universe of ${meta.totalFlagged} on NSE's list · legend ${Object.keys(legend).length} stages, measured`;
+    },
+    sabotage: (c) => {
+      // Type a count that no longer matches the rows: the stale-denominator bug
+      // this project exists to prevent (§2.5), wearing an ASM hat.
+      c.companiesFile.asm.flaggedInUniverse += 1;
     },
   }, ctx);
 

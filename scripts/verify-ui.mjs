@@ -3014,6 +3014,79 @@ async function main() {
     },
   }, ctx);
 
+  suite.section('NSE surveillance (ASM)');
+
+  await suite.check({
+    id: 54,
+    what: "the ASM column shows NSE's stage where flagged and an honest, distinct dash where clear",
+    run: async (c) => {
+      await c.settle();
+      const m = await c.page.evaluate(() => {
+        const S = window.__sattva;
+        const headings = [...document.querySelectorAll('[data-score-table] thead th')].map((th) => th.textContent.trim());
+        const asmIndex = headings.findIndex((h) => /ASM stage/i.test(h));
+        const meta = S.data.asm();
+        const all = S.data.all();
+        const renderedFlagged = all.filter((x) => x.asm).length;
+        // A stage that is not one of NSE's own code shapes would be a fabrication.
+        const badCodes = all
+          .filter((x) => x.asm && !/^(LTASM|STASM)\b/.test(x.asm.survCode || ''))
+          .map((x) => `${x.name}: ${x.asm.survCode}`);
+
+        // Zip the painted rows with the view's own row objects — same order, so
+        // each cell is checked against the exact company it renders.
+        const rows = S.rows();
+        const trs = [...document.querySelectorAll('[data-score-table] tbody tr')];
+        const n = Math.min(rows.length, trs.length);
+        let flaggedCellShown = 0;
+        let clearCellDash = 0;
+        let clearTitleOk = 0;
+        const mism = [];
+        for (let i = 0; i < n; i += 1) {
+          const co = rows[i];
+          const cell = trs[i].children[asmIndex];
+          if (!cell) continue;
+          const txt = cell.textContent.trim();
+          const title = cell.querySelector('[title]')?.getAttribute('title') || '';
+          if (co.asm) {
+            const head = (co.asm.survCode || '').split(' ')[0]; // LTASM / STASM
+            if (txt.includes(head)) flaggedCellShown += 1;
+            else mism.push(`${co.name}: flagged but cell="${txt}"`);
+          } else {
+            if (/^[—-]$/.test(txt)) clearCellDash += 1;
+            else mism.push(`${co.name}: clear but cell="${txt}"`);
+            if (/not under ASM/i.test(title)) clearTitleOk += 1;
+          }
+        }
+        return {
+          headings, asmIndex, available: meta?.available ?? null,
+          declaredFlagged: meta?.flaggedInUniverse ?? null, asOf: meta?.asOf ?? null,
+          renderedFlagged, badCodes, painted: n, flaggedCellShown, clearCellDash, clearTitleOk, mism,
+        };
+      });
+
+      ok(m.asmIndex >= 0, 'the "ASM stage" column must be present in the header', m.headings.join(' | '));
+      ok(m.available === true, 'the record must declare the ASM feed available so a dash means "not flagged"', String(m.available));
+      // THE ANCHOR: the rows carrying a stage must equal the count the record
+      // publishes. A screen that shows more or fewer stages than it declares is
+      // the §2.5 stale-denominator lie wearing an ASM hat.
+      equal(m.renderedFlagged, m.declaredFlagged, 'the companies carrying a stage match the count the record declares');
+      ok(m.renderedFlagged > 0, 'at least one company is under ASM in the record', String(m.renderedFlagged));
+      empty(m.badCodes, "no company carries a stage that is not one of NSE's own codes", (x) => x);
+      empty(m.mism, 'every painted ASM cell agrees with its company — a stage where flagged, a dash where clear', (x) => x);
+      ok(m.flaggedCellShown > 0, 'the column renders NSE stage badges for flagged companies in view', `${m.flaggedCellShown} of ${m.painted} painted`);
+      ok(m.clearCellDash > 0, 'a company not under ASM renders a dash, never a stage', `${m.clearCellDash} of ${m.painted} painted`);
+      ok(m.clearTitleOk > 0, 'the dash for a clear company says "not under ASM" in its title, not a bare gap (§2.4)', `${m.clearTitleOk} titles checked`);
+      return `${m.renderedFlagged} of ${m.declaredFlagged} flagged · painted ${m.painted}: ${m.flaggedCellShown} badges, ${m.clearCellDash} dashes · effective ${m.asOf}`;
+    },
+    // Strip every stage from the live data while the meta still declares 93
+    // flagged: the rendered stages then disagree with the published count, and a
+    // once-flagged row's cell no longer matches its company. Persistent so it
+    // survives the settle the check runs first (§2.22).
+    sabotage: persistent('(() => { for (const co of window.__sattva.data.all()) co.asm = null; })()'),
+    restore: restoreByReload,
+  }, ctx);
+
   await browser.close();
 
   process.exit(suite.report([

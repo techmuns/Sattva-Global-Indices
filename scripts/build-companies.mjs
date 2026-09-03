@@ -164,6 +164,14 @@ function main() {
   const actionsPath = join(REPO, 'public', 'data', 'corporate-actions.json');
   const corporateActions = existsSync(actionsPath) ? JSON.parse(readFileSync(actionsPath, 'utf8')) : null;
 
+  // NSE's Additional Surveillance Measure list. Optional and allowed to fail like
+  // every other NSE feed (§3.7 — the edge throttles a datacentre IP). Absent means
+  // ASM STATUS IS UNKNOWN for every company, not that nothing is under surveillance
+  // (§2.4). `asmMeta.available` below carries that distinction to the browser so a
+  // company's null ASM field can be read as "not flagged" or "we could not check".
+  const asmPath = join(REPO, 'public', 'data', 'nse-asm.json');
+  const asmData = existsSync(asmPath) ? JSON.parse(readFileSync(asmPath, 'utf8')) : null;
+
   const checks = new CheckList('build');
 
   const nseFloatBySymbol = new Map(nseFreeFloat.companies.map((c) => [c.symbol, c]));
@@ -171,6 +179,17 @@ function main() {
   const bseByIsin = new Map();
   for (const scrip of bseFreeFloat.scrips) {
     if (scrip.isin && !bseByIsin.has(scrip.isin)) bseByIsin.set(scrip.isin, scrip);
+  }
+
+  // ---- the ASM list, keyed on ISIN --------------------------------------
+  // Joined on ISIN and nothing else (§3.9): NSE's ASM feed carries the ISIN, so a
+  // symbol match is never needed and never risked. A company under ASM gets its
+  // stage carried through unchanged; every other company's `asm` field is null,
+  // and `asmMeta.available` says whether that null means "not flagged" or "the
+  // feed did not load and we could not check".
+  const asmByIsin = new Map();
+  for (const row of asmData?.companies ?? []) {
+    if (row.isin && !asmByIsin.has(row.isin)) asmByIsin.set(row.isin, row);
   }
 
   const index = buildIndex(master, nseUniverse, new Set(nseFloatBySymbol.keys()), universeSeed);
@@ -534,6 +553,24 @@ function main() {
       yearlyChangePct: stats?.yearlyChangePct ?? null,
       lastSplitFactor: stats?.lastSplitFactor ?? null,
       lastSplitDate: stats?.lastSplitDate ?? null,
+
+      // ---- NSE Additional Surveillance Measure stage, if any --------------
+      // NSE's published surveillance stage, carried through unchanged (tier 1).
+      // null means NOT UNDER ASM when the feed loaded, and UNKNOWN when it did
+      // not — the two are told apart by `asm.available` at the top of the record,
+      // never here, because a per-company null cannot carry that distinction
+      // (§2.3/§2.4). Joined on ISIN alone (§3.9).
+      asm: (() => {
+        const flag = company.isin ? (asmByIsin.get(company.isin) ?? null) : null;
+        if (!flag) return null;
+        return {
+          category: flag.category,
+          stage: flag.stage,
+          survCode: flag.survCode,
+          survDesc: flag.survDesc,
+          asmDate: flag.asmDate,
+        };
+      })(),
 
       held,
       funds: company.funds,
@@ -1184,6 +1221,29 @@ function main() {
       .slice(0, 5).map((c) => c.name).join(' | '),
   );
 
+  // Every ASM stage carried on a company is NSE's OWN, joined by ISIN alone and
+  // carried through unchanged — never invented, and never a symbol match (§3.9).
+  // Both directions: a flagged company matches the source exactly, and a null
+  // company whose ISIN IS in the source is a missed join, not "not flagged".
+  const asmOffenders = out.filter((c) => {
+    if (c.asm !== null) {
+      const src = asmByIsin.get(c.isin);
+      return !src
+        || src.survCode !== c.asm.survCode
+        || src.stage !== c.asm.stage
+        || src.survDesc !== c.asm.survDesc
+        || src.category !== c.asm.category;
+    }
+    // asm is null: only legitimate if the feed did not load, or this ISIN is
+    // genuinely absent from NSE's list.
+    return asmData !== null && c.isin && asmByIsin.has(c.isin);
+  });
+  checks.assert(
+    asmOffenders.length === 0,
+    "every ASM stage on a company is NSE's own, joined by ISIN and carried unchanged",
+    asmOffenders.slice(0, 5).map((c) => `${c.isin} ${c.name}`).join(' | '),
+  );
+
   // ---- coverage: every denominator the UI will print ---------------------
   const coverage = {
     companies: out.length,
@@ -1220,6 +1280,11 @@ function main() {
     liveEligible: out.filter((c) => c.nseSymbol !== null).length,
     liveIneligible: out.filter((c) => c.nseSymbol === null).length,
     withAdv: out.filter((c) => c.advQty !== null).length,
+    // NSE Additional Surveillance Measure. `asmFlagged` is companies IN THE
+    // UNIVERSE under ASM; the full NSE list is larger, since many ASM names sit
+    // below the desk's floor and are not tracked here. `null` when the feed did
+    // not load — never 0, which would read as "nobody is under ASM" (§2.4).
+    asmFlagged: asmData ? out.filter((c) => c.asm !== null).length : null,
     byFund: {},
   };
 
@@ -1478,6 +1543,9 @@ function main() {
       benchmarksAsOf: benchmarks?.asOf ?? null,
       bseScripMasterCapturedAt: master.capturedAt,
       nseUniverseCapturedAt: nseUniverse.capturedAt,
+      // NSE's own effective date for the ASM list (asmData.asOf), not when we
+      // fetched it — the same as/capturedAt distinction every NSE feed keeps.
+      asmAsOf: asmData?.asOf ?? null,
     },
     thresholds: {
       scrapeUniverseMinFullMcapInr: SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
@@ -1522,6 +1590,42 @@ function main() {
     quoteStats: quoteStats
       ? { capturedAt: quoteStats.capturedAt, companyCount: quoteStats.companyCount, source: quoteStats.source }
       : null,
+    // ---- NSE Additional Surveillance Measure -----------------------------
+    // `available` is the load-bearing field: it tells the browser whether a
+    // company's null `asm` means NOT UNDER ASM (feed loaded, company absent from
+    // the complete list) or UNKNOWN (feed did not load). Without it, an outage
+    // would render as "every company is clear" — the §2.4 lie. `flaggedInUniverse`
+    // is derived from the records; the stage legend is derived too, never typed.
+    asm: {
+      available: Boolean(asmData),
+      source: asmData?.source
+        ?? 'NSE Additional Surveillance Measure (ASM) report — nseindia.com/api/reportASM',
+      publisher: 'National Stock Exchange of India',
+      endpoint: asmData?.endpoint ?? 'https://www.nseindia.com/api/reportASM',
+      note:
+        'NSE\'s published surveillance stage, carried through unchanged (tier 1) and joined to the '
+        + 'universe by ISIN. dhan.co/nse-asm-list mirrors this same NSE feed. A company not on the '
+        + 'list is NOT under ASM; a null stage when the feed is unavailable means we could not check.',
+      capturedAt: asmData?.capturedAt ?? null,
+      asOf: asmData?.asOf ?? null,
+      // The whole NSE list vs the part that lands on a tracked company. Most ASM
+      // names sit below the desk's floor, so the second is much smaller.
+      totalFlagged: asmData?.totalFlagged ?? null,
+      flaggedInUniverse: asmData ? out.filter((c) => c.asm !== null).length : null,
+      // The stages present ON THE SCREEN, with counts — a legend the reader can
+      // trust because it is measured from the records, not hand-listed.
+      stagesInUniverse: asmData
+        ? Object.fromEntries(
+            [...out.reduce((m, c) => {
+              if (!c.asm) return m;
+              const code = c.asm.survCode ?? c.asm.stage ?? '(unknown stage)';
+              return m.set(code, (m.get(code) ?? 0) + 1);
+            }, new Map()).entries()].sort((a, b) => b[1] - a[1]),
+          )
+        : null,
+      categories: asmData?.categories ?? null,
+      failed: asmData?.failed ?? [],
+    },
     flowPrimitives: flowPrimitivesByFund,
     model: {
       disclosure: DISCLOSURE,

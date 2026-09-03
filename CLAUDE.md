@@ -911,7 +911,7 @@ The rest is §2.3 and §2.4 applied to a control rather than to a number:
 ### 2.29 A column width can manufacture a wrong number, and it looks exactly like a right one
 
 The reader can drag any column's right edge, put away columns they do not need, and both choices
-persist. Thirteen columns is more than most desks read at once, so this is a real ask — and it opens a
+persist. Fourteen columns is more than most desks read at once, so this is a real ask — and it opens a
 route to a false figure that no formatter guard can see.
 
 **Measured, before the guard existed.** With `table-layout: fixed` and the Free float column dragged
@@ -1544,6 +1544,7 @@ scripts/
   fetch-fund-benchmarks.mjs        SMIN/EEMS/EEM + USDINR → public/data/fund-benchmarks.json
   import-ishares.mjs               3 workbooks → public/data/msci-funds.json
   scrape-nse-freefloat.mjs         NSE pre-open → public/data/nse-freefloat.json
+  scrape-nse-asm.mjs               NSE ASM report → public/data/nse-asm.json
   fetch-bse-master.mjs             BSE scrip master → public/data/bse-scrip-master.json
   fetch-nse-universe.mjs           niftyindices CSVs → public/data/nse-universe.json
   scrape-bse-freefloat.mjs         per-scrip BSE float → public/data/bse-freefloat.json
@@ -1554,8 +1555,8 @@ scripts/
                                    -> public/data/price-history.json
   fetch-corporate-actions.mjs      BSE's own action history → public/data/corporate-actions.json
   build-companies.mjs              everything → public/data/companies.json
-  verify-data.mjs                  43 data assertions; no browser, no network
-  verify-ui.mjs                    34 interface assertions; the served site
+  verify-data.mjs                  45 data assertions; no browser, no network
+  verify-ui.mjs                    35 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
@@ -1573,6 +1574,7 @@ public/
   data/fund-benchmarks.json        generated — daily fund closes + FX, for the band adjustment
   data/msci-funds.json             generated — do not hand-edit
   data/nse-freefloat.json          generated — do not hand-edit
+  data/nse-asm.json                generated — NSE Additional Surveillance Measure list; do not hand-edit
   data/bse-scrip-master.json       generated — do not hand-edit
   data/nse-universe.json           generated — do not hand-edit
   data/bse-freefloat.json          generated — do not hand-edit
@@ -1623,6 +1625,7 @@ node scripts/import-universe.mjs       # the desk's >Rs2,000 Cr seed list; no ne
 node scripts/fetch-bse-master.mjs      # 1 request, ~1.7 MB
 node scripts/fetch-nse-universe.mjs    # 2 requests, the ISIN bridge
 node scripts/scrape-nse-freefloat.mjs  # 4 requests, ~250 symbols - THROTTLES, see below
+node scripts/scrape-nse-asm.mjs        # 1 request, the NSE ASM list - THROTTLES like every NSE feed
 node scripts/scrape-bse-freefloat.mjs  # ~3,600 requests, ~12 min at concurrency 8
 node scripts/fetch-fund-benchmarks.mjs # 5 requests, 2y of daily closes + USDINR
 node scripts/fetch-bhavcopy.mjs        # 1 request, the whole market's closes
@@ -1635,9 +1638,9 @@ node scripts/verify-data.mjs           # the data assertions; run before committ
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 42 assertions; no browser, no network
+node scripts/verify-data.mjs           # 45 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 34 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 35 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 
