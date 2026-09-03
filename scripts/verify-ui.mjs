@@ -1930,9 +1930,11 @@ async function main() {
         const headings = [...document.querySelectorAll('[data-score-table] thead th')].map((th) => th.textContent.trim());
         const verdictIndex = headings.findIndex((h) => /^Verdict/i.test(h));
         const select = document.querySelector('select[data-filter="verdict"]');
-        const verdicts = [...select.options].map((o) => o.value).filter(Boolean);
+        const verdicts = [...select.options]
+          .filter((o) => o.value)
+          .map((o) => ({ value: o.value, label: o.textContent.trim() }));
         const seen = [];
-        for (const value of verdicts) {
+        for (const { value } of verdicts) {
           await window.__set(select, value);
           const pill = document.querySelector('[data-score-table] tbody tr')?.children[verdictIndex]?.querySelector('span');
           if (!pill) continue;
@@ -1951,7 +1953,21 @@ async function main() {
       });
 
       ok(m.verdictIndex >= 0, 'the Verdict column must be locatable by its heading', m.headings.join(' | '));
-      equal(m.seen.length, m.verdicts.length, 'every verdict must produce a pill');
+      // ⚠ A VERDICT WITH NO COMPANIES IS NOT A MISSING PILL.
+      //
+      // This used to require a pill for every option in the dropdown, which was
+      // really an assertion about the record's composition: the day migration-up
+      // fell to zero the colour check failed for a reason that had nothing to do
+      // with colour. The option now says "none on this record" and the check
+      // pairs each option with its own row count, so an empty verdict is proved
+      // to be empty rather than assumed to be broken.
+      const emptyByLabel = m.verdicts.filter((v) => /none on this record/.test(v.label)).map((v) => v.value);
+      empty(m.seen.filter((p) => emptyByLabel.includes(p.verdict)),
+        'a verdict the record does not carry produces no row, and the option says so', (p) => p.verdict);
+      equal(m.seen.length, m.verdicts.length - emptyByLabel.length,
+        'every verdict the record actually carries produces a pill');
+      ok(m.seen.length >= 5, 'and enough distinct verdicts are on the record for a colour check to mean anything',
+        `${m.seen.length} verdicts with rows, ${emptyByLabel.length} empty`);
 
       // (1) The class contract, always. Indigo is the brand ramp and carries no
       //     meaning — a verdict borrowing it would read as "good" for free.
@@ -2659,6 +2675,232 @@ async function main() {
     restore: restoreColumns,
   }, ctx);
 
+  /* ── the rebalance scorecard ────────────────────────────────────────────*/
+  suite.section('Scoring the last review');
+
+  await suite.check({
+    id: 54,
+    what: 'the Latest Rebalance view shows what the forecast MISSED, and never a single blended accuracy',
+    run: async (c) => {
+      // ⚠ THIS IS THE HONESTY TEST FOR THE ONE SCREEN THAT MARKS ITS OWN
+      // HOMEWORK, and it is about what the page is willing to show against
+      // itself.
+      //
+      // 1,232 of 1,265 companies did not move, so a single "accuracy" figure
+      // counting those true negatives reads above 97% for a model that never
+      // fired at all. The page must therefore quote TWO figures, each with its
+      // own denominator — of what we flagged, how many moved; of what moved,
+      // how many we flagged — and it must list the movements it did not call.
+      // A scorecard showing only its hits is an advertisement.
+      await c.page.evaluate(() => { window.location.hash = '#/rebalance'; });
+      await c.page.waitForFunction(() => Boolean(document.querySelector('[data-view="rebalance"] h1')), null, { timeout: 20000 });
+
+      const m = await c.page.evaluate(async () => {
+        const payload = await (await fetch('data/rebalance-2026-08.json', { cache: 'no-cache' })).json();
+        const host = document.querySelector('[data-view="rebalance"]');
+        const text = host.innerText;
+        const CLAIMS = {
+          'likely-inclusion': 'entered', 'possible-inclusion': 'entered',
+          'likely-exclusion': 'exited', 'exclusion-risk': 'exited',
+          'migration-up': 'migration-up', 'migration-down': 'migration-down', stable: 'no-change',
+        };
+        // Derived from the file, so the check cannot agree with the page by
+        // both being wrong in the same way.
+        const missed = payload.companies.filter((r) => r.inForecast && r.predictedVerdict !== 'unknown'
+          && r.event !== 'no-change' && CLAIMS[r.predictedVerdict] !== r.event);
+        return {
+          hash: location.hash,
+          screenerHidden: document.querySelector('[data-view="companies"]').hidden,
+          navCurrent: document.querySelector('[data-view-link][aria-current="page"]')?.dataset.viewLink ?? null,
+          text,
+          // THE MISSES SECTION SPECIFICALLY, not the page as a whole. Every
+          // missed company also appears in the entered/exited table it belongs
+          // to, so asserting the names are "somewhere on the page" passes even
+          // with the misses collected away — which is exactly what the first
+          // version of this check did, and --prove caught it.
+          missesSection: [...document.querySelectorAll('[data-view="rebalance"] section')]
+            .find((el) => /did not call/i.test(el.querySelector('h2')?.textContent ?? ''))?.innerText ?? null,
+          // Digit grouping is the formatter's business, not this check's. The
+          // figures are matched against the text with separators removed, so a
+          // change of locale cannot fail an assertion about honesty.
+          plain: text.replace(/,/g, ''),
+          missed: missed.map((r) => r.name),
+          // Both denominators, exactly as the file states them.
+          precision: `${payload.scorecard.precision.moved} of ${payload.scorecard.precision.flagged}`,
+          recall: `${payload.scorecard.recall.flagged} of ${payload.scorecard.recall.moved}`,
+          stable: `${payload.scorecard.stable.right} of ${payload.scorecard.stable.calls}`,
+          effective: payload.effectiveDate,
+          forecastHoldings: payload.forecast.holdingsAsOf,
+          notReRead: payload.funds.notReRead.map((id) => payload.funds.names[id] ?? id),
+        };
+      });
+
+      equal(m.hash, '#/rebalance', 'the view must be addressable, so it can be shared and reloaded');
+      equal(m.navCurrent, 'rebalance', 'the nav must mark the view the reader is on');
+      ok(m.screenerHidden, 'the screener must be put away rather than left stacked under the rebalance view');
+
+      // The two figures, with their denominators, both on screen.
+      ok(m.plain.includes(m.precision), 'the page must state how many of the companies it FLAGGED actually moved',
+        `looked for "${m.precision}"`);
+      ok(m.plain.includes(m.recall), 'and how many of the companies that MOVED it had flagged',
+        `looked for "${m.recall}"`);
+
+      // The no-change rate may be shown, but never without saying what it is.
+      ok(m.plain.includes(m.stable), 'the no-change rate must be on screen', `looked for "${m.stable}"`);
+      ok(/true-negative/i.test(m.text),
+        'the no-change rate must be captioned as a true-negative rate — unqualified it reads as accuracy');
+
+      // One review is one data point, and the page has to say so.
+      ok(/one data point/i.test(m.text),
+        'the page must say a single scored review is not a base rate, or it reads as a backtest');
+
+      // Provenance of the scoring itself.
+      ok(m.text.includes('17 Aug 2026') && m.text.includes('31 Aug 2026'),
+        'the page must name the date the forecast was struck and the date the review took effect',
+        `forecast ${m.forecastHoldings}, effective ${m.effective}`);
+      for (const fund of m.notReRead) {
+        ok(m.text.includes(fund),
+          'a fund that was not re-read must be NAMED — "we did not look" and "nothing changed" are different facts',
+          `looked for "${fund}"`);
+      }
+
+      // THE LOAD-BEARING ONE: every movement the forecast did not call is on
+      // the page, by name.
+      ok(m.missed.length > 0, 'there must be misses to show, or this check passes vacuously',
+        `${m.missed.length} missed movements in the record`);
+      ok(m.missesSection !== null,
+        'the page must COLLECT what the forecast did not call into a section of its own — scattered '
+        + 'among the hits, a miss is something a reader has to go looking for');
+      const hidden = m.missed.filter((name) => !m.missesSection.includes(name));
+      empty(hidden, 'every movement the forecast did not call must be named in that section', (n) => n);
+
+      await c.page.evaluate(() => { window.location.hash = '#/companies'; });
+      return `${m.missed.length} missed movements all named · flagged ${m.precision} moved · movers ${m.recall} flagged`
+        + ` · no-change ${m.stable}, captioned as a true-negative rate`;
+    },
+    // Show only the hits. The change made when the misses look bad in a demo —
+    // and the one that turns this page into marketing.
+    sabotage: persistent(`(() => {
+      const strip = () => {
+        for (const section of document.querySelectorAll('[data-view="rebalance"] section')) {
+          if (/did not call/i.test(section.textContent ?? '')) section.remove();
+        }
+      };
+      strip();
+      new MutationObserver(strip).observe(document.body, { childList: true, subtree: true });
+    })()`),
+    restore: restoreByReload,
+  }, ctx);
+
+  await suite.check({
+    id: 55,
+    what: 'the recalibrated model\'s own score is on the page and is labelled in-sample, beside the forecast it replaced',
+    run: async (c) => {
+      // ⚠ THIS IS THE ONE FIGURE ON THIS PAGE THAT IS NOT A RECORD.
+      //
+      // The scorecard above it is what was actually forecast. The retrospective
+      // is what the CURRENT rules would have said about the review that
+      // motivated them — a model answering a question it has already seen. It is
+      // worth showing, because a change made for a reason has to show it
+      // addresses the reason, and it is exactly the number a reader would take
+      // for a track record if nothing said otherwise.
+      //
+      // So: both scores side by side, both denominators, and the in-sample
+      // caveat in words on the page rather than only in the JSON.
+      await c.page.evaluate(() => { window.location.hash = '#/rebalance'; });
+      await c.page.waitForFunction(() => Boolean(document.querySelector('[data-view="rebalance"] h1')), null, { timeout: 20000 });
+
+      const m = await c.page.evaluate(async () => {
+        const payload = await (await fetch('data/rebalance-2026-08.json', { cache: 'no-cache' })).json();
+        const host = document.querySelector('[data-view="rebalance"]');
+        const section = [...host.querySelectorAll('section')]
+          .find((el) => /would say now/i.test(el.querySelector('h2')?.textContent ?? '')) ?? null;
+        const r = payload.retrospective;
+        return {
+          section: section?.innerText ?? null,
+          plain: (section?.innerText ?? '').replace(/,/g, ''),
+          pageplain: host.innerText.replace(/,/g, ''),
+          flaggedNow: String(r.precision.flagged),
+          rightNow: String(r.precision.rightEvent),
+          flaggedWas: String(r.asForecast.flagged),
+          rightWas: String(r.asForecast.rightEvent),
+          moved: String(r.recall.moved),
+          changes: r.changes,
+          stillMissed: r.stillMissed.map((x) => x.name),
+          inSample: r.inSample,
+        };
+      });
+
+      ok(m.section !== null,
+        'the retrospective must be a section of its own — folded into the scorecard it would read as the forecast\'s score');
+      equal(m.inSample, true, 'the file must declare it in-sample, or the page is captioning a claim the data does not make');
+      ok(/in-sample/i.test(m.section),
+        'and the page must say IN-SAMPLE in words a reader sees, not only in the JSON');
+      ok(/not a track record/i.test(m.section),
+        'and say plainly that it is not a track record');
+
+      // BOTH scores, both denominators, side by side (§2.5). A retrospective
+      // shown alone is a claim; shown beside what was actually forecast it is a
+      // comparison a reader can weigh.
+      for (const [figure, what] of [
+        [m.flaggedWas, 'how many the frozen forecast flagged'],
+        [m.rightWas, 'how many of those it got right'],
+        [m.flaggedNow, 'how many the current rules would flag'],
+        [m.rightNow, 'how many of those they would get right'],
+        [m.moved, 'the number that actually moved — the denominator for both recalls'],
+      ]) {
+        ok(m.plain.includes(figure), `the section must state ${what}`, `looked for "${figure}"`);
+      }
+
+      // What changed, and what it STILL would not have called.
+      for (const change of m.changes) {
+        const head = change.split(/[,(]/)[0].trim().slice(0, 24);
+        ok(m.section.includes(head), 'every change the recalibration made is named on the page', head);
+      }
+      for (const name of m.stillMissed) {
+        ok(m.section.includes(name),
+          'a mover the NEW rules would still miss must be named too — a retrospective showing only its '
+          + 'improvements is the same advertisement as a scorecard showing only its hits',
+          name);
+      }
+
+      await c.page.evaluate(() => { window.location.hash = '#/companies'; });
+      return `as forecast ${m.rightWas}/${m.flaggedWas} · retrospectively ${m.rightNow}/${m.flaggedNow} of ${m.moved} movers`
+        + ` · ${m.stillMissed.length} still missed, all named · in-sample stated`;
+    },
+    /**
+     * Strip the in-sample label — the change that turns a model marked on its
+     * own answer sheet into a published accuracy figure.
+     *
+     * ⚠ IT SWALLOWS createTextNode, NOT textContent. The page builds this block
+     * with `el()`, which appends TEXT NODES rather than assigning textContent,
+     * so a textContent setter is never called and the sabotage was survived on
+     * the first --prove run. And it is static rather than a MutationObserver
+     * for the reason checks 47 and 49 record: the assertions read the DOM
+     * synchronously inside one evaluate, which wins the race against a
+     * microtask every time.
+     */
+    sabotage: persistent(`(() => {
+      const scrub = (value) => String(value)
+        .replace(/In-sample[^,.\u2014]*/gi, 'Verified')
+        .replace(/not a track record/gi, 'a track record');
+      // For anything rendered from here on.
+      const make = document.createTextNode.bind(document);
+      document.createTextNode = (value) => make(scrub(value));
+      // ...AND for what is already on the page. The rebalance view is mounted
+      // once and only toggled, so navigating back to it re-renders nothing —
+      // patching the factory alone was survived on the first --prove run.
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      const found = [];
+      while (walker.nextNode()) found.push(walker.currentNode);
+      for (const node of found) {
+        const next = scrub(node.nodeValue);
+        if (next !== node.nodeValue) node.nodeValue = next;
+      }
+    })()`),
+    restore: restoreByReload,
+  }, ctx);
+
   /* ── the live path ──────────────────────────────────────────────────────*/
   suite.section('The live path');
 
@@ -3017,7 +3259,7 @@ async function main() {
   suite.section('NSE surveillance (ASM)');
 
   await suite.check({
-    id: 54,
+    id: 56,
     what: "the ASM column shows NSE's stage where flagged and an honest, distinct dash where clear",
     run: async (c) => {
       await c.settle();
@@ -3088,7 +3330,7 @@ async function main() {
   }, ctx);
 
   await suite.check({
-    id: 55,
+    id: 57,
     what: "an ASM name's forced flow is shown but marked 'not mandated', with days-of-volume flagged understated",
     run: async (c) => {
       await c.settle();

@@ -599,7 +599,7 @@ company under NSE's Additional Surveillance Measure, the desk's judgement is tha
 it is a real derived quantity — but every flow carries `constrainedByAsm: true` and a `timingNote`,
 the estimate carries an `asmConstraint` summary (`{ survCode, severity, mandated: false, implication,
 timingNote, attribution }`), and `daysOfAdv` is named as **understated**. It is attributed to the
-desk, never to MSCI (§2.25), and it **never touches the verdict** — verify-data 46 asserts the ASM
+desk, never to MSCI (§2.25), and it **never touches the verdict** — verify-data 53 asserts the ASM
 rule is inert to `verdictFromRules`.
 
 ### `calendar.js` — assumed dates
@@ -989,8 +989,8 @@ output would be checkable** — that is the whole difference between it and a nu
 Two commands. Neither needs the other, and both exit non-zero if any check failed.
 
 ```bash
-node scripts/verify-data.mjs                                   # 42 checks, no browser, no network
-node scripts/verify-ui.mjs                                     # 33 checks vs http://127.0.0.1:8080
+node scripts/verify-data.mjs                                   # 45 checks, no browser, no network
+node scripts/verify-ui.mjs                                     # 35 checks vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live  # vs `npx wrangler dev`
 node scripts/verify-data.mjs --prove                           # break each check; it must go red
 ```
@@ -1025,6 +1025,8 @@ that undoing the fix turns something red:
 | 19 | `rawQuote` round-trips; absent ⇒ null | a digit-leading key swallowed into the previous value |
 | 20 | the collision guard fires when forced | two rows of one fund on one ISIN |
 | 21 | the naive tripwire is proved to exempt its own victim | a guard reading its threshold from the value under test |
+| 44 | the scored forecast predates the review AND differs from the live record | a snapshot regenerated after the outcome — the model marked on the answer sheet |
+| 45 | the scorecard re-derives its headline from the rows, and never scores an `unknown` | counting a refusal to call as a correct no-change call |
 
 | | Interface assertion | The trap it remembers |
 | --- | --- | --- |
@@ -1054,6 +1056,7 @@ that undoing the fix turns something red:
 | 48 | figure cells stay in inline flow | one `inline-flex` wrapper, which Chrome cuts with no ellipsis |
 | 49 | a hidden column is named, and a sort on one says so | rows in an order whose basis is off-screen |
 | 53 | putting a column away re-shares its width | a band of white where the column had been, and `width:100%` unsettling every width to close it |
+| 54 | the scorecard names what the forecast MISSED, and quotes both denominators | a single blended accuracy reading 97% for a model that never fired |
 | 50 | widths and hidden columns survive a reload; Reset restores the shipped layout | a layout that has to be rebuilt every morning, and one with no way back |
 
 Three checks in `verify-data` cover the second methodology (`public/js/model/gimi.js`):
@@ -1187,37 +1190,84 @@ Written down deliberately, and before a client finds it. Every layer under this 
 this repo, so these are not suspicions — they are the known load-bearing assumptions, ranked by how
 much a portfolio manager would lose by not knowing about them.
 
-### 1. Nothing here has ever been checked against a review
+### 1. One review has been scored. That is a data point, not a validation
 
-Every figure is computed from today's data. There is no backtest, no hit rate, no measured
-false-positive rate, and no evidence that a `likely-inclusion` verdict has ever preceded an
-inclusion. The model is *reasonable*; it is not *validated*, and those are different claims. The
-section above is the route to closing this, and until it is closed, the verdict column is an
-ordering of candidates and not a forecast of outcomes.
+Until 3 Sep 2026 nothing here had ever been checked against a review at all. The August 2026 review
+has now been scored against a forecast frozen before it took effect (CLAUDE.md §2.32), and the
+result is genuinely informative in both directions:
+
+| | |
+| --- | --- |
+| companies that changed segment | **33 of 1,265** |
+| of the **166** we flagged, how many moved | **23** — a 7-in-8 false-positive rate |
+| of the **33** that moved, how many we flagged | **23**, every one with the right event named |
+| movements we did not call at all | **10**, the largest Nippon Life at ₹21,445 Cr, called `stable` |
+
+So the model finds most of what moves and flags roughly seven companies for every one that does. It
+is over-eager, which is the failure mode a desk can work with — but **one review is one data point.**
+A probability still needs a base rate and a base rate still needs history, so §2.13's refusal stands
+and there is still no probability anywhere in the product. Three more reviews would begin to make
+these figures a rate rather than an anecdote.
+
+**The rules were then rewritten because of that scorecard, and the new score is in-sample.** Replayed
+over the same frozen inputs, the corrected model (CLAUDE.md §2.33) reads **138 flagged, 27 right, of
+33 movers — 19.6% precision, 81.8% recall**. Not one threshold in it was fitted to these events —
+every ratio is MSCI's, cited to a page, and every rupee cutoff is a constituent count — but the
+*decision* to use MSCI's geometry was taken after reading the result, so the model is being scored on
+a review it has already seen. `rebalance-2026-08.json → retrospective` carries `inSample: true` and
+the page repeats it; verify-ui 55 fails if either stops. **The improvement is a demonstration that the
+diagnosis was acted on, not evidence about the next review.**
+
+Re-struck on the ten days MSCI actually priced the August review on (20–31 July) rather than our
+28 August close, the same model reads **26 of 33** rather than 27 — a one-event difference, against
+three for a variant with fitted rupee bands. That stability is the point of deriving the cutoff by
+rank: the bar re-prices with the companies it is compared against.
+
+The no-change rate — 1,063 of 1,073 — is reported everywhere it appears as the true-negative rate it
+is. 1,232 of 1,265 companies did not move, so any blended accuracy would read above 97% for a model
+that never fired, and no such figure is offered.
 
 ### 2. The verdict tests a necessary condition, not a sufficient one
 
 Size is one of MSCI's screens. It also applies liquidity screens (annualised traded value ratio and
-months of trading), a minimum free-float requirement, foreign-room limits, a minimum length of
-listing, and buffer rules that deliberately resist churn near the boundary. **None of those are in
-this model.** So the inclusion list is an *upper bound* on entries: it will contain names MSCI
-passes over, and the model has no way to say which. The same is true in reverse for exclusions,
-where the buffer rule is the specific thing missing — MSCI does not exclude a company the moment it
-crosses a line.
+months of trading), foreign-room limits and a minimum length of listing. **None of those are in this
+model.** So the inclusion list is an *upper bound* on entries: it will contain names MSCI passes
+over, and the model has no way to say which.
+
+Two of the screens that used to be listed here **have since been added** (§2.33): the minimum
+free-float test, as its own rule against 50% of the size cutoff with 2/3 relief for an incumbent, and
+MSCI's buffer rules, which are why the model no longer calls 39 migrations in a quarter that had 3.
+A third — the 0.15 Foreign Inclusion Factor floor — is measured on the exchange free-float factor,
+which is a **proxy**: MSCI's FIF also nets foreign ownership limits, so for a company near a sectoral
+FDI cap the two differ and the rule will be too generous.
+
+**And clearing every bar still is not inclusion.** MSCI's Small Cap Entry Buffer adds a qualifying
+company *"only to the extent that they replace current constituents which have fallen below the Small
+Cap Lower Buffer"* (p. 44). Entry is competitive and slot-bounded, the number of slots is roughly the
+number of exits, and nothing in this model can see it. In August, 642 companies sat outside the index
+and 12 entered — a 1.9% base rate, which caps entry precision at about 15% for **any** threshold
+model. An inclusion verdict is a candidacy, and no amount of calibration changes that.
 
 ### 3. Liquidity is displayed but never gates a verdict
 
-`daysOfAdv` annotates a flow and nothing more. **30 of the 201 flows have no ADV reading at all**,
+`daysOfAdv` annotates a flow and nothing more. **24 of the 118 flows have no ADV reading at all**,
 so even the annotation is incomplete. Liquidity is among the most common reasons a large-enough
-company is not included, which makes this the single largest missing screen in §2.
+company is not included, which makes this the single largest missing screen in §2 now that the
+free-float minimum, the buffers and the FIF floor have been added.
 
 ### 4. Verdicts are sensitive to a threshold nobody published
 
-**67 of the 148 non-stable verdicts sit within ±20% of the threshold that produced them** (39 within
-±10%). The desk's band is a rule of thumb, not MSCI's rule, and a 20% move in it — well inside the
-uncertainty of an unpublished heuristic — reclassifies roughly 45% of the actionable list. The
-aggregate is the number that matters: *most of the interesting names are near the line, because that
-is what "interesting" means here.*
+**37 of the 118 non-stable verdicts sit within ±20% of the threshold that produced them** (22 within
+±10%). What the threshold IS has changed since this was first written — the bar is now MSCI's
+published ratio applied to a cutoff derived from the constituent count, not the desk's rupee band —
+and the sensitivity has not gone away with it, because the cutoff is still ours. A 20% move in it
+reclassifies roughly a third of the actionable list. The aggregate is the number that matters: *most
+of the interesting names are near the line, because that is what "interesting" means here.*
+
+**And the cutoff is measurably biased high.** It comes out at USD 998m against MSCI's own published
+EM IMI Global Minimum Size Range of USD 309–710m, because the constituent count behind it is what
+three sampling funds hold rather than what MSCI's index contains. `model.sizeCutoffReference` states
+that on every build.
 
 This used to be readable per row from a **Distance** column on the screener. That column was removed
 on 20 Aug 2026: it divided by a different threshold on almost every row while presenting one sortable
@@ -1230,7 +1280,7 @@ sensitivity above can still be reproduced from a sheet.
 
 Segments are derived from which iShares fund holds a company. Two consequences:
 
-- **EM Small Cap samples.** It holds 408 of the India Small-Cap fund's 454. A company it does not
+- **EM Small Cap samples.** It holds 412 of the India Small-Cap fund's 450. A company it does not
   hold may be a genuine index member the fund chose not to sample, so "not held by EM Small Cap"
   is not "not in the index". `isSampledByEmSmallCap()` keeps this visible and `flows.js` refuses to
   print a figure for a name the fund does not hold — but the underlying ambiguity is unresolved.
@@ -1239,16 +1289,18 @@ Segments are derived from which iShares fund holds a company. Two consequences:
 
 ### 6. The overlap is wide, and inside it size does not determine segment
 
-Standard floor ₹18,521 Cr (SBI Cards), Small-Cap ceiling ₹70,169 Cr (Laurus Labs) — **3.79× wide,
-157 companies inside it** (105 standard, 38 small cap, 14 unheld). Within that band, free-float size
-alone cannot say which segment a company belongs to; migration verdicts there rest on the
-rank-crossing test, which is a *proxy* for MSCI's actual cut-off. MSCI derives that cut-off globally
-at each review and does not publish it in advance.
+Standard floor ₹18,921 Cr (SBI Cards), Small-Cap ceiling ₹69,856 Cr (Coforge) — **3.69× wide,
+159 companies inside it** (105 standard, 40 small cap, 14 unheld). Within that band, free-float size
+alone cannot say which segment a company belongs to; migration verdicts there rest on a rank-derived
+cutoff on full market cap, which is a *proxy* for MSCI's actual cut-off. MSCI derives that cut-off
+globally at each review and does not publish it in advance.
 
 ### 7. Most inclusion candidates are measured on the exchange MSCI does not follow
 
-Nearly every inclusion verdict rests on a BSE float factor, because NSE publishes free float for
-about 250 symbols and the candidates are by definition not among the largest. The desk's own
+**46 of the 47 inclusion verdicts** rest on a BSE float factor, because NSE publishes free float for
+about 250 symbols and the candidates are by definition not among the largest. The FIF floor added in
+§2.33 inherits this exactly: all 52 companies it holds out are BSE-sourced, and only two of them
+carry an NSE factor to cross-check (both agree). The desk's own
 understanding is that MSCI follows NSE — so the rank these candidates hold is measured on the
 exchange the index does not use, and the model cannot do better for them.
 

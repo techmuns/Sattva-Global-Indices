@@ -10,9 +10,10 @@
 import { $, el } from './core/dom.js';
 import * as data from './data/companies.js';
 import * as state from './core/state.js';
-import { start as startRouter } from './core/router.js';
+import { start as startRouter, onRoute, current as currentRoute } from './core/router.js';
 import { mountShell } from './ui/shell.js';
 import { renderCompanies } from './tabs/companies.js';
+import { renderRebalance } from './tabs/rebalance.js';
 import * as quotes from './data/quotes.js';
 import { headerStatus } from './ui/sources.js';
 
@@ -57,13 +58,41 @@ async function main() {
   // and a stored preference cannot disagree with the screen. The header is left
   // carrying one control: the status pill.
   app.replaceChildren();
-  const shell = mountShell(app);
+
+  /**
+   * TWO VIEWS, ONE MOUNTED AT A TIME, AND THE SCREENER IS NEVER REBUILT BY A
+   * NAVIGATION. The screener holds the reader's search, filters, sort, column
+   * layout and streamed rows; tearing it down to show another page and building
+   * it again on the way back would throw all of that away and re-stream 1,265
+   * rows. So each view keeps its own host and only its visibility changes.
+   */
+  const shell = mountShell(app, {
+    route: currentRoute().route,
+    onNavigate: (route) => { location.hash = `#/${route}`; },
+  });
 
   // The header pill re-renders on every tick, because what it claims — live or
   // last close — is derived from whether a byte actually arrived.
   const refreshStatus = () => shell.setStatus(headerStatus());
 
-  const view = renderCompanies(shell.host, { onStatusChange: refreshStatus });
+  const screenerHost = el('div', { 'data-view': 'companies' });
+  const rebalanceHost = el('div', { 'data-view': 'rebalance', hidden: true });
+  shell.host.append(screenerHost, rebalanceHost);
+
+  const view = renderCompanies(screenerHost, { onStatusChange: refreshStatus });
+
+  let rebalanceMounted = false;
+  const showRoute = (route) => {
+    const wanted = route === 'rebalance' ? 'rebalance' : 'companies';
+    screenerHost.hidden = wanted !== 'companies';
+    rebalanceHost.hidden = wanted !== 'rebalance';
+    if (wanted === 'rebalance' && !rebalanceMounted) {
+      rebalanceMounted = true;
+      renderRebalance(rebalanceHost);
+    }
+    shell.setRoute(wanted);
+  };
+  onRoute(({ route }) => showRoute(route));
 
   // The live overlay is entirely optional. With no Worker (a plain static
   // server) the fetch 404s, the poller records `no-worker`, and every row stays
@@ -73,6 +102,7 @@ async function main() {
   refreshStatus();
 
   startRouter();
+  showRoute(currentRoute().route);
 
   // Expose a small surface for the verification harness. Read-only; it drives
   // nothing the interface does not already do for a human.

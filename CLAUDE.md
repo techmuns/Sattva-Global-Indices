@@ -511,6 +511,15 @@ companies fall below ₹3,500 Cr — the desk band sits exactly at the unheld/Sm
 
 Every verdict names the threshold that produced it and where that threshold came from.
 
+> ### ⚠ SINCE SEPTEMBER 2026 NEITHER OF THESE DECIDES A VERDICT — see §2.33
+>
+> The August review scored the desk-band model at 13.9% precision, and the verdict now follows MSCI's
+> published geometry applied to cutoffs derived by rank on **full** market cap. Both rows above are
+> still measured and still on every record: the desk's bands fire as their own rules so the
+> disagreement stays visible, and the observed boundary is still reported. What changed is which one
+> the verdict follows. **A third threshold source now exists — `msci` — and the rule that fires names
+> which of the three produced it.**
+
 > ### ⚠ The observed floor cannot classify a constituent — it IS one
 >
 > The Standard floor is the smallest Standard constituent, so "is this Standard constituent below
@@ -562,7 +571,7 @@ quantity and hiding it is its own dishonesty (§2.6) — but it is marked `const
 `ASM_FLOW_CONSTRAINT` in `config/thresholds.mjs`, it is **the desk's assumption and never MSCI's**
 (§2.25 — MSCI publishes no ASM carve-out), and it **never changes the verdict**: ASM fires an
 `asm-flow-constraint` rule that is inert to `verdictFromRules`, because the verdict is a size question
-and ASM is not a size fact. `verify-data` 46 proves the rule cannot move the verdict; `verify-ui` 55
+and ASM is not a size fact. `verify-data` 53 proves the rule cannot move the verdict; `verify-ui` 57
 proves the figure is shown-with-caveat, not suppressed.
 
 ### 2.17 A suspect input produces `unknown`, not a confident answer
@@ -851,6 +860,13 @@ Rules that bind both:
   structure is MSCI's; the number is ours. `CUTOFF_DISCLOSURE` states this on every surface showing a
   cutoff, and the derived IMI cutoff (₹3,338 Cr) landing inside MSCI's own published reference range
   (₹2,952–6,789 Cr) is corroboration, not proof.
+
+  > ⚠ **And that corroboration is about THIS module's cutoff only.** Since §2.33 the shipped model
+  > derives its cutoffs by rank against the constituent count instead, and that one lands at
+  > **USD 998m against MSCI's published EM IMI range of USD 309–710m** — 1.41× above the top, because
+  > the funds sample rather than replicate. Do not carry the sentence above across to it;
+  > `model.sizeCutoffReference` states the comparison for the shipped model and verify-data 46 fails
+  > if it goes missing.
 - **Both models see the same universe** or the comparison is meaningless — no row is assessed by one
   and not the other. verify-data 32 asserts they disagree about real companies rather than being a
   relabelling of each other, and is proved by making the second return the first's verdicts.
@@ -1081,6 +1097,257 @@ first paint has always had, not something the switch introduced.
 > replaced, which was the old rebuild's signature; the table now survives a switch, which is the
 > point. The wait is `__setBaseline`, on the baseline strip being re-rendered — a signal only the
 > switch produces, and produced by different code from the cells the check reads.
+
+### 2.32 A scorecard is the easiest thing here to fake by accident
+
+The August 2026 review happened, EEM and SMIN were re-downloaded, and the product can now say how
+its forecast fared. That is the first outcome this repo has ever had — and the first number on it a
+reader could be badly misled by.
+
+> ### ⚠ THE FORECAST MUST BE FROZEN BEFORE THE ANSWER LANDS
+>
+> Every verdict recomputes from whatever holdings are committed. Import the post-rebalance workbooks
+> and the verdicts silently recompute against the new membership; score *those* and the model is
+> being marked on the answer sheet. It would score beautifully and mean nothing, and **nothing in
+> the output would look wrong.**
+>
+> So `scripts/snapshot-predictions.mjs` writes the forecast to `predictions-<review>.json` from a
+> record whose holdings predate the effective date, and refuses twice: it will not write from a
+> record dated on or after the review, and it will not overwrite an existing snapshot without
+> `--force`. The effective date comes from `model/calendar.js` — a source the record under test
+> cannot move, which is §3.8's guard rule applied to time.
+>
+> `verify-data` 44 asserts both halves, and the second is the one that matters: the frozen verdicts
+> must **measurably differ** from the live record. A snapshot regenerated post-hoc would be identical
+> on every row. Measured: **21 of 1,265 verdicts have changed** since the freeze, which is what a
+> real forecast looks like once its subject has moved. Its sabotage is that regeneration.
+
+**Only a re-read fund is evidence about what changed.** EEMS was not supplied for this review, so a
+company that left India Small-Cap is still in the fortnight-old EM Small-Cap file. A segment derived
+from all three funds reads it as "still small cap" and scores a real exit as a miss that never
+happened. Both sides of every comparison are therefore restricted to the funds whose workbook moved
+between the two dates — measured from the dates, never a hard-coded list — and the fund left out is
+**named on the page**, because *we did not look* and *nothing happened* are different facts (§2.4).
+
+**Two figures, never one, each with its denominator.** Measured on the August review:
+
+| | |
+| --- | --- |
+| companies that changed segment | **33 of 1,265** — 12 entered, 18 left, 3 migrated |
+| of what we flagged, how many moved | **23 of 166** |
+| of what moved, how many we flagged | **23 of 33**, and every one named the right event |
+| no-change calls that held | 1,063 of 1,073 |
+
+That last line is the trap. **1,232 of 1,265 companies did not move**, so calling "no change" is
+nearly free and any blended accuracy counting those true negatives reads above 97% for a model that
+never fired at all. It is shown, and captioned as a true-negative rate in the same breath. **No
+single accuracy figure is offered anywhere in the product**, and `verify-ui` 54 asserts both
+denominators are on screen along with that caption.
+
+**The page shows what it missed, in a section of its own.** Ten movements were not called, Nippon
+Life (₹21,445 Cr, called `stable`) the largest. Scattering them among the hits is not the same as
+collecting them: the first version of check 54 asserted only that missed companies were named
+*somewhere* on the page, which passed with the misses section deleted — every one of them also
+appears in the entered/exited table it belongs to. `--prove` caught it. The check now asserts they
+are in the misses section specifically.
+
+**One review is one data point, and the page says so above everything else.** §2.13 refuses to print
+a probability because a probability needs a base rate and a base rate needs history. A single scored
+review is not that history. Nothing here changes §2.13.
+
+> ### ⚠ The segments stopped being disjoint, exactly as §2.15 said they would
+>
+> §2.15 recorded `EM ∩ India SC = 0` as measured, not assumed, and said a future holdings file
+> breaking the pattern would invalidate the derivation. The August files broke it in two different
+> ways:
+>
+> | | |
+> | --- | --- |
+> | **Laurus Labs** | EEM (31 Aug) + EEMS (17 Aug) — it migrated up and the older workbook has not caught up. A date gap, not an overlap. |
+> | **Astral** | EEM 0.0002% ($0.08m) + SMIN 0.4387% ($3.40m), both 31 Aug — a migration caught mid-trade, the leg it is leaving nearly unwound. |
+>
+> So the derivation gains one rule, the desk's, in `SEGMENT_OVERLAP`: **the newest file that names a
+> company decides its segment; where the files share a date, the larger position decides.** Newer
+> evidence beats older; equally-dated evidence is settled by where the money is. Both legs stay on
+> the record so the overlap is visible rather than resolved away, and the segment is decided **once,
+> at build time, with the dates** — every later reader honours `company.segment` rather than
+> re-deriving without them and quietly disagreeing about two companies.
+>
+> What still fails the build is an **unexplained** overlap: same date, both legs substantial. That
+> would mean the segments genuinely are not disjoint and every verdict resting on the derivation is
+> void. `verify-data` 02 was rewritten around exactly that distinction.
+>
+> And the **EM SC ⊆ India SC** check cannot run across two dates at all. EM SC "holding nine
+> companies India SC lacks" is precisely what a stale file looks like after a review. Passing it
+> would be worse than failing it, so it reports **NOT MEASURABLE** and `CheckList` gained a `skip`
+> that is printed on every run — a suite that quietly stops testing something and still reports a
+> clean sheet manufactures confidence rather than providing it.
+
+> ### ⚠ The record now mixes two holdings dates, and the freshness claim nearly lied
+>
+> `asOf.isharesHoldings` read `funds[0].asOf` — harmless only while all three workbooks shared a
+> date. EEM is now the *newest*, so the header pill, whose whole job is to name the **oldest** input
+> (§2.10), would have claimed a fortnight of currency the record does not have. It takes the minimum
+> now, and `holdingsAsOfByFund` carries all three so a surface can name the stale one.
+>
+> That map lives **beside** `asOf`, not inside it: `asOf` is a registry of single dated feeds and the
+> freshness surface walks it key by key. An object among the dates is a key no feed can carry, and
+> assertion 35 said so immediately.
+
+**Identity is ISIN here too, and it earned its keep on the first run.** BlackRock respelled Bajaj
+Auto's ticker from `BAJAJ-AUTO` to `BAJAJ.AUTO` between the two files. A ticker-keyed diff reports
+that as one exit and one entry — two fabricated events on a company that did not move, in a table
+whose entire purpose is to count events. Keyed on ISIN it reads as what it is: no change, with a
+weight move.
+
+### 2.33 The model was wrong in KIND, not in degree, and the corrections were already published
+
+The August 2026 forecast named **166 companies as moving; 33 moved; 23 of the 166 were right** —
+13.9% precision, 69.7% recall. Diagnosed against the outcome, none of the four large errors was a
+mis-set number. Each was the model asking a different question from the one MSCI answers, and each
+has a correction MSCI prints and we can cite.
+
+| Error | What MSCI does | Where it cost us |
+| --- | --- | --- |
+| one size measure | the cutoff is a **full** market cap (p. 28), free float is a **separate** minimum (p. 30) | the two real migration-downs |
+| no hysteresis | 2/3 out, 1.5× in (pp. 44–45) | 39 migration flags, 3 events |
+| no FIF floor | FIF ≥ 0.15 (pp. 21, 45) | 16 inclusion flags on companies no fund can hold |
+| a fixed rupee band | cutoffs are derived at each review | exits ran to ₹3,749 Cr against a ₹2,538 Cr bar |
+
+> ### ⚠ THE BUFFER WAS NEVER WRONG. IT WAS BEING APPLIED TO THE WRONG QUANTITY
+>
+> This is the finding worth carrying forward, because it looks like a threshold problem and is not.
+> Measured against the Standard cutoff on **full market cap**, Balkrishna and Astral sit at −35.5%
+> and −41.1% — comfortably inside MSCI's published −33.3% lower buffer. Measured on **free float**,
+> the same two sit at −31.6% and −31.7%, where that same buffer misses BOTH.
+>
+> A first attempt read that as "MSCI's number does not transfer" and proposed a fitted −30%, on
+> n=2. It transfers perfectly. **Before deciding that a published rule does not fit, check what you
+> are applying it to.**
+>
+> ### ⚠ AND FULL MARKET CAP DOES NOT ORDER THEM BETTER — IT ORDERS THEM WORSE
+>
+> The obvious next sentence — "so full market cap is the better measure" — is false, and it was
+> written here before it was checked. Rank the 166 Standard constituents from smallest up and the
+> two real migration-downs are **#1 and #2 by free float** and **#4 and #6 by full market cap**.
+> Free float orders them perfectly; full market cap does not.
+>
+> What full market cap buys is not a better ordering, it is **a threshold somebody else published**.
+> On free float, catching both needs a bar we invent — the worst two, or −30%, fitted to n=2. On
+> full market cap, MSCI's own −33.3% catches both with 7 flags. Both end at roughly seven flags and
+> two hits on this review; the difference is entirely whose number sets the bar.
+>
+> So the reason to cut on full market cap is §2.25's, and only §2.25's: it is the quantity MSCI
+> expresses a cutoff in. A separation argument for it would be reading a preference out of noise —
+> as the AUC figures below already show, twice.
+
+**The cutoffs are ours, the ratios are MSCI's, and nothing may blur them.** Both cutoffs are the Nth
+company by full market cap across the **whole** record, where N is the number of India names the
+funds show MSCI holding in that segment — 166 Standard, 622 IMI on the record of 31 Aug 2026. That
+is §2.14's non-circular rank crossing moved onto the size measure MSCI cuts on: the Nth company is
+drawn from the whole universe, never from the segment under test, which is what lets a constituent be
+overtaken at all. It fires: 23 of 458 Small Cap constituents sit below the deletion buffer and 5 of
+167 Standard below the migration one.
+
+`gimi.js` derives its cutoffs by MSCI's coverage walk instead, and **on our universe that walk lands
+in the wrong place**: 1,016 companies clear its IMI cutoff against 623 constituents, and 306 clear
+its Standard cutoff against 165. MSCI's 85% and 99% targets are of the *Market Investable Equity
+Universe* — after liquidity, foreign-room, length-of-trading and minimum-size screens — and we run
+them over everything BSE lists above ₹2,000 Cr. Apply the 2/3 buffer to a cutoff that low and only
+**three** constituents fall below it, none of which left. That is the whole reason the GIMI model
+calls every one of August's 18 exits `stable`.
+
+> ### ⚠ AND OUR CUTOFF IS BIASED HIGH — §2.26's CORROBORATION DOES NOT CARRY OVER
+>
+> §2.26 recorded the coverage-walk IMI cutoff landing inside MSCI's own published reference range as
+> corroboration. The rank-derived one does not land inside it: **USD 998m against MSCI's published
+> EM IMI Global Minimum Size Range of USD 309–710m** (pp. 24, 26), 1.41× above the top.
+>
+> The reason is in the derivation. The constituent count comes from three iShares funds that
+> **sample** rather than replicate, so it under-states MSCI's real India IMI membership and the Nth
+> company is bigger than MSCI's own cutoff. `model.sizeCutoffReference` computes that comparison on
+> every build so it cannot go stale, and verify-data 46 fails if it is dropped. Citing MSCI's pages
+> for the ratios while hiding that the bar they scale sits 40% above MSCI's own reference would be a
+> tier-3 figure wearing a tier-1 face.
+
+**The desk's bands are kept and no longer decide.** They fire as `desk-inclusion-band` and
+`desk-exclusion-band` on every company, floated by `SEGMENT_BAND_ADJUSTMENT`, carrying their own
+result — and nothing branches on them. Deleting them because one review disagreed would throw away
+the client's frame of reference; leaving them silently beside a verdict they did not produce would be
+worse. §2.14 again: where the two part company, the disagreement is the information.
+
+#### What was rejected, and why it is worth writing down
+
+Bands of **₹8,000 Cr and ₹3,800 Cr**, fitted to these 33 events, scored **20.5% / 97.0%** — better
+than what ships. They were rejected on measurement, not on principle:
+
+- both are a **sample maximum**: ₹8,000 Cr is 1.4% above the largest caught exit, ₹3,800 Cr is 1.4%
+  above the next. A max-statistic estimator has almost no chance of covering next quarter's max.
+- refit on 32 of the 33 and score the one held out, and **97.0% becomes 90.9%**; across 96
+  deterministic train/test splits, pooled held-out recall is **86.0%** and one fold falls below the
+  13.9% baseline's own recall.
+- re-struck on **the ten days MSCI actually priced on** (20–31 July, §2.25) rather than our 28 August
+  close, the fitted model catches **29 of 33 instead of 32** — a systematic four-to-six-week drift
+  that recurs every quarter. **What ships loses one: 27 at 28 August, 26 on MSCI's window**, because
+  a rank-derived cutoff re-prices with the companies it is compared against and a rupee band cannot.
+  verify-data 50 asserts that invariance and is proved by moving one segment's share counts alone.
+
+**The separation statistic does not carry the argument either, and it was nearly quoted as if it
+did.** Over the 18 exits full market cap does score better than free float — AUC 0.919 against 0.899
+— but on 18 positives that difference is +0.019 with a bootstrap 95% interval of **[−0.015, +0.054]**,
+and on the 12 entries the sign reverses (0.912 against 0.923). What settles the question is that MSCI
+publishes the basis, not that our sample prefers it.
+
+#### What it scores, and why that figure is not a track record
+
+**138 flagged, 27 right, of 33 movers — 19.6% precision, 81.8% recall**, against 166/23 = 13.9% /
+69.7% as forecast. Both figures are computed by `build-rebalance.mjs` from the frozen snapshot and
+live in `rebalance-2026-08.json`; neither is typed anywhere (§2.5).
+
+**It is in-sample.** No threshold was fitted — every ratio is MSCI's, every cutoff is a constituent
+count — but the *decision* to use MSCI's geometry was taken after reading the result. A model scored
+on the review that motivated it is answering a question it has already seen. The page says so, the
+file says so, and verify-ui 55 fails if either stops saying it. §2.13 is unchanged: one review is one
+data point, and there is still no probability anywhere in this product.
+
+**Three movers it would still miss**, and they are named on the page: Embassy Developments, below the
+entry buffer; Laurus Labs, 0.7% short of the 1.5× migration bar; and Nippon Life India AMC — which
+did not shrink but grew out of Small Cap, and reads as an exit only because the fund that would have
+received it does not hold it.
+
+> ### ⚠ ONE MSCI RATIO DOES NOT SURVIVE OUR CUTOFF, AND IT IS THE FREE-FLOAT MINIMUM
+>
+> MSCI asks a new constituent for free float of at least 50% of the size-segment cutoff (p. 30). The
+> ratio is fine. The cutoff it scales is ours, and it sits **1.41× above MSCI's own published range**
+> — so half of it is a bar 40% too high, and on the entry side that bites.
+>
+> Measured: it removed 22 of the 77 candidates clearing the IMI cutoff, and **three of the 22
+> entered** (Clean Max, Amagi Media Labs, WeWork India). 13.6% of what it discarded went on to
+> enter, against 11.7% of the pool it filtered — **it is anti-selective**, throwing candidates away
+> at a higher rate than the ones it keeps. Gating on it cost 3 of 33 movers and bought 0.8 pp of
+> precision.
+>
+> So it is recorded on every row and decides nothing, on the DESK_BAND_ROLE pattern. **The exit side
+> keeps its free-float test**, and that is not inconsistency: there the bar is 2/3 × 50% of the same
+> cutoff — low enough to still work as a floor — and it earns 4 of the 18 exits. Same ratio, same
+> bias, different distance from the thing being measured.
+
+#### The ceiling this does not break
+
+**Inclusion cannot be fixed by a threshold, and the reason is arithmetic.** 642 companies sat outside
+the index and 12 entered — a base rate of 1.9%. No size cut gets entry precision above about 15%,
+because MSCI's own rule (p. 44) is that a company above the entry buffer is added *"only to the
+extent that they replace current constituents which have fallen below the Small Cap Lower Buffer"*.
+Clearing the bar makes a company **eligible**, and the number of slots is roughly the number of
+exits. An inclusion verdict here is a candidacy and the vocabulary must keep saying so.
+
+**Listing age is real and was not shipped.** Entry rate by age on the August record: 0–0.5y 4.4%,
+0.5–1y **10.4%**, 1–2y 1.9%, 2–5y 0.0%, 5–10y 2.6%, 10y+ **0.8%** — a 13× lift, from a genuine
+measured date (`DATE OF LISTING` in `nsearchives.nseindia.com/content/equities/EQUITY_L.csv`, which
+answers from a datacentre IP where the main NSE API does not, 94.9% coverage of our universe). It
+was left out because 4 of the 12 entrants are long-listed — Embassy Developments at 19.4 years, Adani
+Energy at 11.0 — so gating on it buys precision by losing movers. It is the best-supported thing not
+in the model.
 
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
@@ -1569,8 +1836,12 @@ scripts/
                                    -> public/data/price-history.json
   fetch-corporate-actions.mjs      BSE's own action history → public/data/corporate-actions.json
   build-companies.mjs              everything → public/data/companies.json
-  verify-data.mjs                  46 data assertions; no browser, no network
-  verify-ui.mjs                    36 interface assertions; the served site
+  snapshot-predictions.mjs         FREEZE the forecast before a review lands
+                                   -> public/data/predictions-<review>.json
+  build-rebalance.mjs              frozen forecast vs the outcome
+                                   -> public/data/rebalance-<review>.json
+  verify-data.mjs                  53 data assertions; no browser, no network
+  verify-ui.mjs                    38 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
@@ -1601,6 +1872,10 @@ public/
                                    fetched by the browser only on demand
   data/corporate-actions.json      generated — BSE's published bonuses, splits, rights
   data/companies.json              generated — the record the interface reads
+  data/predictions-2026-08.json    generated ONCE, before the August review took
+                                   effect. Never regenerated: see 2.32
+  data/rebalance-2026-08.json      generated — what the review did, and how the
+                                   frozen forecast fared against it
   js/model/thresholds.js           desk bands + the observed boundary, both labelled
   js/model/segments.js             constituent → segment; disjointness re-checked
   js/model/assess.js               the rules engine → verdict + rulesFired
@@ -1611,6 +1886,9 @@ public/
   js/core/live.js                  visibility-aware poller
   js/core/range.js                 a typed min–max range, validated before it is converted
   js/data/quotes.js                live overlay; memory only, never written back
+  js/data/rebalance.js             the single reader of rebalance-<review>.json
+  js/tabs/rebalance.js             the Latest Rebalance view — the one screen
+                                   that marks its own homework
 worker/
   index.js                         static assets + POST /api/quotes
   http.mjs                         ETag / 304 / CORS / cache-state helpers
@@ -1648,13 +1926,18 @@ node scripts/reconcile-shares.mjs      # share-count outliers -> quarantine list
 node scripts/fetch-corporate-actions.mjs  # ~1,240 requests, ~4 min - BEFORE price history
 node scripts/fetch-price-history.mjs   # 37 requests: both MSCI price windows + the rebalance baselines
 node scripts/build-companies.mjs       # no network; joins everything
+
+# BEFORE refreshing the workbooks for a review that is about to take effect:
+node scripts/snapshot-predictions.mjs --review=2026-11   # freeze the forecast
+# ...then drop in the fresh .xls files, re-measure EXPECTED, rerun the pipeline:
+node scripts/build-rebalance.mjs --review=2026-11        # score it
 node scripts/verify-data.mjs           # the data assertions; run before committing
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 46 assertions; no browser, no network
+node scripts/verify-data.mjs           # 53 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 36 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 38 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 

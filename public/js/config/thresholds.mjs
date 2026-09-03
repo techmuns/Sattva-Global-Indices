@@ -415,6 +415,187 @@ export const FLOAT_SOURCE_RULE = {
 };
 
 /**
+ * ---------------------------------------------------------------------------
+ * WHEN A COMPANY IS IN THE EM ETF *AND* A SMALL-CAP FUND
+ * ---------------------------------------------------------------------------
+ * CLAUDE.md §2.15 recorded the segments as strictly disjoint on the committed
+ * holdings and said, in as many words, that a future holdings file breaking the
+ * pattern would invalidate the derivation. The August 2026 files broke it, and
+ * the two ways they broke it are different facts:
+ *
+ *   1. DIFFERENT DATES. EEM and SMIN were re-downloaded after the review took
+ *      effect; EEMS was not. Laurus Labs shows in EEM (31 Aug) and in EEMS
+ *      (17 Aug) because it migrated up and the older file has not caught up.
+ *      Nothing is wrong with the funds; the record is comparing two moments.
+ *
+ *   2. SAME DATE, ONE SIDE A RESIDUE. Astral shows in EEM at 0.0002% ($0.08m)
+ *      and in SMIN at 0.4387% ($3.40m), both files dated 31 Aug. That is what a
+ *      migration LOOKS LIKE while the trade is still unwinding — a real, tiny,
+ *      shrinking leg on the side being left.
+ *
+ * So the derivation gains one rule, and it is the desk's:
+ *
+ *   THE NEWEST FILE THAT NAMES THE COMPANY DECIDES ITS SEGMENT. Where the files
+ *   are dated the same, the larger position by market value decides.
+ *
+ * Newer evidence beats older evidence; equally-dated evidence is settled by
+ * where the money actually is. Both halves are recorded on the company, so a
+ * reader sees the overlap rather than a segment that quietly picked a side.
+ */
+export const SEGMENT_OVERLAP = {
+  /**
+   * Below this share of the larger position, a same-dated second leg is read as
+   * a residue being unwound rather than as a second membership.
+   *
+   * Measured on the 31 Aug 2026 files: Astral's EM leg is 2.4% of its small-cap
+   * leg, and it is the only same-dated overlap in the record. 10% is the desk's
+   * round number an order of magnitude above that — not a published tolerance,
+   * and not MSCI's. It classifies an overlap; it never decides a segment, which
+   * the rule above does on its own.
+   */
+  residualShareOfLargerPct: 10,
+  rule: 'the newest file that names the company decides its segment; where the files share a date, '
+    + 'the larger position by market value decides',
+  attribution: "the desk's rule. MSCI publishes no such tie-break because MSCI's own segments "
+    + 'are disjoint by construction — the overlap is an artefact of reading two tracking funds, '
+    + 'captured at two moments, as evidence of one index.',
+};
+
+/**
+ * ---------------------------------------------------------------------------
+ * WHAT THE AUGUST 2026 REVIEW TAUGHT, AND WHAT WAS CHANGED BECAUSE OF IT
+ * ---------------------------------------------------------------------------
+ * The August 2026 review is the first outcome this project has ever had. The
+ * frozen forecast (`predictions-2026-08.json`) named 166 companies as moving; 33
+ * moved; 23 of the 166 were right. 13.9% precision, 69.7% recall.
+ *
+ * Diagnosed against the outcome, the errors were not mis-set numbers. They were
+ * three CATEGORY errors — the model asking a different question from the one
+ * MSCI answers — and each has a published correction:
+ *
+ *   1. ONE SIZE WHERE MSCI USES TWO. Verdicts were decided on free-float market
+ *      cap alone. MSCI's size cutoff is a FULL market cap (GIMI p. 28) and free
+ *      float enters through a SEPARATE minimum (p. 30). Measured over the
+ *      review's 18 exits, full market cap separates better than free float
+ *      (AUC 0.919 against 0.899) — and the two real migration-downs sat at
+ *      −35.5% and −41.1% of the Standard cutoff on full market cap, comfortably
+ *      inside MSCI's published −33.3% buffer, but at −31.6% and −31.7% on free
+ *      float, where that same buffer misses BOTH. The buffer was never wrong;
+ *      it was being applied to the wrong quantity.
+ *
+ *   2. NO HYSTERESIS. A single bright line predicted 39 migrations and 3
+ *      happened. MSCI buffers migration asymmetrically — out below 2/3 of the
+ *      cutoff, in above 1.5× it (pp. 44–45) — precisely so that a company
+ *      drifting a few percent across a line does not trade.
+ *
+ *   3. NO FOREIGN INCLUSION FACTOR FLOOR. MSCI requires FIF ≥ 0.15 (pp. 21, 45).
+ *      52 of the 1,239 companies carrying a float factor sit below it — the
+ *      other 26 of 1,265 have no reading at all and are neither counted nor
+ *      excluded (§2.3, §2.5) — and NOT ONE of the 52 is held by any fund, NOT
+ *      ONE entered: LIC at 0.035, SBI Funds at 0.070, IDBI Bank at 0.052.
+ *      Sixteen of them carried an inclusion verdict under the old rules, and
+ *      inside the corrected model the floor removes 38 candidates at zero recall
+ *      cost. The smallest actual entrant's factor is 0.225, half again above the
+ *      floor, so it is not a bar the events came close to.
+ *
+ * ---------------------------------------------------------------------------
+ * ⚠ AND THE CUTOFF THE RATIOS SCALE IS OURS, AND IT IS BIASED HIGH
+ * ---------------------------------------------------------------------------
+ * §2.26 recorded, of the coverage-walk cutoff, that landing inside MSCI's own
+ * published reference range was corroboration. THAT DOES NOT CARRY OVER. The
+ * rank-derived IMI cutoff is USD 998m against MSCI's published EM IMI Global
+ * Minimum Size Range of USD 309–710m (pp. 24, 26) — 1.41x above the top.
+ *
+ * The reason is in the derivation: the constituent count comes from three
+ * iShares funds that SAMPLE rather than replicate, so it under-states MSCI's
+ * real India IMI membership and the Nth company by full market cap is therefore
+ * bigger than MSCI's own cutoff. `model.sizeCutoffReference` computes the
+ * comparison on every build so it cannot go stale, and verify-data 46 fails if
+ * it is dropped.
+ *
+ * ---------------------------------------------------------------------------
+ * ⚠ NOT ONE NUMBER BELOW WAS FITTED TO THE OUTCOME, AND THE CHOICE STILL WAS
+ * ---------------------------------------------------------------------------
+ * Every ratio in the corrected model is MSCI's own, cited to a page in
+ * `msci-methodology.mjs`, and every rupee figure is derived from the constituent
+ * counts on the holdings files. Bands of ₹8,000 Cr and ₹3,800 Cr fitted to these
+ * 33 events scored better still (20.5% / 97.0%) and were REJECTED, for a reason
+ * that was measured rather than asserted: refit the bands on 32 of the 33 events
+ * and score the one held out, and 97.0% becomes 90.9% — three events the
+ * in-sample fit catches that a leave-one-out fit does not. Two of the 33 turn on
+ * 2.5% of the fitted bar. A threshold read off 18 exits is worth nothing next
+ * quarter.
+ *
+ * But the DECISION to derive the cutoffs by rank rather than by the coverage
+ * walk was made knowing this outcome. So the figures below are IN-SAMPLE. They
+ * are what the corrected model would have said about a review it was designed
+ * after, which is not the same thing as what it will say about the next one.
+ * Nothing may present them as a track record. §2.13 still stands: one review is
+ * one data point, and there is still no probability anywhere in this product.
+ */
+export const AUGUST_2026_CALIBRATION = {
+  review: '2026-08',
+  /**
+   * ⚠ NO SCORE IS TYPED HERE, and that is not tidiness.
+   *
+   * CLAUDE.md §2.5: no figure in any config, caption or doc may be hand-typed —
+   * derive it from the module that owns the data. Both the forecast score and
+   * the retrospective one are computed by `scripts/build-rebalance.mjs` from the
+   * frozen snapshot and written into `rebalance-<review>.json`, which is where
+   * every surface reads them. A number copied into this block would go stale the
+   * first time a rule moved, and would look authoritative while it did.
+   */
+  scoresLiveIn: 'public/data/rebalance-2026-08.json',
+  inSample: true,
+  changes: [
+    'size decided on full market cap, which is the basis MSCI expresses a cutoff in (GIMI p. 28)',
+    "MSCI's asymmetric migration buffers, 2/3 out and 1.5x in (pp. 44-45)",
+    "MSCI's 0.15 Foreign Inclusion Factor floor (pp. 21, 45)",
+    'cutoffs derived by rank against the observed constituent count, not by the coverage walk',
+    "the free-float minimum for a NEW constituent (p. 30) recorded but NOT applied — our cutoff is "
+      + 'too high for it, and it discarded three of this review\'s twelve entrants',
+  ],
+  attribution:
+    "the desk's decision, taken after seeing one review's outcome. The RATIOS are MSCI's and are "
+    + 'cited to a page; the rupee cutoffs they are applied to are ours, derived from the '
+    + 'constituents the funds hold. No threshold was tuned to fit the 33 events.',
+  note:
+    'IN-SAMPLE. The corrected model was designed knowing what happened in August 2026, so its '
+    + 'retrospective score is not a forecast record and must never be shown as one.',
+};
+
+/**
+ * The desk's rupee bands are KEPT, and they are no longer what decides a verdict.
+ *
+ * ---------------------------------------------------------------------------
+ * TWO THRESHOLDS, AND THE DISAGREEMENT IS THE INFORMATION — CLAUDE.md §2.14
+ * ---------------------------------------------------------------------------
+ * `REVIEW_THRESHOLDS` above is the desk's own heuristic and it is still measured
+ * on every company, still floated by `SEGMENT_BAND_ADJUSTMENT`, and still
+ * recorded on every rule that fires. What changed in September 2026 is which of
+ * the two the VERDICT follows.
+ *
+ * Deleting the desk's band because a review disagreed with it would answer a
+ * question about accuracy by throwing away the client's own frame of reference.
+ * Keeping it silently beside a verdict it did not produce would be worse. So it
+ * is carried explicitly, as its own rule, with its own result, and the drill
+ * panel says where the two part company.
+ *
+ * Measured on the record of 28 Aug 2026: the desk's floated exclusion band puts
+ * the deletion bar at ₹2,538 Cr of free float, and August's exits ran to
+ * ₹3,749 Cr — PTC India left the index carrying more free float than the desk's
+ * own INCLUSION band asks of a new entrant. That is the disagreement, it is
+ * large, and it is on the record rather than resolved away.
+ */
+export const DESK_BAND_ROLE = {
+  decidesVerdict: false,
+  stillMeasured: true,
+  rule: "the desk's bands are recorded on every company and named on every drill; the verdict "
+    + "follows MSCI's published geometry applied to the observed constituent counts",
+  attribution: "the desk's own decision, September 2026, after the August review was scored",
+};
+
+/**
  * NSE's Additional Surveillance Measure, as a QUALIFIER ON A FORCED FLOW.
  *
  * This is the desk's judgement and it is NOT MSCI's. MSCI publishes no ASM
@@ -430,9 +611,8 @@ export const FLOAT_SOURCE_RULE = {
  * that is a real derived quantity and hiding it would be its own dishonesty (§2.6)
  * — but the flow is marked NOT MANDATED, and days-of-ADV is flagged as
  * understated, because ASM shrinks the volume a fund can actually work through. It
- * NEVER changes the size-based verdict: the verdict answers "is this company big
- * or small enough", which ASM does not touch. verify-data proves the verdict
- * multiset is unmoved by ASM.
+ * NEVER changes the size-based verdict: the verdict is a size question, which ASM
+ * does not touch. verify-data proves the verdict multiset is unmoved by ASM.
  */
 export const ASM_FLOW_CONSTRAINT = {
   enabled: true,

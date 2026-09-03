@@ -21,7 +21,8 @@ import { exportCsv } from '../ui/export.js';
 // converts INTO rupees any more. The typed range is compared in ₹ crore, so
 // only `toCrore` — the record's way out — is needed here.
 import { REVIEW_THRESHOLDS, toCrore, MARKET_CAP_FILTER_ATTRIBUTION, RELATIVE_PERFORMANCE, REBALANCE_BASELINE } from '../config/thresholds.mjs';
-import { observedBoundary, rankByFreeFloat, THRESHOLD_SOURCE } from '../model/thresholds.js';
+import { observedBoundary, observedSizeCutoffs, rankByFreeFloat, THRESHOLD_SOURCE } from '../model/thresholds.js';
+import { BUFFERS as MSCI_BUFFERS, MIN_FIF as MSCI_MIN_FIF } from '../config/msci-methodology.mjs';
 import { segmentOf, segmentFloatTotals, SEGMENTS } from '../model/segments.js';
 import { assess, VERDICTS, DISCLOSURE, TRADE_IMPLYING } from '../model/assess.js';
 import { estimateFlows } from '../model/flows.js';
@@ -138,6 +139,11 @@ export function rebuildModel() {
   const source = data.all();
   const live = source.map(liveCompany);
   const boundary = observedBoundary(live, segmentOf);
+  // ⚠ REBUILT FROM THE LIVE VIEW, LIKE EVERY OTHER PART OF THE CONTEXT.
+  // The size cutoffs are the Nth company by FULL market cap, and a live quote
+  // moves full market cap as surely as it moves free float — so a cutoff carried
+  // over from the build would rank today's prices against yesterday's bar.
+  const sizeCutoffs = observedSizeCutoffs(live, segmentOf);
   const ranks = rankByFreeFloat(live, data.keyOf);
   const floatTotals = segmentFloatTotals(live);
   const quarantined = new Set(
@@ -168,6 +174,13 @@ export function rebuildModel() {
     quarantined,
     keyOf: data.keyOf,
     segmentReturns: data.benchmarks()?.adjustment?.segmentReturnsInrPct ?? null,
+    // ⚠ AND THIS IS LOAD-BEARING IN EXACTLY THE SAME WAY segmentReturns WAS.
+    // Without it `barsFrom` has no cutoff, every rule short-circuits on
+    // `no-size-cutoff`, and every one of 1,265 rows renders `unknown` — which
+    // is at least a loud failure rather than a silent disagreement, and it is
+    // still the same class of bug: the build's context and the browser's must
+    // be built from one list, not two.
+    sizeCutoffs,
   };
   const flowContext = { flowPrimitives: data.flowPrimitives(), segmentFloatTotals: floatTotals };
 
@@ -222,7 +235,7 @@ export function rebuildModel() {
   }
 
   modelState = {
-    boundary, ranks, floatTotals, assessments, gimiAssessments, flows, trendSignals, pressures,
+    boundary, sizeCutoffs, ranks, floatTotals, assessments, gimiAssessments, flows, trendSignals, pressures,
     baseline, cutoffs, window, builtAt: new Date(),
   };
   return modelState;
@@ -310,6 +323,9 @@ export function methodologyDelta(rows) {
 }
 
 export const modelBoundary = () => modelState?.boundary ?? null;
+
+/** The two size cutoffs the verdicts on screen were decided against. */
+export const modelSizeCutoffs = () => modelState?.sizeCutoffs ?? null;
 
 /**
  * The assessment in force — under the shipped methodology unless a caller names
@@ -745,9 +761,25 @@ function buildStats(scopeRows) {
             .map((k) => `<div class="flex justify-between gap-3 text-xs"><span class="font-semibold text-slate-700">${escapeHtml(VERDICTS[k].label)}</span><span class="tabular-nums text-slate-600">${escapeHtml(num(verdictCounts[k]))} of ${escapeHtml(num(inView))}</span></div>`)
             .join('') +
           '</div>' +
-          `<p class="text-xs text-slate-400">Two thresholds produce these, and they are not the same thing. The desk's bands ` +
-          `(${escapeHtml(REVIEW_THRESHOLDS.inclusion.label)}, ${escapeHtml(REVIEW_THRESHOLDS.exclusion.label)}) decide index ENTRY and EXIT; ` +
-          `the observed constituent boundary decides which SEGMENT a company belongs in. MSCI does not publish its size cut-offs in advance.</p>` +
+          (() => {
+            // ⚠ TWO NUMBERS BEHIND EVERY VERDICT, AND WHOSE EACH IS.
+            // The RATIOS are MSCI's, cited to a page. The rupee CUTOFFS they
+            // are applied to are ours, derived from the constituents the funds
+            // hold — MSCI derives its own across all of emerging markets from a
+            // universe we cannot see. Neither may be shown as the other (§2.25).
+            const cut = modelSizeCutoffs();
+            if (!cut) return '';
+            return `<p class="text-xs text-slate-400">A verdict is decided by MSCI's published geometry — the ` +
+              `${escapeHtml(MSCI_BUFFERS.lowerLabel)} deletion buffer, the ${escapeHtml(MSCI_BUFFERS.upperLabel)} entry buffer, ` +
+              `a separate free-float minimum and the ${escapeHtml(String(MSCI_MIN_FIF.floor))} Foreign Inclusion Factor floor — ` +
+              `applied to two size cutoffs of OURS: the ${escapeHtml(num(cut.imiCount))}th company by full market cap ` +
+              `(₹${escapeHtml(cr(cut.imi.inr))} Cr) for index membership, and the ${escapeHtml(num(cut.standardCount))}th ` +
+              `(₹${escapeHtml(cr(cut.standard.inr))} Cr) for the Standard/Small Cap line, both across all ` +
+              `${escapeHtml(num(cut.rankedCount))} companies carrying both sizes. The ratios are MSCI's; the rupee figures are not, ` +
+              `and MSCI does not publish its own cut-offs in advance. The desk's bands ` +
+              `(${escapeHtml(REVIEW_THRESHOLDS.inclusion.label)}, ${escapeHtml(REVIEW_THRESHOLDS.exclusion.label)}) are still measured ` +
+              `on every row and no longer decide a verdict — open any row to see where the two part company.</p>`;
+          })() +
           '</div>',
       },
     },
@@ -1051,9 +1083,9 @@ function assessmentSectionHtml(company) {
       // to see the desk's raw band, the segment move that shifted it, and where
       // the bar actually landed. Otherwise a tier-3 adjustment reads as a fact.
       if (rule.band?.applied) {
-        const raw = rule.key.startsWith('entry-')
-          ? (rule.key === 'entry-upper-band' ? rule.band.rawInclusion?.highInr : rule.band.rawInclusion?.lowInr)
-          : (rule.key === 'exclusion-lower-band' ? rule.band.rawExclusion?.lowInr : rule.band.rawExclusion?.highInr);
+        const raw = rule.key === 'desk-inclusion-band'
+          ? rule.band.rawInclusion?.highInr
+          : rule.band.rawExclusion?.lowInr;
         html +=
           '<tr class="border-t border-slate-50"><td colspan="5" class="px-2 pb-1.5 text-[10px] leading-relaxed text-indigo-700">'
           + `Desk band <span class="tabular-nums">₹${escapeHtml(cr(raw))} Cr</span>, floated to `
@@ -1455,9 +1487,10 @@ function provenanceSectionHtml(company) {
     '<p class="rounded-lg bg-white p-2.5 ring-1 ring-slate-100"><span class="font-bold text-slate-700">Derived by us:</span> ' +
     'the float factor, shares outstanding (full market cap ÷ price, both BSE) and free-float market cap — each with its formula shown beside it above.</p>' +
     '<p class="rounded-lg bg-white p-2.5 ring-1 ring-slate-100"><span class="font-bold text-slate-700">Modelled by us:</span> ' +
-    'the segment placement, the verdict and any flow estimate. These are rules we wrote, run against the desk\'s ' +
-    'thresholds and the observed constituent boundary — every one shows its working in the Assessment section above. ' +
-    'They are not probabilities and not MSCI\'s decision.</p>' +
+    'the segment placement, the verdict and any flow estimate. These are rules we wrote. Their RATIOS are MSCI\'s, ' +
+    'cited to a page; the rupee cutoffs those ratios are applied to are ours, derived from the constituents the funds ' +
+    'hold — every one shows its working in the Assessment section above. They are not probabilities and not MSCI\'s ' +
+    'decision.</p>' +
     '</div>'
   );
 }
@@ -2211,11 +2244,28 @@ export function renderCompanies(host, { onStatusChange } = {}) {
           id: 'verdict',
           label: 'Verdict',
           allLabel: 'Any verdict',
-          options: Object.keys(VERDICTS).map((key) => ({
-            value: key,
-            label: VERDICTS[key].label,
-            match: (row) => assessmentFor(row)?.verdict === key,
-          })),
+          // ⚠ THE COUNT IS ON THE OPTION, AND A VERDICT NOBODY CARRIES SAYS SO.
+          //
+          // Every verdict in the vocabulary is offered whether or not the record
+          // carries one, because the list is what the model can say and hiding
+          // an empty one would quietly redefine it. But an option that filters
+          // to nothing reads as a broken control, and an empty table read as
+          // evidence about the companies is the §2.4 failure — "we did not find
+          // any" and "there are none" are different sentences. So each option
+          // carries its own count, derived from the rows in hand and never
+          // typed (§2.5), and a zero is spelled out rather than left to be
+          // discovered by clicking.
+          options: Object.keys(VERDICTS).map((key) => {
+            const match = (row) => assessmentFor(row)?.verdict === key;
+            const n = rows.filter(match).length;
+            return {
+              value: key,
+              label: n === 0
+                ? `${VERDICTS[key].label} — none on this record`
+                : `${VERDICTS[key].label} (${count(n)})`,
+              match,
+            };
+          }),
         },
         {
           id: 'watch',

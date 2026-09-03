@@ -40,48 +40,60 @@ const FIXTURES = join(HERE, 'fixtures');
 const OUT_PATH = join(REPO, 'public', 'data', 'msci-funds.json');
 
 /**
- * EXPECTED describes THE THREE WORKBOOKS COMMITTED IN scripts/fixtures/,
- * captured from BlackRock on 2026-08-18 with holdings as of 2026-08-17.
+ * EXPECTED describes THE THREE WORKBOOKS COMMITTED IN scripts/fixtures/.
+ *
+ * ⚠ THE THREE ARE NO LONGER AS OF THE SAME DAY, and that is a fact about the
+ * record rather than a defect here. EEM and SMIN were re-downloaded after the
+ * August 2026 review took effect and are as of 2026-08-31; EEMS was not
+ * supplied and is still as of 2026-08-17. `holdingsAsOf` is therefore checked
+ * per fund, `msci-funds.json` carries a date per fund, and everything
+ * downstream reads the OLDEST of them as the record's freshness — a fresh EEM
+ * does not make a fortnight-old EEMS current (CLAUDE.md §2.10).
  *
  * These are NOT invariants of the funds. A workbook refreshed next month will
  * legitimately move every count and every weight in this table. When you drop
  * in fresh fixtures, the correct response to a failure here is to re-measure
  * and update this table in the same commit as the new .xls files — never to
- * loosen the check.
+ * loosen the check. This table was last re-measured on 2026-09-03, from the
+ * script's own refusal message.
  *
  * `declaredSecurities` is cross-checked against the value the workbook itself
  * prints in its "Number of Securities (excluding cash and derivatives)" row, so
  * that line is verified against the file rather than merely asserted about it.
  */
 const EXPECTED = {
+  // Re-downloaded after the August 2026 review took effect.
   eem: {
     name: 'iShares MSCI Emerging Markets ETF',
-    holdingsAsOf: '2026-08-17',
-    declaredSecurities: 1197,
+    holdingsAsOf: '2026-08-31',
+    declaredSecurities: 1189,
     sharesOutstanding: 464850000,
-    dataRows: 1323,
-    indiaRows: 166,
-    indiaEquityRows: 165,
-    indiaWeightPct3dp: '11.315',
-    onNse: 163,
+    dataRows: 1283,
+    indiaRows: 169,
+    indiaEquityRows: 168,
+    indiaWeightPct3dp: '11.360',
+    onNse: 166,
     onBse: 2,
     tickerNone: 0,
     hasTypeColumn: true,
   },
   smin: {
     name: 'iShares MSCI India Small-Cap ETF',
-    holdingsAsOf: '2026-08-17',
-    declaredSecurities: 461,
+    holdingsAsOf: '2026-08-31',
+    declaredSecurities: 453,
     sharesOutstanding: 10750000,
-    dataRows: 466,
-    indiaRows: 462,
-    indiaEquityRows: 461,
-    indiaWeightPct3dp: '99.729',
-    onNse: 454,
+    dataRows: 477,
+    indiaRows: 454,
+    indiaEquityRows: 453,
+    indiaWeightPct3dp: '99.442',
+    onNse: 446,
     onBse: 7,
     tickerNone: 3,
     hasTypeColumn: false,
   },
+  // NOT re-downloaded for the August review. Still the pre-rebalance file, and
+  // every surface that shows it has to say so rather than let a fresh sibling
+  // imply it is current.
   eems: {
     name: 'iShares MSCI Emerging Markets Small-Cap ETF',
     holdingsAsOf: '2026-08-17',

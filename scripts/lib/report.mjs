@@ -73,8 +73,25 @@ export class CheckList {
     );
   }
 
+  /**
+   * A check that CANNOT RUN here, with the reason in its own words.
+   *
+   * A skip is never rounded up to a pass. It does not fail the build, because
+   * the thing it would have tested is genuinely unmeasurable rather than wrong
+   * — but it is printed on every run, so a suite cannot quietly stop testing
+   * something and still report a clean sheet.
+   */
+  skip(reason) {
+    this.entries.push({ ok: true, skipped: true, what: reason, detail: '' });
+    return true;
+  }
+
   get failures() {
     return this.entries.filter((e) => !e.ok);
+  }
+
+  get skipped() {
+    return this.entries.filter((e) => e.skipped);
   }
 
   get passed() {
@@ -84,6 +101,13 @@ export class CheckList {
   print(stream = process.stderr) {
     for (const entry of this.failures) {
       stream.write(`  FAIL  [${this.label}] ${entry.what} — ${entry.detail}\n`);
+    }
+  }
+
+  /** Skips go to stdout with the rest of the report: they are a result. */
+  printSkips(stream = process.stdout) {
+    for (const entry of this.skipped) {
+      stream.write(`  SKIP  [${this.label}] ${entry.what}\n`);
     }
   }
 }

@@ -231,6 +231,39 @@ narrower. A table dragged wider than the screen keeps its widths and keeps scrol
 
 ---
 
+## 3b. The Latest Rebalance view
+
+A second view, reached from the header nav and addressable at `#/rebalance`. It answers two
+questions about the review that has just taken effect: **what changed**, and **how the forecast
+fared**.
+
+This is navigation, not a control: it changes which page you are on, not what a number means, and no
+figure on either page changes when you switch. Two toggles have been removed from this header for
+being controls disguised as questions; this one is neither.
+
+**What changed** — every company that changed segment, split into entered, left, and migrated
+between segments, each row carrying the verdict the forecast had given it and whether that verdict
+named this event.
+
+**How the forecast fared** — and the whole design of this block is about what it refuses to say:
+
+- The forecast is **read from a frozen file**, never recomputed. It was snapshotted from a record
+  whose holdings predate the effective date, and the page names both dates.
+- **Two figures, each with its denominator**, never one blended accuracy: of the companies flagged,
+  how many moved; of the companies that moved, how many were flagged.
+- The **no-change rate is shown and immediately discounted** as the true-negative rate it is —
+  1,232 of 1,265 companies did not move, so it will always look high.
+- **What was missed gets a section of its own.** A scorecard showing only its hits is an
+  advertisement.
+- **One review is one data point**, said at the top of the page. It does not become a base rate and
+  it changes nothing about §2.13's refusal to print a probability.
+
+A fund that was not re-downloaded for the review is **named**, and excluded from every comparison
+rather than assumed unchanged. CLAUDE.md §2.32 carries the measurements; `verify-data` 44–45 and
+`verify-ui` 54 hold it.
+
+---
+
 ## 4. The drill panel
 
 Seven sections, in this order:

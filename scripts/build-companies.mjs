@@ -71,15 +71,18 @@ import {
 // build assesses against the committed EOD price, the browser re-assesses
 // against whatever price is in force. Verdicts are therefore stored as the EOD
 // verdict, exactly as freeFloatMcapInr already is.
-import { observedBoundary, rankByFreeFloat } from '../public/js/model/thresholds.js';
+import { observedBoundary, observedSizeCutoffs, rankByFreeFloat } from '../public/js/model/thresholds.js';
 import { segmentOf, assertDisjoint, segmentFloatTotals } from '../public/js/model/segments.js';
-import { assess, verdictFromRules, VERDICTS, DISCLOSURE } from '../public/js/model/assess.js';
+import { assess, verdictFromRules, barsFrom, VERDICTS, DISCLOSURE } from '../public/js/model/assess.js';
 import { estimateFlows } from '../public/js/model/flows.js';
 import { nextReview, previousReview, reviewCutoffs, chooseBaseline } from '../public/js/model/calendar.js';
 import * as MSCI from '../public/js/config/msci-methodology.mjs';
 import { seriesToMap, summarise, rateOn, FUND_BENCHMARKS } from '../public/js/model/benchmarks.js';
 import { assessRelative, assessSinceRebalance, WINDOW_STATES, REBASE_STATES } from '../public/js/model/relative.js';
-import { SEGMENT_BAND_ADJUSTMENT, RELATIVE_PERFORMANCE, REBALANCE_BASELINE } from '../public/js/config/thresholds.mjs';
+import {
+  SEGMENT_BAND_ADJUSTMENT, RELATIVE_PERFORMANCE, REBALANCE_BASELINE,
+  AUGUST_2026_CALIBRATION, DESK_BAND_ROLE,
+} from '../public/js/config/thresholds.mjs';
 import { renderTable, num, round, CheckList } from './lib/report.mjs';
 import {
   SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
@@ -678,20 +681,45 @@ function main() {
   // measured fact on the committed data, not an assumption, so it is re-checked
   // here every build: if a future holdings file breaks it, the derivation is
   // invalid and this must fail rather than silently pick a segment.
-  const disjoint = assertDisjoint(out);
+  // ⚠ THE OVERLAP IS CLASSIFIED, NOT JUST COUNTED. See segments.js: an overlap
+  // whose two workbooks are dated differently, or whose losing leg is a residue
+  // of the winning one, is a migration being read through two funds rather than
+  // a break in the segment structure. Only an unexplained overlap — same date,
+  // both legs substantial — invalidates the derivation, and that still fails.
+  const holdingsAsOfByFund = Object.fromEntries(funds.funds.map((f) => [f.id, f.asOf ?? null]));
+  const disjoint = assertDisjoint(out, holdingsAsOfByFund);
   checks.assert(
     disjoint.ok,
-    'no company is held by the EM ETF and by a small-cap fund (the segments are disjoint)',
+    'every EM-ETF/small-cap overlap is explained by a stale sibling file or a residual leg',
     disjoint.violations.slice(0, 5).map((v) => `${v.name}: ${v.funds.join('+')}`).join(' | '),
   );
-  checks.assert(
-    disjoint.emSmallCapIsSubset,
-    'EM Small-Cap holds no India company that India Small-Cap lacks (it samples the segment)',
-    disjoint.emSmallCapOnly.slice(0, 5).map((c) => c.name).join(' | '),
-  );
+  // The subset property cannot be tested across two dates, and passing it
+  // anyway would be worse than failing it: EM SC "holding what India SC lacks"
+  // is precisely what a stale EM SC file looks like after a review. `null` is
+  // NOT MEASURABLE, and it is reported in those words rather than rounded to a
+  // tick (§2.4).
+  if (disjoint.emSmallCapSubsetComparable) {
+    checks.assert(
+      disjoint.emSmallCapIsSubset,
+      'EM Small-Cap holds no India company that India Small-Cap lacks (it samples the segment)',
+      disjoint.emSmallCapOnly.slice(0, 5).map((c) => c.name).join(' | '),
+    );
+  } else {
+    checks.skip(
+      'EM Small-Cap ⊆ India Small-Cap is NOT MEASURABLE — the two workbooks are dated '
+      + `${disjoint.emSmallCapSubsetAsOf.smin} and ${disjoint.emSmallCapSubsetAsOf.eems}, so the `
+      + `${disjoint.emSmallCapOnly.length} companies EM SC holds and India SC lacks are what a stale `
+      + 'file looks like after a review, not a break in the sampling relationship',
+    );
+  }
 
   const keyOfCompany = (c) => c.isin ?? `bse:${c.bseScripCode}`;
   const boundary = observedBoundary(out, segmentOf);
+  // The two size-segment cutoffs the verdicts are decided against: the Nth
+  // company by FULL market cap across the whole record, where N is the number of
+  // India names the funds show MSCI holding in that segment. See
+  // observedSizeCutoffs() for why the coverage walk in gimi.js is not used here.
+  const sizeCutoffs = observedSizeCutoffs(out, segmentOf);
   const ranks = rankByFreeFloat(out, keyOfCompany);
   const floatTotals = segmentFloatTotals(out);
   const quarantined = new Set(reconciliation?.quarantinedIsins ?? []);
@@ -959,7 +987,7 @@ function main() {
     };
   }
 
-  const assessContext = { boundary, ranks, quarantined, keyOf: keyOfCompany, segmentReturns };
+  const assessContext = { boundary, ranks, quarantined, keyOf: keyOfCompany, segmentReturns, sizeCutoffs };
   const flowContext = { flowPrimitives: flowPrimitivesByFund, segmentFloatTotals: floatTotals };
 
   const verdictCounts = {};
@@ -1520,6 +1548,16 @@ function main() {
     );
   }
 
+  // A SKIP IS A RESULT AND IS ALWAYS PRINTED. A build that quietly stops
+  // testing something and still reports a clean sheet manufactures confidence
+  // rather than providing it — so the skips go out on every run, passing or
+  // failing, before the write decision.
+  if (checks.skipped.length > 0) {
+    process.stdout.write(`\nNot measurable on this record — ${checks.skipped.length} check(s) skipped:\n\n`);
+    checks.printSkips();
+    process.stdout.write('\n');
+  }
+
   if (!checks.passed) {
     process.stderr.write(`\nREFUSING TO WRITE ${rel(OUT_PATH)} — ${checks.failures.length} check(s) failed:\n\n`);
     checks.print();
@@ -1535,8 +1573,23 @@ function main() {
       + 'exist both are kept so the disagreement stays inspectable. Every monetary field is RUPEES. '
       + 'A null in funds{} means NOT HELD by that fund — it is not a zero weight.',
     builtAt: new Date().toISOString(),
+    // WHICH FUND IS ON WHICH DATE. Deliberately NOT inside `asOf`: that block is
+    // a registry of single dated feeds and the freshness surface walks it key by
+    // key, so an object sitting among the dates is a key no feed can carry.
+    // Kept beside it so a surface can NAME the stale fund rather than leave a
+    // reader to infer it from one date.
+    holdingsAsOfByFund: Object.fromEntries(funds.funds.map((fund) => [fund.id, fund.asOf ?? null])),
     asOf: {
-      isharesHoldings: funds.funds[0]?.asOf ?? null,
+      // ⚠ THE OLDEST OF THE THREE, NEVER THE FIRST. This read `funds[0].asOf`
+      // while all three workbooks shared a date, and was harmless only for
+      // that reason. EEM and SMIN were refreshed for the August 2026 review
+      // and EEMS was not, so the first fund is now the NEWEST — and the
+      // freshness pill, which exists to name the oldest input, would have
+      // claimed a fortnight of currency the record does not have (§2.10).
+      isharesHoldings: funds.funds
+        .map((fund) => fund.asOf)
+        .filter((date) => typeof date === 'string')
+        .sort()[0] ?? null,
       nseSession: nseFreeFloat.sessionTimestamp,
       bseCapturedAt: bseFreeFloat.capturedAt,
       bhavcopyTradeDate: prices.tradeDate,
@@ -1641,6 +1694,56 @@ function main() {
       emSmallCapSampled: disjoint.emSmallCapSampled,
       indiaSmallCapTotal: disjoint.indiaSmallCapTotal,
       observedBoundary: boundary,
+      // The bars every verdict is decided against, and the calibration that put
+      // them there. Both on the record so a reader of companies.json alone can
+      // reconstruct a verdict without re-deriving anything.
+      sizeCutoffs,
+      sizeBars: barsFrom(sizeCutoffs),
+      /**
+       * ⚠ OUR IMI CUTOFF SITS ABOVE MSCI'S OWN PUBLISHED MINIMUM-SIZE RANGE,
+       * AND THAT IS A LIMITATION, NOT A CORROBORATION.
+       *
+       * MSCI publishes a Global Minimum Size Reference for EM IMI and a range
+       * of 0.5x to 1.15x around it (pp. 24, 26). Ours is derived by ranking OUR
+       * universe to the number of India names the FUNDS hold — and iShares'
+       * funds sample rather than replicate, so that count under-states MSCI's
+       * real India IMI membership and biases the cutoff upward.
+       *
+       * The comparison is computed here rather than asserted in prose so it
+       * cannot go stale, and it is stated wherever the cutoff is (CLAUDE.md
+       * §2.5, §2.26). A cutoff 1.4x above MSCI's own reference range, presented
+       * with MSCI page citations and no caveat, would be a tier-3 figure
+       * wearing a tier-1 face.
+       */
+      sizeCutoffReference: (() => {
+        const rate = benchmarks?.fx?.series?.length
+          ? benchmarks.fx.series[benchmarks.fx.series.length - 1]
+          : null;
+        const ref = MSCI.GLOBAL_MIN_SIZE_REFERENCE;
+        const usd = (inr) => (rate?.close > 0 && Number.isFinite(inr) ? inr / rate.close / 1e6 : null);
+        const ourUsdM = usd(sizeCutoffs.imi.inr);
+        const lowUsdM = ref.emerging.imi * ref.rangeLowMultiple;
+        const highUsdM = ref.emerging.imi * ref.rangeHighMultiple;
+        return {
+          basis: "our IMI cutoff against MSCI's published EM IMI Global Minimum Size Range",
+          fxRate: rate?.close ?? null,
+          fxDate: rate?.date ?? null,
+          ourCutoffUsdM: ourUsdM === null ? null : Number(ourUsdM.toFixed(0)),
+          msciReferenceUsdM: ref.emerging.imi,
+          msciRangeUsdM: { low: lowUsdM, high: highUsdM },
+          msciPages: [ref.page, 24],
+          asOf: ref.asOf,
+          inside: ourUsdM === null ? null : ourUsdM >= lowUsdM && ourUsdM <= highUsdM,
+          multipleOfRangeHigh: ourUsdM === null ? null : Number((ourUsdM / highUsdM).toFixed(2)),
+          note:
+            'MSCI applies a GLOBAL minimum across emerging markets; a large market sits above it, so '
+            + 'being outside the range is not by itself an error. But our count of India constituents '
+            + 'comes from three tracking funds that SAMPLE rather than replicate, which under-states '
+            + "MSCI's real membership and pushes this cutoff up. Treat it as biased high.",
+        };
+      })(),
+      calibration: AUGUST_2026_CALIBRATION,
+      deskBandRole: DESK_BAND_ROLE,
       segmentFloatTotals: floatTotals,
       verdictCounts,
       quarantinedCount: quarantined.size,
