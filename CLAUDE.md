@@ -1629,6 +1629,27 @@ request; it is struck at an undisclosed moment and must never render as a compan
 >
 > Same family as the delisted-scrip trap: the response is well-formed and about something else.
 
+> ### ⚠ THE OBVIOUS GUARD FOR A NARROWED BASELINE SET CANNOT FAIL
+>
+> `price-history.json` derives which rebalances to capture from
+> `closedReviews(prices.tradeDate)`, so a stale price anchor quietly narrows the set and the run
+> reports success over a set missing the very rebalance the screen should be baselined on. That is
+> the 1 Sep 2026 state: the monthly job ran and passed while prices were frozen at 28 Aug, so the
+> August review — effective 31 Aug, closed by then — was never captured.
+>
+> Asking *inside that script* whether `closedReviews(prices.tradeDate, 1)[0]` is among the captured
+> baselines is **§3.8's self-defeating guard**: both sides come from the same anchor, so the answer is
+> yes by construction. Measured on anchor 2026-08-28 — captured `{2026-05, 2026-02, 2025-11,
+> 2025-08}`, newest closed `2026-05`, guard silent while August is missing. It was written that way
+> here first, and an adversarial review of the fix is what caught it.
+>
+> Two guards replace it, each anchored on something the failure cannot move. The fetcher refuses to
+> **lose a baseline the previous capture held** — the shrink rule every other writer here follows.
+> And verify-data 56 asks the question across **two files written by different scripts**: the newest
+> review the committed closes have passed must be among the baselines the record carries. That one
+> fires exactly when `price-history.json` falls behind `prices.json`, and its sabotage is to drop the
+> newest baseline.
+
 > ### ⚠ A REASON THAT IS COMPUTED BUT NOT WRITTEN IS A REASON THAT DOES NOT EXIST
 >
 > Continuity cannot hold across a gap: if the stored file is 28 Aug and this one is 3 Sep, today's
@@ -1930,7 +1951,7 @@ scripts/
                                    -> public/data/predictions-<review>.json
   build-rebalance.mjs              frozen forecast vs the outcome
                                    -> public/data/rebalance-<review>.json
-  verify-data.mjs                  55 data assertions; no browser, no network
+  verify-data.mjs                  56 data assertions; no browser, no network
   verify-ui.mjs                    38 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
@@ -2025,7 +2046,7 @@ node scripts/verify-data.mjs           # the data assertions; run before committ
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 55 assertions; no browser, no network
+node scripts/verify-data.mjs           # 56 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
 node scripts/verify-ui.mjs             # 38 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev

@@ -448,31 +448,41 @@ async function run() {
       `${b.sessions} session(s) in ${b.from}..${b.to}`);
   }
   /*
-   * ⚠ THE NEWEST CLOSED REVIEW MUST BE AMONG THEM, OR THIS IS A SILENT SUCCESS.
+   * ⚠ A CAPTURE MAY NOT LOSE A BASELINE THE LAST ONE HAD.
    *
-   * The baseline set is derived from `closedReviews(prices.tradeDate)`, so a
-   * stale price anchor quietly narrows it — and the run then reports success
-   * over a set that is missing the very rebalance the screen should be
-   * baselined on. That is exactly what happened on 1 Sep 2026: the monthly job
-   * executed and passed while `prices.json` was frozen at 28 Aug, so the August
-   * review — effective 31 Aug, and closed by then — was never captured, and
-   * nothing anywhere said so.
+   * The set is derived from `closedReviews(prices.tradeDate)`, so a stale price
+   * anchor quietly narrows it and the run reports success over a set missing the
+   * very rebalance the screen should be baselined on. That is what happened on
+   * 1 Sep 2026: the monthly job executed and passed while prices.json was frozen
+   * at 28 Aug, so the August review — effective 31 Aug, and closed by then — was
+   * never captured, and nothing said so.
    *
-   * The anchor is what is wrong in that case, not this file, and this cannot
-   * repair it. What it can do is refuse to write a set that is missing the
-   * newest closed review, and name the anchor that produced it — a 200 is not a
-   * contract (§3.8), and neither is an exit code.
+   * ⚠ AND THE OBVIOUS GUARD FOR IT CANNOT FAIL. Asking whether
+   * `closedReviews(prices.tradeDate, 1)[0]` is among the captured baselines
+   * reads the threshold from the value under test: both come from the same
+   * anchor, so the newest closed review is in the set BY CONSTRUCTION, whatever
+   * the anchor says. Written that way it passes on the exact 1 Sep state it was
+   * meant to catch — measured, on anchor 2026-08-28: captured
+   * {2026-05, 2026-02, 2025-11, 2025-08}, newest closed 2026-05, guard silent
+   * while August is missing. That is §3.8's self-defeating guard, and it was
+   * caught by an adversarial review of this very fix.
+   *
+   * The reference has to be something a stale anchor cannot move: the PREVIOUS
+   * committed capture. A set that has lost a baseline the last one held is a
+   * narrowing, whatever produced it — the same rule every other writer here
+   * follows, and `--allow-shrink` is the deliberate way past it.
    */
-  const newestClosed = closedReviews(prices.tradeDate, 1)[0] ?? null;
+  const previousHistory = existsSync(OUT_PATH) ? JSON.parse(readFileSync(OUT_PATH, 'utf8')) : null;
+  const heldBefore = (previousHistory?.baselines ?? []).map((b) => b.review);
   const captured = new Set(perBaseline.map((b) => b.review));
-  check(!newestClosed || captured.has(newestClosed.review),
-    'the newest CLOSED review is among the captured baselines',
-    newestClosed
-      ? `${newestClosed.review} (effective ${newestClosed.effectiveDate}) `
-        + `${captured.has(newestClosed.review) ? 'captured' : `MISSING — anchored on prices.tradeDate ${prices.tradeDate}, `
-          + `captured ${[...captured].join(', ') || 'nothing'}. Run fetch-bhavcopy.mjs first: this set is `
-          + 'narrowed by a stale price anchor, not by anything upstream'}`
-      : 'no closed review in range');
+  const lost = heldBefore.filter((review) => !captured.has(review));
+  check(lost.length === 0 || args.allowShrink,
+    'no rebalance baseline the last capture held has been lost',
+    lost.length === 0
+      ? `${captured.size} captured, ${heldBefore.length} held before`
+      : `${lost.join(', ')} disappeared — anchored on prices.tradeDate ${prices.tradeDate}. `
+        + 'A narrower set almost always means a stale price anchor: run fetch-bhavcopy.mjs first. '
+        + 'Pass --allow-shrink if the reviews genuinely left the offer window.');
 
   const failedInBaseline = failed.filter((f) => baselineDates.has(f.date));
   check(failedInBaseline.length === 0, 'no session inside a rebalance baseline span failed to fetch',
