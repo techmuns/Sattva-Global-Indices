@@ -96,6 +96,7 @@ node scripts/import-ishares.mjs        # 3 workbooks, no network
 node scripts/fetch-bse-master.mjs      # 1 request, ~1.7 MB
 node scripts/fetch-nse-universe.mjs    # 2 requests, the ISIN bridge
 node scripts/scrape-nse-freefloat.mjs  # 3 requests, 261 symbols
+node scripts/scrape-nse-asm.mjs        # 1 request, the NSE surveillance (ASM) list
 node scripts/scrape-bse-freefloat.mjs  # ~3,600 requests, ~25 min — the long one
 node scripts/fetch-bhavcopy.mjs        # 1 request, the whole market's closes
 node scripts/fetch-quote-stats.mjs --concurrency 1 --gap-ms 1200

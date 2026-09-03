@@ -64,6 +64,28 @@ jobs:
                "float-source rule is choosing between exchanges on a stale NSE figure."
           exit 1
 
+      # The ASM list, given the same weekly patience but SOFT: no desk rule turns
+      # on a surveillance flag, so a stale ASM list is less load-bearing than a
+      # stale float factor and an ASM throttle must not fail the float cross-check.
+      - name: NSE ASM list, with patience (soft)
+        continue-on-error: true
+        run: |
+          for attempt in 1 2 3; do
+            echo "=== NSE ASM attempt ${attempt} of 3 ==="
+            if node scripts/scrape-nse-asm.mjs; then
+              echo "NSE ASM answered on attempt ${attempt}."
+              exit 0
+            fi
+            if [ "${attempt}" -lt 3 ]; then
+              echo "Throttled. Waiting 10 minutes before the next attempt."
+              sleep 600
+            fi
+          done
+          echo "::warning title=NSE ASM unreachable this week::Three spaced attempts were all"\
+               "refused. nse-asm.json is unchanged; the dashboard carries the last good list"\
+               "and marks ASM status unknown where it cannot check, never 'clear'."
+          exit 1
+
       - name: Rebuild the company record
         run: node scripts/build-companies.mjs
 

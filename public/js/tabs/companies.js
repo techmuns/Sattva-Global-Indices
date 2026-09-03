@@ -419,6 +419,77 @@ function priceChip(view) {
   return '';
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * NSE Additional Surveillance Measure (ASM) stage
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const ASM_TONE = {
+  // Amber for the entry stage, rose for the restrictive ones. Never brand indigo:
+  // a surveillance flag is a semantic RISK state, and the brand ramp is reserved
+  // for identity so the two can never be confused (same rule as the verdict pill).
+  entry: 'bg-amber-50 text-amber-800 ring-amber-200',
+  high: 'bg-rose-50 text-rose-700 ring-rose-200',
+};
+
+/** NSE's own framework code inside the survCode, e.g. 13 from "LTASM - I (13)". */
+function asmFrameworkCode(asm) {
+  const m = /\((\d+)\)/.exec(asm?.survCode ?? '');
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * The ASM cell: NSE's surveillance stage, or the honest absence.
+ *
+ * THREE STATES, AND THEY MUST BE TOLD APART (§2.3/§2.4):
+ *   flagged        a coloured badge carrying NSE's OWN stage code, unchanged
+ *   not under ASM  a faint dash whose title says so — ONLY when the feed loaded
+ *   status unknown  a faint dash whose title says the feed did not load, so a
+ *                   reader is never told a company is clear when we could not check
+ *
+ * The label is NSE's own `survCode` with the framework number trimmed for width
+ * ("LTASM - I (13)" -> "LTASM I"); nothing here re-bands or re-rounds it. The
+ * colour rises with the stage because a higher stage is a harder trading
+ * constraint — tighter price bands, higher margins, and at the top trade-to-trade
+ * settlement — which is the one thing a manager scanning the column needs at a
+ * glance. The full description, the effective date and the source ride on the title.
+ */
+function asmCell(company) {
+  const asm = company.asm;
+  const meta = data.asm();
+  if (!asm) {
+    // A null stage is "not under ASM" ONLY when the feed actually loaded. When it
+    // did not, the honest answer is that we could not check — never "clear" (§2.4).
+    return meta?.available
+      ? `<span class="text-slate-300" title="Not under ASM surveillance — checked against NSE's Additional Surveillance Measure list${meta.asOf ? `, effective ${escapeHtml(meta.asOf)}` : ''}.">${EM_DASH}</span>`
+      : `<span class="text-slate-300" title="ASM status unavailable — the NSE ASM feed did not load, so this could not be checked. It is not a statement that the company is clear.">${EM_DASH}</span>`;
+  }
+  const shortLabel = (asm.survCode ?? '').replace(/\s*\(\d+\)\s*$/, '').replace(/\s*-\s*/, ' ').trim();
+  // Stage I is the entry stage; II and above are the restrictive ones. NSE gives
+  // the indicator as "Stage I" / "Stage II" / …, so key the colour on that.
+  const tone = asm.stage === 'Stage I' ? ASM_TONE.entry : ASM_TONE.high;
+  // Does this ASM name also have a forced flow to qualify? When a trade is implied
+  // at the coming review, the desk's judgement is that the flow is NOT mandated —
+  // a marker links the column to that constraint (detail in the drill).
+  const bindsFlow = assessmentFor(company)?.asm?.binding === true;
+  const title =
+    `${asm.survDesc ?? asm.survCode ?? 'Under ASM'} — NSE Additional Surveillance Measure`
+    + `${asm.asmDate ? `, effective ${asm.asmDate}` : ''}. `
+    + 'A surveillance framework for volatile or manipulation-prone stocks; higher stages tighten price '
+    + "bands and margins and can force trade-to-trade settlement. NSE's own figure, carried unchanged."
+    + (bindsFlow
+      ? ' A trade is implied at the coming review, but under ASM that forced passive flow is not mandated '
+        + 'and its timing is uncertain — open the row for detail.'
+      : '');
+  return (
+    '<span class="inline-flex items-center whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10px] '
+    + `font-semibold ring-1 ring-inset ${tone}" title="${escapeHtml(title)}">`
+    + `${escapeHtml(shortLabel || asm.stage || 'ASM')}</span>`
+    + (bindsFlow
+      ? '<sup class="ml-0.5 text-[9px] font-bold text-amber-600" title="Forced flow not mandated — this name is under ASM. See the row detail.">*</sup>'
+      : '')
+  );
+}
+
 /**
  * The market-cap filter: a min–max range the reader types, in ₹ crore.
  *
@@ -513,6 +584,10 @@ function buildStats(scopeRows) {
   const nseInView = scopeRows.filter((c) => c.floatSource === 'nse').length;
   const bseInView = scopeRows.filter((c) => c.floatSource === 'bse').length;
   const noneInView = inView - withFloatInView;
+  // NSE ASM, derived from the rows in view — shown only when the feed loaded, so
+  // an outage never renders as "0 under ASM" (§2.4).
+  const asmMeta = data.asm();
+  const asmInView = scopeRows.filter((c) => c.asm).length;
   // How the desk's rule actually landed on the rows in view. Derived from the
   // records, never typed — a hand-written count goes stale on the next refresh.
   const switchedInView = scopeRows.filter((c) => c.floatChoice?.rule === 'nse-preferred-on-material-gap').length;
@@ -557,7 +632,8 @@ function buildStats(scopeRows) {
       detail: 'Every company in the record, held or not',
       extra:
         cardRow('Held by a fund', num(cov.held)) +
-        cardRow('Candidates, not held', num(cov.notHeld)),
+        cardRow('Candidates, not held', num(cov.notHeld)) +
+        (asmMeta?.available ? cardRow('Under NSE ASM', num(asmInView)) : ''),
       help: {
         title: 'What "in view" counts',
         body:
@@ -1036,9 +1112,26 @@ function assessmentSectionHtml(company) {
   }
 
   // ---- the flows ----
-  const { flows, notSampled, shape } = flowsFor(company);
+  const { flows, notSampled, shape, asmConstraint } = flowsFor(company);
   if (flows.length || notSampled.length) {
     html += `<h4 class="mt-4 mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">Estimated flow${shape === 'migration' ? ' — a migration is two flows, never netted' : ''}</h4>`;
+    // ── ASM: the flow is not a mandated forced trade ──────────────────────
+    // Shown ABOVE the figures, because it changes how every one of them should
+    // be read: the sizes are real, but a fund under ASM is not obliged to
+    // rebalance on schedule, and the days-of-volume timing understates reality.
+    // The desk's judgement, not MSCI's (config ASM_FLOW_CONSTRAINT).
+    if (asmConstraint) {
+      const severe = asmConstraint.severity === 'severe';
+      html +=
+        `<div class="mb-3 rounded-xl ${severe ? 'bg-rose-50 ring-1 ring-rose-200' : 'bg-amber-50 ring-1 ring-amber-200'} p-3">`
+        + `<div class="mb-1 flex items-center gap-2">${asmCell(company)}`
+        + `<span class="text-[11px] font-bold uppercase tracking-wide ${severe ? 'text-rose-800' : 'text-amber-900'}">Flow not mandated — under NSE ASM</span></div>`
+        + `<p class="text-[11px] leading-relaxed ${severe ? 'text-rose-900' : 'text-amber-900'}">`
+        + `${escapeHtml(asmConstraint.implication)} `
+        + `<span class="opacity-80">${escapeHtml(asmConstraint.timingNote)}</span> `
+        + '<span class="opacity-70">The rupee sizes below are the mechanical estimate — real, but not a '
+        + `mandated forced trade. This is ${escapeHtml(asmConstraint.attribution)}</span></p></div>`;
+    }
     for (const flow of flows) {
       const buying = flow.direction === 'buy';
       html +=
@@ -1053,8 +1146,9 @@ function assessmentSectionHtml(company) {
             'Days of volume',
             flow.daysOfAdv === null
               ? missing('no average daily volume on record — this is not zero days')
-              : `${escapeHtml(num(flow.daysOfAdv, 2))} days`,
-            { title: flow.advSource ? `Average daily volume from ${flow.advSource}` : '' },
+              : `${escapeHtml(num(flow.daysOfAdv, 2))} days${flow.constrainedByAsm ? ' <span class="text-amber-700">· understated (ASM)</span>' : ''}`,
+            { title: (flow.advSource ? `Average daily volume from ${flow.advSource}.` : '')
+              + (flow.constrainedByAsm && flow.timingNote ? ` ${flow.timingNote}` : '') },
           )
         + drillRow('Target weight', `${escapeHtml(num(flow.targetWeightPp, 5))} pp`)
         + '</dl>'
@@ -1401,6 +1495,54 @@ function provenanceSectionHtml(company) {
   );
 }
 
+/**
+ * The surveillance section — NSE's ASM stage, or the honest absence.
+ *
+ * Always renders, and says one of three things (§2.3/§2.4): the stage, "not
+ * under ASM" as a CHECKED negative, or "status unavailable" when the feed did
+ * not load — never a silent blank that a reader could take for "clear".
+ */
+function asmSectionHtml(company) {
+  const asm = company.asm;
+  const meta = data.asm();
+  if (asm) {
+    const entry = asm.stage === 'Stage I';
+    return (
+      `<div class="rounded-xl ${entry ? 'bg-amber-50 ring-1 ring-amber-200' : 'bg-rose-50 ring-1 ring-rose-200'} p-3">`
+      + `<div class="mb-2 flex items-center gap-2">${asmCell(company)}`
+      + `<span class="text-xs font-semibold ${entry ? 'text-amber-900' : 'text-rose-900'}">Under NSE surveillance</span></div>`
+      + '<dl>'
+      + drillRow('Stage', escapeHtml(asm.survDesc ?? asm.survCode ?? EM_DASH))
+      + drillRow('NSE code', escapeHtml(asm.survCode ?? EM_DASH))
+      + drillRow('Category', asm.category === 'shortterm' ? 'Short Term ASM (STASM)' : 'Long Term ASM (LTASM)')
+      + drillRow('Effective', escapeHtml(asm.asmDate ?? EM_DASH), { title: "NSE's own effective date for the list, carried unchanged" })
+      + '</dl>'
+      + '<p class="mt-2 text-[11px] leading-relaxed text-slate-600">'
+      + 'The Additional Surveillance Measure is an NSE/SEBI framework for volatile or manipulation-prone '
+      + 'stocks. Higher stages tighten price bands and margins and can force trade-to-trade settlement — '
+      + "which changes how a position in this name can be built or unwound. This is NSE's own figure, "
+      + 'carried through unchanged.</p>'
+      + `<p class="mt-1 text-[11px] text-slate-400">${escapeHtml(meta?.source ?? 'NSE ASM report')}`
+      + `${meta?.asOf ? ` · effective ${escapeHtml(meta.asOf)}` : ''}. dhan.co/nse-asm-list mirrors this feed.</p>`
+      + '</div>'
+    );
+  }
+  if (meta?.available) {
+    return (
+      '<p class="rounded-xl bg-slate-50/70 p-3 text-xs leading-relaxed text-slate-600">'
+      + '<span class="font-semibold text-emerald-700">Not under ASM.</span> This company is absent from '
+      + `NSE's Additional Surveillance Measure list${meta.asOf ? `, effective ${escapeHtml(meta.asOf)}` : ''}. `
+      + 'That is a checked negative — the whole list was read and this ISIN is not on it — not a gap in the data.</p>'
+    );
+  }
+  return (
+    '<p class="rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-900 ring-1 ring-amber-200">'
+    + '<span class="font-semibold">ASM status unavailable.</span> The NSE ASM feed did not load for this '
+    + 'build, so whether this company is under surveillance could not be checked. This is not a statement '
+    + 'that it is clear.</p>'
+  );
+}
+
 function openCompanyDrill(key, { onClose } = {}) {
   const company = data.byIsin(key);
   if (!company) return;
@@ -1421,6 +1563,7 @@ function openCompanyDrill(key, { onClose } = {}) {
     body:
       drillSection('Identity', identity) +
       drillSection('Assessment', assessmentSectionHtml(company)) +
+      drillSection('Surveillance — NSE ASM', asmSectionHtml(company)) +
       drillSection('Free float', floatSectionHtml(company)) +
       drillSection('Index participation', fundsSectionHtml(company)) +
       drillSection('Against its segment — since the last rebalance', rebaseSectionHtml(company)) +
@@ -2019,6 +2162,17 @@ export function renderCompanies(host, { onStatusChange } = {}) {
             : '<span class="text-[11px] text-slate-400" title="Not held by any of the three funds — a candidate, not a position">candidate</span>';
         },
       },
+      {
+        label: 'ASM stage',
+        align: 'left',
+        html: true,
+        // Sort by NSE's OWN framework code (higher = more restrictive), so flagged
+        // rows group by stage. null groups the non-flagged AND the unknown rows at
+        // the end in either direction (§2.3) — "not under ASM" is not a number to
+        // be ranked among the stages, and must never sort as a zero-th stage.
+        sortValue: (row) => (row.asm ? asmFrameworkCode(row.asm) : null),
+        get: (row) => asmCell(row),
+      },
     ];
 
     // Both notes are DERIVED from the rows on screen, never typed. A filter
@@ -2187,6 +2341,15 @@ export function renderCompanies(host, { onStatusChange } = {}) {
             { label: 'Free float published at capture (INR Cr)', value: (r) => (r.freeFloatMcapAtCaptureInr === null ? '' : toCrore(r.freeFloatMcapAtCaptureInr).toFixed(2)) },
             { label: 'Avg daily volume (shares)', value: (r) => r.advQty ?? '' },
             { label: 'Avg daily volume source', value: (r) => r.advSource ?? '' },
+            // NSE ASM. §2.4/§2.7: a blank cell in a workbook with no chrome is
+            // ambiguous, so the STATUS is spelled out — "not under ASM" and
+            // "unknown" (feed down) are different facts and neither is a blank.
+            { label: 'ASM status (NSE)', value: (r) => (r.asm ? 'under ASM' : (data.asm()?.available ? 'not under ASM' : 'unknown — ASM feed unavailable')) },
+            { label: 'ASM stage code (NSE, unchanged)', value: (r) => r.asm?.survCode ?? '' },
+            { label: 'ASM stage', value: (r) => r.asm?.stage ?? '' },
+            { label: 'ASM category', value: (r) => r.asm?.category ?? '' },
+            { label: 'ASM description (NSE)', value: (r) => r.asm?.survDesc ?? '' },
+            { label: 'ASM effective date (NSE)', value: (r) => r.asm?.asmDate ?? '' },
             ...FUND_ORDER.map((id) => ({
               label: `${data.fundCoverage(id)?.shortName ?? id} weight drift pp (price only, no trade required)`,
               value: (r) => r.passiveDrift?.[id]?.driftPp ?? '',
@@ -2290,6 +2453,13 @@ export function renderCompanies(host, { onStatusChange } = {}) {
               label: `${data.fundCoverage(id)?.shortName ?? id} flow days of volume`,
               value: (r) => flowsFor(r).flows.find((f) => f.fundId === id)?.daysOfAdv ?? '',
             })),
+            // 2.7: the ASM qualifier must survive an export. A rupee flow next to a
+            // blank ASM cell would read as a clean mandated trade; the caveat and
+            // its attribution travel with the figure.
+            { label: 'Flow constrained by ASM (not mandated — desk\'s judgement)',
+              value: (r) => (flowsFor(r).asmConstraint ? `yes — ${flowsFor(r).asmConstraint.survCode}` : '') },
+            { label: 'ASM flow implication', value: (r) => flowsFor(r).asmConstraint?.implication ?? '' },
+            { label: 'ASM timing caveat (days-of-volume understated)', value: (r) => flowsFor(r).asmConstraint?.timingNote ?? '' },
             { label: 'Flow basis', value: (r) => flowsFor(r).flows.map((f) => `${f.fundShortName} ${f.direction}: ${f.certainty}`).join(' | ') },
             { label: 'Not sampled by', value: (r) => flowsFor(r).notSampled.map((n) => n.fundShortName).join(' | ') },
             ...FUND_ORDER.map((id) => ({

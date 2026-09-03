@@ -88,8 +88,36 @@ export function estimateFlows(company, assessment, context) {
   const { flowPrimitives, segmentFloatTotals } = context;
   const { verdict, segment } = assessment;
 
+  // ---- ASM: mark a forced flow as NOT MANDATED, never suppress it -----------
+  // The desk's judgement (assessment.asm, from config/thresholds.mjs) is that a
+  // passive fund is not obliged to rebalance a name under NSE surveillance on
+  // schedule. The mechanical size stays — it is a real derived quantity — but
+  // every flow is flagged `constrainedByAsm` and carries the timing caveat, and
+  // the shape carries an `asmConstraint` summary. It NEVER changes the verdict or
+  // the size; days-of-ADV is left as computed but named as understated.
+  const finalize = (result) => {
+    const asm = assessment.asm;
+    if (!asm?.binding || !result.flows.length) return { ...result, asmConstraint: null };
+    return {
+      ...result,
+      asmConstraint: {
+        stage: asm.stage,
+        survCode: asm.survCode,
+        category: asm.category,
+        severity: asm.severity,
+        mandated: false,
+        implication: asm.implication,
+        timingNote: asm.timingNote,
+        attribution: asm.attribution,
+      },
+      flows: result.flows.map((f) => (f
+        ? { ...f, constrainedByAsm: true, asmStage: asm.survCode, timingNote: asm.timingNote }
+        : f)),
+    };
+  };
+
   if (!TRADE_IMPLYING.has(verdict)) {
-    return { flows: [], notSampled: [], shape: null };
+    return finalize({ flows: [], notSampled: [], shape: null });
   }
 
   const flows = [];
@@ -128,7 +156,7 @@ export function estimateFlows(company, assessment, context) {
         note: 'The position size is read from the holdings file, not estimated. Only the fact of the exit is modelled.',
       }));
     }
-    return { flows, notSampled, shape: 'exit' };
+    return finalize({ flows, notSampled, shape: 'exit' });
   }
 
   // ---- MIGRATION: two flows, opposite signs, never netted -----------------
@@ -167,7 +195,7 @@ export function estimateFlows(company, assessment, context) {
       certainty: 'estimated',
       note: 'A new position. The target weight is estimated from free-float share of the segment.',
     }));
-    return { flows: flows.filter(Boolean), notSampled, shape: 'migration' };
+    return finalize({ flows: flows.filter(Boolean), notSampled, shape: 'migration' });
   }
 
   if (verdict === 'migration-down') {
@@ -198,7 +226,7 @@ export function estimateFlows(company, assessment, context) {
       fundShortName: flowPrimitives[SMALLCAP_SAMPLING_FUND]?.shortName ?? SMALLCAP_SAMPLING_FUND,
       reason: 'EM Small-Cap samples rather than replicates, so whether it would take this name is not derivable. Not an estimate of zero.',
     });
-    return { flows: flows.filter(Boolean), notSampled, shape: 'migration' };
+    return finalize({ flows: flows.filter(Boolean), notSampled, shape: 'migration' });
   }
 
   // ---- ENTRY: estimated, into the small-cap segment -----------------------
@@ -230,10 +258,10 @@ export function estimateFlows(company, assessment, context) {
         reason: 'EM Small-Cap samples the segment rather than replicating it and does not currently hold this company, so whether it would buy is not derivable. Not zero.',
       });
     }
-    return { flows: flows.filter(Boolean), notSampled, shape: 'entry' };
+    return finalize({ flows: flows.filter(Boolean), notSampled, shape: 'entry' });
   }
 
-  return { flows: [], notSampled: [], shape: null };
+  return finalize({ flows: [], notSampled: [], shape: null });
 }
 
 /** The largest single flow on a record, for sorting and for a summary. */

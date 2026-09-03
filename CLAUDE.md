@@ -560,6 +560,20 @@ certain each is:
 `daysOfAdv` is the number a trader acts on. Where `advQty` is unknown it is **`null`** and renders an
 em dash — never zero, never "instant".
 
+#### ⚠ NSE ASM qualifies a forced flow; it never suppresses it and never moves the verdict
+
+A trade-implying verdict on a company under NSE's Additional Surveillance Measure is the desk's one
+case where a forced flow is **not mandated**: a passive fund is not obliged to rebalance an ASM name on
+the review schedule, and the severe stages (trade-to-trade, no intraday netting) stretch or defer
+execution. So a flow on such a name keeps its **mechanical rupee size** — that figure is a real derived
+quantity and hiding it is its own dishonesty (§2.6) — but it is marked `constrainedByAsm`, carries an
+`asmConstraint` naming the stage and the caveat, and its `daysOfAdv` is called **understated**. This is
+`ASM_FLOW_CONSTRAINT` in `config/thresholds.mjs`, it is **the desk's assumption and never MSCI's**
+(§2.25 — MSCI publishes no ASM carve-out), and it **never changes the verdict**: ASM fires an
+`asm-flow-constraint` rule that is inert to `verdictFromRules`, because the verdict is a size question
+and ASM is not a size fact. `verify-data` 53 proves the rule cannot move the verdict; `verify-ui` 57
+proves the figure is shown-with-caveat, not suppressed.
+
 ### 2.17 A suspect input produces `unknown`, not a confident answer
 
 `sharesOutstanding` feeds free-float market cap, which decides every verdict. A wrong share count
@@ -927,7 +941,7 @@ The rest is §2.3 and §2.4 applied to a control rather than to a number:
 ### 2.29 A column width can manufacture a wrong number, and it looks exactly like a right one
 
 The reader can drag any column's right edge, put away columns they do not need, and both choices
-persist. Thirteen columns is more than most desks read at once, so this is a real ask — and it opens a
+persist. Fourteen columns is more than most desks read at once, so this is a real ask — and it opens a
 route to a false figure that no formatter guard can see.
 
 **Measured, before the guard existed.** With `table-layout: fixed` and the Free float column dragged
@@ -1811,6 +1825,7 @@ scripts/
   fetch-fund-benchmarks.mjs        SMIN/EEMS/EEM + USDINR → public/data/fund-benchmarks.json
   import-ishares.mjs               3 workbooks → public/data/msci-funds.json
   scrape-nse-freefloat.mjs         NSE pre-open → public/data/nse-freefloat.json
+  scrape-nse-asm.mjs               NSE ASM report → public/data/nse-asm.json
   fetch-bse-master.mjs             BSE scrip master → public/data/bse-scrip-master.json
   fetch-nse-universe.mjs           niftyindices CSVs → public/data/nse-universe.json
   scrape-bse-freefloat.mjs         per-scrip BSE float → public/data/bse-freefloat.json
@@ -1825,8 +1840,8 @@ scripts/
                                    -> public/data/predictions-<review>.json
   build-rebalance.mjs              frozen forecast vs the outcome
                                    -> public/data/rebalance-<review>.json
-  verify-data.mjs                  50 data assertions; no browser, no network
-  verify-ui.mjs                    36 interface assertions; the served site
+  verify-data.mjs                  53 data assertions; no browser, no network
+  verify-ui.mjs                    38 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
@@ -1844,6 +1859,7 @@ public/
   data/fund-benchmarks.json        generated — daily fund closes + FX, for the band adjustment
   data/msci-funds.json             generated — do not hand-edit
   data/nse-freefloat.json          generated — do not hand-edit
+  data/nse-asm.json                generated — NSE Additional Surveillance Measure list; do not hand-edit
   data/bse-scrip-master.json       generated — do not hand-edit
   data/nse-universe.json           generated — do not hand-edit
   data/bse-freefloat.json          generated — do not hand-edit
@@ -1901,6 +1917,7 @@ node scripts/import-universe.mjs       # the desk's >Rs2,000 Cr seed list; no ne
 node scripts/fetch-bse-master.mjs      # 1 request, ~1.7 MB
 node scripts/fetch-nse-universe.mjs    # 2 requests, the ISIN bridge
 node scripts/scrape-nse-freefloat.mjs  # 4 requests, ~250 symbols - THROTTLES, see below
+node scripts/scrape-nse-asm.mjs        # 1 request, the NSE ASM list - THROTTLES like every NSE feed
 node scripts/scrape-bse-freefloat.mjs  # ~3,600 requests, ~12 min at concurrency 8
 node scripts/fetch-fund-benchmarks.mjs # 5 requests, 2y of daily closes + USDINR
 node scripts/fetch-bhavcopy.mjs        # 1 request, the whole market's closes
@@ -1918,9 +1935,9 @@ node scripts/verify-data.mjs           # the data assertions; run before committ
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 50 assertions; no browser, no network
+node scripts/verify-data.mjs           # 53 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 36 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 38 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 
