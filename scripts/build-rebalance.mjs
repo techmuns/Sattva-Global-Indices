@@ -35,7 +35,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { STANDARD_FUND, SMALLCAP_FUNDS, SEGMENTS } from '../public/js/model/segments.js';
-import { SEGMENT_OVERLAP } from '../public/js/config/thresholds.mjs';
+import { SEGMENT_OVERLAP, AUGUST_2026_CALIBRATION } from '../public/js/config/thresholds.mjs';
+import { assess } from '../public/js/model/assess.js';
+import { observedSizeCutoffs } from '../public/js/model/thresholds.js';
 import { renderTable, num } from './lib/report.mjs';
 import { CheckList } from './lib/report.mjs';
 
@@ -93,6 +95,130 @@ export function eventFor(before, after) {
   if (before === 'smallcap' && after === 'standard') return 'migration-up';
   if (before === 'standard' && after === 'smallcap') return 'migration-down';
   return 'no-change';
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * WHAT THE MODEL WOULD SAY NOW, ABOUT A REVIEW IT WAS CHANGED AFTER
+ * ---------------------------------------------------------------------------
+ * The scorecard above is the record: it is what was actually forecast, and
+ * nothing may change it. But the rules were rewritten BECAUSE of what that
+ * scorecard showed (AUGUST_2026_CALIBRATION), and a change made for a reason has
+ * to be able to show that it addresses the reason.
+ *
+ * So the CURRENT rules are replayed over the FROZEN inputs — the sizes, segments
+ * and fund membership as they stood on 17 Aug 2026, from predictions-<review>.json
+ * and from nothing else — and scored against the same outcome.
+ *
+ * ⚠ THIS FIGURE IS IN-SAMPLE AND IT IS NOT A TRACK RECORD.
+ *
+ * The rules were designed knowing this outcome. No threshold in them was fitted
+ * to it — every ratio is MSCI's, cited to a page, and every rupee cutoff is
+ * derived from a constituent count — but the DECISION to use MSCI's geometry
+ * rather than the desk's bands was taken after reading the result. A model
+ * scored on the review that motivated it is answering a question it has already
+ * seen. `inSample: true` travels with the number, every surface repeats it, and
+ * CLAUDE.md §2.13 is unchanged: one review is one data point and there is still
+ * no probability anywhere in this product.
+ *
+ * ⚠ AND TWO INPUTS COULD NOT BE RECONSTRUCTED, so they are stated rather than
+ * guessed:
+ *
+ *  - `floatFactor` is recovered as freeFloatMcap / fullMcap. That is its
+ *    definition (§2.9) and both halves are on the snapshot, so it is exact — not
+ *    an approximation.
+ *  - `segmentReturns` is NOT on the snapshot, so the desk's bands are replayed
+ *    UNFLOATED. That changes nothing about a verdict, because after this change
+ *    no verdict branches on a desk band; it is recorded because a reader
+ *    comparing the desk-band rule between the two runs would otherwise see a
+ *    difference with no stated cause.
+ *  - the quarantine set is recovered from the snapshot's own deciding rule,
+ *    which names `share-count-quarantined` where it fired.
+ */
+function scoreRetrospectively(predictions, rows, asForecast) {
+  const eventByIsin = new Map(rows.map((r) => [r.isin, r.event]));
+
+  // Rebuild just enough of a company record for the rules engine, from the
+  // frozen snapshot alone. Nothing from the post-rebalance record is read.
+  const frozen = predictions.companies.map((c) => ({
+    isin: c.isin,
+    name: c.name,
+    nseSymbol: c.nseSymbol ?? null,
+    segment: c.segment,
+    freeFloatMcapInr: c.freeFloatMcapInr ?? null,
+    fullMcapInr: c.fullMcapInr ?? null,
+    floatFactor: Number.isFinite(c.freeFloatMcapInr) && Number.isFinite(c.fullMcapInr) && c.fullMcapInr > 0
+      ? c.freeFloatMcapInr / c.fullMcapInr
+      : null,
+    funds: c.funds ?? {},
+    held: c.held === true,
+  }));
+
+  const keyOf = (c) => c.isin;
+  const quarantined = new Set(predictions.companies
+    .filter((c) => c.decidingRule?.key === 'share-count-quarantined')
+    .map((c) => c.isin));
+  const sizeCutoffs = observedSizeCutoffs(frozen, (c) => c.segment);
+  const context = { quarantined, keyOf, segmentReturns: null, sizeCutoffs };
+
+  const tally = {};
+  let flagged = 0;
+  let flaggedAndMoved = 0;
+  let flaggedRight = 0;
+  const namedIsins = new Set();
+  const matrix = {};
+  for (const company of frozen) {
+    const { verdict } = assess(company, context);
+    tally[verdict] = (tally[verdict] ?? 0) + 1;
+    const claim = VERDICT_CLAIMS[verdict] ?? null;
+    const event = eventByIsin.get(company.isin) ?? null;
+    if (claim === null || event === null) continue;
+    matrix[claim] ??= {};
+    matrix[claim][event] = (matrix[claim][event] ?? 0) + 1;
+    if (claim === 'no-change') continue;
+    flagged += 1;
+    if (event !== 'no-change') flaggedAndMoved += 1;
+    if (event === claim) { flaggedRight += 1; namedIsins.add(company.isin); }
+  }
+
+  const moved = rows.filter((r) => r.inForecast && r.event !== 'no-change');
+
+  return {
+    label: 'What the rules as they stand today would have said about this review',
+    inSample: true,
+    caveat:
+      'IN-SAMPLE, and not a track record. These rules were designed after this review was scored. No '
+      + "threshold in them was fitted to it — every ratio is MSCI's, cited to a page — but the choice "
+      + 'of geometry was made knowing the answer. One review is still one data point.',
+    replayedFrom: 'predictions-' + predictions.review + '.json, and nothing else',
+    unfloatedDeskBands: true,
+    sizeCutoffs,
+    verdictTally: tally,
+    precision: {
+      label: 'Of the companies these rules would flag, how many moved',
+      flagged,
+      moved: flaggedAndMoved,
+      rightEvent: flaggedRight,
+    },
+    recall: {
+      label: 'Of the companies that moved, how many these rules would flag',
+      moved: moved.length,
+      rightEvent: flaggedRight,
+    },
+    matrix,
+    changes: AUGUST_2026_CALIBRATION.changes,
+    attribution: AUGUST_2026_CALIBRATION.attribution,
+    /** Movers these rules still would not have named, by event. */
+    stillMissed: moved
+      .filter((r) => !namedIsins.has(r.isin))
+      .map((r) => ({ isin: r.isin, name: r.name, event: r.event }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    asForecast: {
+      flagged: asForecast.precision.flagged,
+      rightEvent: asForecast.precision.rightEvent,
+      moved: asForecast.recall.moved,
+    },
+  };
 }
 
 export function buildRebalance(predictions, record) {
@@ -223,6 +349,9 @@ export function buildRebalance(predictions, record) {
   const eventTally = {};
   for (const row of rows) eventTally[row.event] = (eventTally[row.event] ?? 0) + 1;
 
+  const retrospective = scoreRetrospectively(predictions, rows, scorecard);
+
+
   return {
     checks,
     payload: {
@@ -261,6 +390,7 @@ export function buildRebalance(predictions, record) {
       eventTypes: EVENTS,
       eventTally,
       scorecard,
+      retrospective,
       droppedFromRecord,
       companies: rows,
     },

@@ -511,6 +511,15 @@ companies fall below ₹3,500 Cr — the desk band sits exactly at the unheld/Sm
 
 Every verdict names the threshold that produced it and where that threshold came from.
 
+> ### ⚠ SINCE SEPTEMBER 2026 NEITHER OF THESE DECIDES A VERDICT — see §2.33
+>
+> The August review scored the desk-band model at 13.9% precision, and the verdict now follows MSCI's
+> published geometry applied to cutoffs derived by rank on **full** market cap. Both rows above are
+> still measured and still on every record: the desk's bands fire as their own rules so the
+> disagreement stays visible, and the observed boundary is still reported. What changed is which one
+> the verdict follows. **A third threshold source now exists — `msci` — and the rule that fires names
+> which of the three produced it.**
+
 > ### ⚠ The observed floor cannot classify a constituent — it IS one
 >
 > The Standard floor is the smallest Standard constituent, so "is this Standard constituent below
@@ -837,6 +846,13 @@ Rules that bind both:
   structure is MSCI's; the number is ours. `CUTOFF_DISCLOSURE` states this on every surface showing a
   cutoff, and the derived IMI cutoff (₹3,338 Cr) landing inside MSCI's own published reference range
   (₹2,952–6,789 Cr) is corroboration, not proof.
+
+  > ⚠ **And that corroboration is about THIS module's cutoff only.** Since §2.33 the shipped model
+  > derives its cutoffs by rank against the constituent count instead, and that one lands at
+  > **USD 998m against MSCI's published EM IMI range of USD 309–710m** — 1.41× above the top, because
+  > the funds sample rather than replicate. Do not carry the sentence above across to it;
+  > `model.sizeCutoffReference` states the comparison for the shipped model and verify-data 46 fails
+  > if it goes missing.
 - **Both models see the same universe** or the comparison is meaningless — no row is assessed by one
   and not the other. verify-data 32 asserts they disagree about real companies rather than being a
   relabelling of each other, and is proved by making the second return the first's verdicts.
@@ -1169,6 +1185,123 @@ Auto's ticker from `BAJAJ-AUTO` to `BAJAJ.AUTO` between the two files. A ticker-
 that as one exit and one entry — two fabricated events on a company that did not move, in a table
 whose entire purpose is to count events. Keyed on ISIN it reads as what it is: no change, with a
 weight move.
+
+### 2.33 The model was wrong in KIND, not in degree, and the corrections were already published
+
+The August 2026 forecast named **166 companies as moving; 33 moved; 23 of the 166 were right** —
+13.9% precision, 69.7% recall. Diagnosed against the outcome, none of the four large errors was a
+mis-set number. Each was the model asking a different question from the one MSCI answers, and each
+has a correction MSCI prints and we can cite.
+
+| Error | What MSCI does | Where it cost us |
+| --- | --- | --- |
+| one size measure | the cutoff is a **full** market cap (p. 28), free float is a **separate** minimum (p. 30) | the two real migration-downs |
+| no hysteresis | 2/3 out, 1.5× in (pp. 44–45) | 39 migration flags, 3 events |
+| no FIF floor | FIF ≥ 0.15 (pp. 21, 45) | 16 inclusion flags on companies no fund can hold |
+| a fixed rupee band | cutoffs are derived at each review | exits ran to ₹3,749 Cr against a ₹2,538 Cr bar |
+
+> ### ⚠ THE BUFFER WAS NEVER WRONG. IT WAS BEING APPLIED TO THE WRONG QUANTITY
+>
+> This is the finding worth carrying forward, because it looks like a threshold problem and is not.
+> Measured against the Standard cutoff on **full market cap**, Balkrishna and Astral sit at −35.5%
+> and −41.1% — comfortably inside MSCI's published −33.3% lower buffer. Measured on **free float**,
+> the same two sit at −31.6% and −31.7%, where that same buffer misses BOTH.
+>
+> A first attempt read that as "MSCI's number does not transfer" and proposed a fitted −30%, on
+> n=2. It transfers perfectly; the model was measuring the wrong thing. **Before deciding that a
+> published rule does not fit, check what you are applying it to.**
+
+**The cutoffs are ours, the ratios are MSCI's, and nothing may blur them.** Both cutoffs are the Nth
+company by full market cap across the **whole** record, where N is the number of India names the
+funds show MSCI holding in that segment — 166 Standard, 622 IMI on the record of 31 Aug 2026. That
+is §2.14's non-circular rank crossing moved onto the size measure MSCI cuts on: the Nth company is
+drawn from the whole universe, never from the segment under test, which is what lets a constituent be
+overtaken at all. It fires: 23 of 458 Small Cap constituents sit below the deletion buffer and 5 of
+167 Standard below the migration one.
+
+`gimi.js` derives its cutoffs by MSCI's coverage walk instead, and **on our universe that walk lands
+in the wrong place**: 1,016 companies clear its IMI cutoff against 623 constituents, and 306 clear
+its Standard cutoff against 165. MSCI's 85% and 99% targets are of the *Market Investable Equity
+Universe* — after liquidity, foreign-room, length-of-trading and minimum-size screens — and we run
+them over everything BSE lists above ₹2,000 Cr. Apply the 2/3 buffer to a cutoff that low and only
+**three** constituents fall below it, none of which left. That is the whole reason the GIMI model
+calls every one of August's 18 exits `stable`.
+
+> ### ⚠ AND OUR CUTOFF IS BIASED HIGH — §2.26's CORROBORATION DOES NOT CARRY OVER
+>
+> §2.26 recorded the coverage-walk IMI cutoff landing inside MSCI's own published reference range as
+> corroboration. The rank-derived one does not land inside it: **USD 998m against MSCI's published
+> EM IMI Global Minimum Size Range of USD 309–710m** (pp. 24, 26), 1.41× above the top.
+>
+> The reason is in the derivation. The constituent count comes from three iShares funds that
+> **sample** rather than replicate, so it under-states MSCI's real India IMI membership and the Nth
+> company is bigger than MSCI's own cutoff. `model.sizeCutoffReference` computes that comparison on
+> every build so it cannot go stale, and verify-data 46 fails if it is dropped. Citing MSCI's pages
+> for the ratios while hiding that the bar they scale sits 40% above MSCI's own reference would be a
+> tier-3 figure wearing a tier-1 face.
+
+**The desk's bands are kept and no longer decide.** They fire as `desk-inclusion-band` and
+`desk-exclusion-band` on every company, floated by `SEGMENT_BAND_ADJUSTMENT`, carrying their own
+result — and nothing branches on them. Deleting them because one review disagreed would throw away
+the client's frame of reference; leaving them silently beside a verdict they did not produce would be
+worse. §2.14 again: where the two part company, the disagreement is the information.
+
+#### What was rejected, and why it is worth writing down
+
+Bands of **₹8,000 Cr and ₹3,800 Cr**, fitted to these 33 events, scored **20.5% / 97.0%** — better
+than what ships. They were rejected on measurement, not on principle:
+
+- both are a **sample maximum**: ₹8,000 Cr is 1.4% above the largest caught exit, ₹3,800 Cr is 1.4%
+  above the next. A max-statistic estimator has almost no chance of covering next quarter's max.
+- refit on 32 of the 33 and score the one held out, and **97.0% becomes 90.9%**; across 96
+  deterministic train/test splits, pooled held-out recall is **86.0%** and one fold falls below the
+  13.9% baseline's own recall.
+- re-struck on **the ten days MSCI actually priced on** (20–31 July, §2.25) rather than our 28 August
+  close, the fitted model catches **29 of 33 instead of 32** — a systematic four-to-six-week drift
+  that recurs every quarter. **What ships loses one: 27 at 28 August, 26 on MSCI's window**, because
+  a rank-derived cutoff re-prices with the companies it is compared against and a rupee band cannot.
+  verify-data 50 asserts that invariance and is proved by moving one segment's share counts alone.
+
+**The separation statistic does not carry the argument either, and it was nearly quoted as if it
+did.** Over the 18 exits full market cap does score better than free float — AUC 0.919 against 0.899
+— but on 18 positives that difference is +0.019 with a bootstrap 95% interval of **[−0.015, +0.054]**,
+and on the 12 entries the sign reverses (0.912 against 0.923). What settles the question is that MSCI
+publishes the basis, not that our sample prefers it.
+
+#### What it scores, and why that figure is not a track record
+
+**138 flagged, 27 right, of 33 movers — 19.6% precision, 81.8% recall**, against 166/23 = 13.9% /
+69.7% as forecast. Both figures are computed by `build-rebalance.mjs` from the frozen snapshot and
+live in `rebalance-2026-08.json`; neither is typed anywhere (§2.5).
+
+**It is in-sample.** No threshold was fitted — every ratio is MSCI's, every cutoff is a constituent
+count — but the *decision* to use MSCI's geometry was taken after reading the result. A model scored
+on the review that motivated it is answering a question it has already seen. The page says so, the
+file says so, and verify-ui 55 fails if either stops saying it. §2.13 is unchanged: one review is one
+data point, and there is still no probability anywhere in this product.
+
+**Six movers it would still miss**, and they are named on the page: three entrants below the entry
+buffer (Amagi Media Labs, WeWork India, Embassy Developments), Clean Max below the free-float
+minimum, Laurus Labs 0.7% short of the 1.5× migration bar, and Nippon Life India AMC — which did not
+shrink but grew out of Small Cap, and reads as an exit only because the fund that would have received
+it does not hold it.
+
+#### The ceiling this does not break
+
+**Inclusion cannot be fixed by a threshold, and the reason is arithmetic.** 642 companies sat outside
+the index and 12 entered — a base rate of 1.9%. No size cut gets entry precision above about 15%,
+because MSCI's own rule (p. 44) is that a company above the entry buffer is added *"only to the
+extent that they replace current constituents which have fallen below the Small Cap Lower Buffer"*.
+Clearing the bar makes a company **eligible**, and the number of slots is roughly the number of
+exits. An inclusion verdict here is a candidacy and the vocabulary must keep saying so.
+
+**Listing age is real and was not shipped.** Entry rate by age on the August record: 0–0.5y 4.4%,
+0.5–1y **10.4%**, 1–2y 1.9%, 2–5y 0.0%, 5–10y 2.6%, 10y+ **0.8%** — a 13× lift, from a genuine
+measured date (`DATE OF LISTING` in `nsearchives.nseindia.com/content/equities/EQUITY_L.csv`, which
+answers from a datacentre IP where the main NSE API does not, 94.9% coverage of our universe). It
+was left out because 4 of the 12 entrants are long-listed — Embassy Developments at 19.4 years, Adani
+Energy at 11.0 — so gating on it buys precision by losing movers. It is the best-supported thing not
+in the model.
 
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
@@ -1660,8 +1793,8 @@ scripts/
                                    -> public/data/predictions-<review>.json
   build-rebalance.mjs              frozen forecast vs the outcome
                                    -> public/data/rebalance-<review>.json
-  verify-data.mjs                  45 data assertions; no browser, no network
-  verify-ui.mjs                    35 interface assertions; the served site
+  verify-data.mjs                  50 data assertions; no browser, no network
+  verify-ui.mjs                    36 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
@@ -1753,9 +1886,9 @@ node scripts/verify-data.mjs           # the data assertions; run before committ
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 45 assertions; no browser, no network
+node scripts/verify-data.mjs           # 50 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 35 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 36 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 

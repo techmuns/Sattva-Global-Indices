@@ -28,7 +28,7 @@ import { assertBhavcopyShape, parseBhavcopy, assertContinuity } from './lib/bhav
 import { parseRawQuote, quoteNumber, quoteText } from './lib/munshot.mjs';
 import { buildIndex, resolveAll } from './lib/resolve.mjs';
 import { assess, verdictFromRules } from '../public/js/model/assess.js';
-import { observedBoundary, rankByFreeFloat } from '../public/js/model/thresholds.js';
+import { observedBoundary, observedSizeCutoffs, rankByFreeFloat } from '../public/js/model/thresholds.js';
 import { segmentOf } from '../public/js/model/segments.js';
 import { seriesToMap, summarise, assertSeriesDates, comparableInInr } from '../public/js/model/benchmarks.js';
 import { reviewCutoffs, CONVENTION } from '../public/js/model/calendar.js';
@@ -1341,6 +1341,9 @@ async function main() {
         quarantined: new Set(c.companies.filter((x) => x.shareCountQuarantine).map(keyOf)),
         keyOf,
         segmentReturns: c.companiesFile.benchmarks?.adjustment?.segmentReturnsInrPct ?? null,
+        // Without this every company falls to `unknown` on `no-size-cutoff` and
+        // the sweep would "pass" by making the whole record refuse to answer.
+        sizeCutoffs: observedSizeCutoffs(c.companies, (x) => x.segment),
       };
       const moved = [];
       for (const sweep of [-200, -100, -40, -15, 0, 15, 40, 100, 200]) {
@@ -1495,8 +1498,17 @@ async function main() {
         if (!a || a.distancePct === null || a.distancePct === undefined) continue;
         const rule = (a.rulesFired ?? []).find((r) => r.key === a.distanceRuleKey);
         if (!rule) { orphans.push(`${company.name}: names "${a.distanceRuleKey}", not in its own rulesFired`); continue; }
-        if (rule.unit !== 'inr' || !(rule.threshold > 0) || company.freeFloatMcapInr == null) continue;
-        const implied = ((company.freeFloatMcapInr - rule.threshold) / rule.threshold) * 100;
+        // ⚠ THE INPUT COMES FROM THE RULE, NOT FROM A FIELD THIS CHECK PICKS.
+        // It used to read company.freeFloatMcapInr, which was true only while
+        // every rule compared free float. Since September 2026 the size rules
+        // compare FULL market cap (GIMI p. 28) and the free-float ones do not,
+        // so a check that assumed one quantity would have to be told which — and
+        // a check that has to be told what it is measuring is measuring itself.
+        // `rule.input` is what the rule actually compared, so this now proves
+        // both halves at once: that the named rule is the right one, and that
+        // the number it recorded is the number the distance was struck on.
+        if (rule.unit !== 'inr' || !(rule.threshold > 0) || !Number.isFinite(rule.input)) continue;
+        const implied = ((rule.input - rule.threshold) / rule.threshold) * 100;
         reproduced += 1;
         if (Math.abs(implied - a.distancePct) > 0.01) {
           wrong.push(`${company.name} (${a.verdict}): stored ${a.distancePct}, "${a.distanceRuleKey}" implies ${implied.toFixed(3)}`);
@@ -1614,10 +1626,8 @@ async function main() {
           }
           // And it must float in the direction the segment moved.
           const rose = r.band.segmentReturnPct > 0;
-          const rawForRule = r.key === 'entry-upper-band' ? r.band.rawInclusion.highInr
-            : r.key === 'entry-lower-band' ? r.band.rawInclusion.lowInr
-            : r.key === 'exclusion-lower-band' ? r.band.rawExclusion.lowInr
-            : r.key === 'exclusion-upper-band' ? r.band.rawExclusion.highInr : null;
+          const rawForRule = r.key === 'desk-inclusion-band' ? r.band.rawInclusion.highInr
+            : r.key === 'desk-exclusion-band' ? r.band.rawExclusion.lowInr : null;
           if (rawForRule === null) continue;
           if (rose && !(r.threshold > rawForRule)) {
             wrong.push(`${company.nseSymbol} ${r.key}: segment rose ${r.band.segmentReturnPct}% but the bar did not`);
@@ -2425,6 +2435,373 @@ async function main() {
         if (row.predictedVerdict === 'unknown') row.predictedClaim = 'no-change';
       }
       c.rebalance.scorecard.unknownAtForecast = 0;
+    },
+  }, ctx);
+
+
+  suite.section('The recalibrated verdict — MSCI geometry on observed cutoffs');
+
+  await suite.check({
+    id: 46,
+    what: "every bar a verdict is decided against is MSCI's published ratio times a cutoff the record can reproduce",
+    clone: deepClone,
+    run: (c) => {
+      // ⚠ THIS IS THE CHECK THAT KEEPS A DESK NUMBER FROM WEARING MSCI'S FACE.
+      //
+      // After the August 2026 review the verdicts stopped being decided by the
+      // desk's rupee bands and started being decided by MSCI's published ratios
+      // — 2/3 out, 1.5x in, 50% minimum free float with 2/3 relief, a 0.15 FIF
+      // floor. Every one of those is a number MSCI prints and we cite; none may
+      // be quietly nudged to make a screen look better (§2.25).
+      //
+      // Two halves, and the second is the load-bearing one:
+      //   1. each bar is exactly ratio x cutoff, recomputed here from the
+      //      methodology module rather than read off the record;
+      //   2. each CUTOFF is the Nth company by full market cap across the WHOLE
+      //      record, where N is the observed constituent count — recomputed the
+      //      same way. A cutoff typed in, or read off one segment, would pass
+      //      the first half and fail this one.
+      const m = c.companiesFile.model;
+      const cut = m.sizeCutoffs;
+      const bars = m.sizeBars;
+      ok(cut && bars, 'the cutoffs and the bars are both on the record', JSON.stringify(Object.keys(m)));
+
+      // --- the cutoffs, from the record's own companies -------------------
+      const measurable = c.companies.filter((x) => Number.isFinite(x.fullMcapInr) && Number.isFinite(x.freeFloatMcapInr));
+      const ranked = [...measurable].sort((a, b) => b.fullMcapInr - a.fullMcapInr);
+      const stdCount = measurable.filter((x) => x.segment === 'standard').length;
+      const scCount = measurable.filter((x) => x.segment === 'smallcap').length;
+      equal(cut.standardCount, stdCount, 'the Standard count is the constituents we can size');
+      equal(cut.imiCount, stdCount + scCount, 'the IMI count is Standard plus Small Cap');
+      equal(cut.rankedCount, ranked.length, 'the ranking covers every company carrying BOTH sizes');
+      equal(cut.excludedForMissingSize, c.companies.length - ranked.length,
+        'a company missing either size is counted out, never ranked as a zero');
+      equal(cut.standard.inr, ranked[stdCount - 1].fullMcapInr, 'the Standard cutoff is the Nth by FULL market cap');
+      equal(cut.imi.inr, ranked[stdCount + scCount - 1].fullMcapInr, 'the IMI cutoff is the Nth by FULL market cap');
+
+      // --- the bars, from MSCI's own published ratios ----------------------
+      const near = (a, b, what) => ok(Math.abs(a - b) < 1, what, `${a} vs ${b}`);
+      near(bars.entryFullInr, cut.imi.inr * MSCI.BUFFERS.upperMultiple, "the entry bar is MSCI's 1.5x entry buffer");
+      near(bars.exitFullInr, cut.imi.inr * MSCI.BUFFERS.lowerMultiple, "the deletion bar is MSCI's 2/3 lower buffer");
+      near(bars.entryFreeFloatInr, cut.imi.inr * MSCI.MIN_FREE_FLOAT_MCAP.newConstituentMultipleOfCutoff,
+        "the new-constituent free-float minimum is MSCI's 50% of the cutoff");
+      near(bars.exitFreeFloatInr,
+        cut.imi.inr * MSCI.MIN_FREE_FLOAT_MCAP.newConstituentMultipleOfCutoff * MSCI.MIN_FREE_FLOAT_MCAP.existingConstituentRelief,
+        "an incumbent's free-float minimum carries MSCI's 2/3 relief");
+      near(bars.migrationUpFullInr, cut.standard.inr * MSCI.BUFFERS.upperMultiple, 'the migration-up bar is the upper buffer on the Standard cutoff');
+      near(bars.migrationDownFullInr, cut.standard.inr * MSCI.BUFFERS.lowerMultiple, 'the migration-down bar is the lower buffer on the Standard cutoff');
+      equal(bars.fifFloor, MSCI.MIN_FIF.floor, "the FIF floor is MSCI's published 0.15");
+
+      // --- and there is a GAP between the two bars, which is the whole point -
+      // The exit bar sits below the cutoff and the entry bar above it, and the
+      // 2.25x between them is the hysteresis. Collapsing either onto the cutoff
+      // turns the pair back into one bright line, which is precisely the model
+      // that called 39 migrations in a quarter that had 3.
+      ok(MSCI.BUFFERS.lowerMultiple < 1 && MSCI.BUFFERS.upperMultiple > 1,
+        'the exit bar is below the cutoff and the entry bar above it',
+        `${MSCI.BUFFERS.lowerMultiple} / ${MSCI.BUFFERS.upperMultiple}`);
+      ok(MSCI.BUFFERS.upperMultiple / MSCI.BUFFERS.lowerMultiple > 2,
+        'and the gap between them is wide enough to be hysteresis rather than rounding',
+        `${(MSCI.BUFFERS.upperMultiple / MSCI.BUFFERS.lowerMultiple).toFixed(2)}x`);
+      ok(bars.exitFullInr < cut.imi.inr && cut.imi.inr < bars.entryFullInr,
+        'and the record shows the two bars straddling the cutoff in rupees',
+        `₹${cr(bars.exitFullInr)} < ₹${cr(cut.imi.inr)} < ₹${cr(bars.entryFullInr)} Cr`);
+
+      // --- and the cutoff is compared against MSCI'S OWN published range -----
+      // ⚠ IT DOES NOT LAND INSIDE IT, AND THAT MUST NOT BE QUIETLY DROPPED.
+      // §2.26 recorded the coverage-walk cutoff landing inside MSCI's reference
+      // range as corroboration. The rank-derived one does not: it is 1.41x above
+      // the top of the range, because our constituent count comes from funds
+      // that SAMPLE the index. Citing MSCI's pages for the ratios while hiding
+      // that the bar they scale sits 40% above MSCI's own reference would be a
+      // tier-3 figure wearing a tier-1 face.
+      const ref = m.sizeCutoffReference;
+      ok(ref, 'the cutoff is compared against MSCI\'s published reference range on the record', JSON.stringify(Object.keys(m)));
+      ok(Number.isFinite(ref.ourCutoffUsdM) && Number.isFinite(ref.multipleOfRangeHigh),
+        'and the comparison is a computed figure, not a sentence', JSON.stringify(ref));
+      equal(ref.msciReferenceUsdM, MSCI.GLOBAL_MIN_SIZE_REFERENCE.emerging.imi,
+        "the reference is MSCI's own EM IMI figure, read from the methodology module");
+      ok(typeof ref.note === 'string' && /biased high/i.test(ref.note),
+        'and the record says which way the bias runs, in words',
+        ref.note?.slice(0, 80));
+      ok(ref.inside === (ref.ourCutoffUsdM >= ref.msciRangeUsdM.low && ref.ourCutoffUsdM <= ref.msciRangeUsdM.high),
+        '`inside` agrees with the numbers beside it — a disclosure that disagrees with its own figures is worse than none',
+        `${ref.ourCutoffUsdM} vs ${ref.msciRangeUsdM.low}..${ref.msciRangeUsdM.high}, inside=${ref.inside}`);
+
+      return `Standard ₹${cr(cut.standard.inr)} Cr (rank ${cut.standardCount}) · `
+        + `IMI ₹${cr(cut.imi.inr)} Cr (rank ${cut.imiCount}) of ${cut.rankedCount} · `
+        + `${cut.excludedForMissingSize} excluded for a missing size · `
+        + `IMI cutoff USD ${ref.ourCutoffUsdM}m vs MSCI's published USD ${ref.msciRangeUsdM.low}-${Math.round(ref.msciRangeUsdM.high)}m `
+        + `(${ref.multipleOfRangeHigh}x the top — biased high)`;
+    },
+    // Nudge one bar by 5%: the shape of the change a future author makes to get
+    // a column to look right, and the one that would silently turn MSCI's
+    // published ratio into somebody's preference.
+    sabotage: (c) => { c.companiesFile.model.sizeBars.exitFullInr *= 1.05; },
+  }, ctx);
+
+  await suite.check({
+    id: 47,
+    what: 'the cutoff is drawn from the whole universe, so a constituent can actually fall below it',
+    clone: deepClone,
+    run: (c) => {
+      // ⚠ THE GUARD-READS-ITS-OWN-THRESHOLD TRAP, IN ITS SIZE-CUTOFF FORM.
+      //
+      // The smallest Standard constituent IS the Standard floor, so a cutoff
+      // read off the constituents could never be crossed by one of them and
+      // every migration and deletion rule would be decoration (§3.8, §2.14).
+      // Ranking the whole record — constituents and unheld companies together —
+      // is what makes the test able to fire, and the proof it fires is that
+      // constituents are found below the bars.
+      const bars = c.companiesFile.model.sizeBars;
+      const sc = c.companies.filter((x) => x.segment === 'smallcap' && Number.isFinite(x.fullMcapInr));
+      const std = c.companies.filter((x) => x.segment === 'standard' && Number.isFinite(x.fullMcapInr));
+      const belowExit = sc.filter((x) => x.fullMcapInr < bars.exitFullInr);
+      const belowMigration = std.filter((x) => x.fullMcapInr < bars.migrationDownFullInr);
+      ok(belowExit.length > 0,
+        'Small Cap constituents are found below the deletion buffer — the test can fire',
+        `${belowExit.length} of ${sc.length}`);
+      ok(belowMigration.length > 0,
+        'Standard constituents are found below the migration buffer — the test can fire',
+        `${belowMigration.length} of ${std.length}`);
+      // And it must not fire on everybody: a bar under which every constituent
+      // sits is as useless as one under which none does.
+      ok(belowExit.length < sc.length / 2, 'the deletion bar does not flag half the segment',
+        `${belowExit.length} of ${sc.length}`);
+
+      // The verdicts that follow must exist on the record, or the rules above
+      // are being measured while something else decides what is shown.
+      const counts = c.companiesFile.model.verdictCounts;
+      for (const key of ['likely-exclusion', 'exclusion-risk', 'likely-inclusion', 'migration-down']) {
+        ok((counts[key] ?? 0) > 0, `the record carries at least one ${key}`, JSON.stringify(counts));
+      }
+      return `${belowExit.length} of ${sc.length} Small Cap below the deletion buffer · `
+        + `${belowMigration.length} of ${std.length} Standard below the migration buffer`;
+    },
+    // Re-derive the cutoff from the SEGMENT rather than from the universe, which
+    // is the circular version: it lands at the smallest constituent, and then
+    // nothing can be below it.
+    sabotage: (c) => {
+      const sc = c.companies.filter((x) => x.segment === 'smallcap' && Number.isFinite(x.fullMcapInr));
+      const floor = Math.min(...sc.map((x) => x.fullMcapInr));
+      c.companiesFile.model.sizeBars.exitFullInr = floor;
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 48,
+    what: 'the retrospective score is replayed from the frozen forecast, differs from it, and says it is in-sample',
+    clone: deepClone,
+    run: (c) => {
+      // ⚠ A MODEL SCORED ON THE REVIEW THAT MOTIVATED IT IS ANSWERING A QUESTION
+      // IT HAS ALREADY SEEN. That is worth publishing and it is not a track
+      // record, and the difference has to be on the file rather than in
+      // somebody's memory of the commit message.
+      const r = c.rebalance.retrospective;
+      ok(r, 'the retrospective block is on the file', JSON.stringify(Object.keys(c.rebalance)));
+      equal(r.inSample, true, 'the retrospective declares itself in-sample');
+      ok(typeof r.caveat === 'string' && /in-sample/i.test(r.caveat),
+        'and says so in words a reader will see, not only in a boolean', r.caveat);
+      ok(r.replayedFrom.includes('predictions-'),
+        'it names the frozen file it was replayed from', r.replayedFrom);
+
+      // It must be a DIFFERENT model, or the block is decoration. Recomputing
+      // the old verdicts would give exactly the forecast's own numbers.
+      const changed = r.precision.flagged !== r.asForecast.flagged
+        || r.precision.rightEvent !== r.asForecast.rightEvent;
+      ok(changed, 'the recalibrated rules reach a different answer from the frozen ones',
+        `now ${r.precision.rightEvent}/${r.precision.flagged}, as forecast ${r.asForecast.rightEvent}/${r.asForecast.flagged}`);
+
+      // Both denominators, both scores — never one blended figure (§2.5, §2.32).
+      ok(r.precision.flagged > 0 && r.recall.moved > 0, 'both denominators are on the block',
+        JSON.stringify({ flagged: r.precision.flagged, moved: r.recall.moved }));
+      equal(r.recall.rightEvent, r.precision.rightEvent,
+        'the same hits are counted in both directions, so the two figures cannot drift apart');
+      // What it STILL gets wrong is named, not summarised away.
+      ok(Array.isArray(r.stillMissed), 'the movers it would still miss are listed', typeof r.stillMissed);
+      equal(r.stillMissed.length, r.recall.moved - r.recall.rightEvent,
+        'the misses list is complete — every mover it did not name is on it');
+
+      return `as forecast ${r.asForecast.rightEvent}/${r.asForecast.flagged} · `
+        + `retrospectively ${r.precision.rightEvent}/${r.precision.flagged} of ${r.recall.moved} movers · `
+        + `${r.stillMissed.length} still missed · in-sample`;
+    },
+    // The change that makes the number look like a forecast record.
+    sabotage: (c) => { c.rebalance.retrospective.inSample = false; },
+  }, ctx);
+
+  await suite.check({
+    id: 49,
+    what: "the FIF floor is a factor, never a rupee figure, and it is MSCI's number applied to a proxy",
+    clone: deepClone,
+    run: (c) => {
+      // ₹0 Cr is not a rounding artefact of 0.15 — it is a different number
+      // (§2.26). And the exchange float factor is NOT MSCI's Foreign Inclusion
+      // Factor: MSCI's nets foreign ownership limits. Saying so is the whole
+      // difference between citing a rule and claiming one.
+      const rules = [];
+      for (const company of c.companies) {
+        for (const r of company.assessment?.rulesFired ?? []) if (r.key === 'fif-floor') rules.push({ company, r });
+      }
+      ok(rules.length > 0, 'the FIF floor fires somewhere on the record', `${rules.length} rules`);
+      empty(rules.filter(({ r }) => r.unit !== 'factor'),
+        'every FIF rule declares its unit as a factor', ({ company }) => company.name);
+      empty(rules.filter(({ r }) => r.threshold !== MSCI.MIN_FIF.floor),
+        "every FIF rule uses MSCI's published floor", ({ company, r }) => `${company.name}: ${r.threshold}`);
+      empty(rules.filter(({ r }) => r.thresholdSource !== 'msci'),
+        'and attributes it to MSCI', ({ company, r }) => `${company.name}: ${r.thresholdSource}`);
+      empty(rules.filter(({ r }) => !/proxy/i.test(r.note ?? '')),
+        'and says on its face that the exchange float factor is a PROXY for FIF, not FIF',
+        ({ company }) => company.name);
+
+      const below = rules.filter(({ r }) => r.result === 'below');
+      const heldBelow = below.filter(({ company }) => company.segment !== 'outside');
+      return `${rules.length} FIF rules · ${below.length} below ${MSCI.MIN_FIF.floor} · `
+        + `${heldBelow.length} of those held by a fund`;
+    },
+    // Render MSCI's 0.15 as rupees, which is how a factor becomes "₹0 Cr".
+    sabotage: (c) => {
+      for (const company of c.companies) {
+        for (const r of company.assessment?.rulesFired ?? []) if (r.key === 'fif-floor') r.unit = 'inr';
+      }
+    },
+  }, ctx);
+
+
+  await suite.check({
+    id: 50,
+    what: 'the cutoff re-prices with the companies, so a verdict does not turn on which day the record was struck',
+    clone: deepClone,
+    run: (c) => {
+      // ⚠ THIS IS THE PROPERTY A FIXED RUPEE BAND CANNOT HAVE, AND IT IS THE
+      // REASON THE RECALIBRATION USES A RANK-DERIVED CUTOFF INSTEAD OF ONE.
+      //
+      // MSCI prices a review on one of the last ten business days of the month
+      // BEFORE the review month and does not say which (GIMI p. 49, §2.12.2).
+      // Our record is struck on the latest committed close, four to six weeks
+      // later. A bar fixed in rupees is then compared against market caps that
+      // have drifted underneath it — measured over 1,204 companies between the
+      // August window and 28 Aug 2026, full market cap moved p10 -8.9% /
+      // median +0.9% / p90 +20.0% — and a verdict flips because the RECORD moved,
+      // not because the company did.
+      //
+      // A cutoff that is the Nth company by full market cap moves with the same
+      // prices as the company being tested, so the comparison survives the
+      // shift. This proves it on the committed record: re-strike every size on
+      // MSCI's own ten-day window and the verdicts must very largely hold.
+      // Read here rather than carried on the context: the clone this check
+      // sabotages is the COMPANIES, and the history is an independent file the
+      // sabotage must not be able to move.
+      const history = readJson('public/data/price-history.json');
+      const win = history.windows.find((w) => w.review === c.companiesFile.model.nextReview?.review)
+        ?? history.windows[history.windows.length - 1];
+      ok(win, 'a price window is on the record to re-strike against', JSON.stringify(history.windows?.map((w) => w.review)));
+      const at = new Map(history.dates.map((d, i) => [d, i]));
+      const keyOf = (x) => x.isin ?? `bse:${x.bseScripCode}`;
+      const slots = win.dates.map((d) => at.get(d)).filter((i) => i !== undefined);
+      equal(slots.length, win.dates.length, 'every session in the window is in the scanned range');
+
+      // The window MEAN, because MSCI does not say which of the ten it used and
+      // no single day is privileged (§2.12.2).
+      const meanClose = (code) => {
+        const scrip = history.scrips[String(code)];
+        if (!scrip) return null;
+        const closes = slots.map((i) => scrip.closes[i]).filter((x) => Number.isFinite(x));
+        return closes.length === slots.length ? closes.reduce((a, b) => a + b, 0) / closes.length : null;
+      };
+
+      // ⚠ THE FACTOR AND THE SHARE COUNT ARE HELD, ONLY THE PRICE MOVES (§2.9).
+      // Re-deriving a float factor from a historical price would fold a price
+      // difference into a float difference and measure nothing.
+      let restruck = 0;
+      const asWindow = c.companies.map((company) => {
+        const price = company.bseScripCode == null ? null : meanClose(company.bseScripCode);
+        if (!Number.isFinite(price) || !Number.isFinite(company.sharesOutstanding) || !Number.isFinite(company.floatFactor)) {
+          return company;
+        }
+        restruck += 1;
+        const fullMcapInr = company.sharesOutstanding * price;
+        return { ...company, fullMcapInr, freeFloatMcapInr: company.floatFactor * fullMcapInr };
+      });
+      ok(restruck > c.companies.length * 0.8, 'most of the record could be re-struck on that window',
+        `${restruck} of ${c.companies.length}`);
+
+      const context = (rows) => ({
+        quarantined: new Set(rows.filter((x) => x.shareCountQuarantine).map(keyOf)),
+        keyOf,
+        segmentReturns: null,
+        sizeCutoffs: observedSizeCutoffs(rows, (x) => x.segment),
+      });
+      const verdictsOn = (rows) => {
+        const ctx = context(rows);
+        const out = new Map();
+        for (const company of rows) out.set(keyOf(company), assess(company, ctx).verdict);
+        return out;
+      };
+      const now = verdictsOn(c.companies);
+      const then = verdictsOn(asWindow);
+      const moved = [...now.keys()].filter((k) => now.get(k) !== then.get(k));
+      const movedPct = (moved.length / now.size) * 100;
+
+      // The cutoffs must MOVE — if they did not, the re-strike did nothing and
+      // this check would be comparing a record with itself.
+      const cutNow = observedSizeCutoffs(c.companies, (x) => x.segment);
+      const cutThen = observedSizeCutoffs(asWindow, (x) => x.segment);
+      ok(cutNow.imi.inr !== cutThen.imi.inr && cutNow.standard.inr !== cutThen.standard.inr,
+        'the re-strike genuinely moved both cutoffs, so this is not a comparison with itself',
+        `IMI ₹${cr(cutNow.imi.inr)} -> ₹${cr(cutThen.imi.inr)} Cr`);
+
+      ok(movedPct < 5, 'a six-week price shift moves few verdicts, because the bar moved with the companies',
+        `${moved.length} of ${now.size} verdicts (${movedPct.toFixed(1)}%)`);
+
+      // ⚠ AND THE OBVIOUS COMPARISON IS NOT ASSERTED, BECAUSE IT IS NOT TRUE HERE.
+      //
+      // It is tempting to add "and a bar frozen in rupees moves more". Measured
+      // on this record it does not: across this window the derived deletion bar
+      // flags 23 companies then 19 (14 changing sides) while a bar frozen at
+      // today's rupee level flags 23 then 22 (11 changing sides). The reason is
+      // that the window is quiet — the IMI cutoff moves 2.2% — so there is
+      // almost nothing for a floating bar to buy, and on a small move the extra
+      // motion of the bar itself is the larger effect.
+      //
+      // The case for deriving the cutoff is §2.24's and it is about a market
+      // that has MOVED, which this five-week window has not. Asserting it here
+      // would be reading a preference out of a quiet quarter — the same error
+      // the AUC sentence made in the calibration record. So the counts are
+      // reported and nothing is claimed from them.
+      const flaggedBy = (rows, bar) => new Set(rows
+        .filter((x) => x.segment === 'smallcap' && Number.isFinite(x.fullMcapInr) && x.fullMcapInr < bar)
+        .map(keyOf));
+      const derivedNow = flaggedBy(c.companies, cutNow.imi.inr * MSCI.BUFFERS.lowerMultiple);
+      const derivedThen = flaggedBy(asWindow, cutThen.imi.inr * MSCI.BUFFERS.lowerMultiple);
+      const churn = [...derivedNow].filter((k) => !derivedThen.has(k)).length
+        + [...derivedThen].filter((k) => !derivedNow.has(k)).length;
+
+      return `${restruck} re-struck on ${win.from}..${win.to} · ${moved.length} of ${now.size} verdicts move `
+        + `(${movedPct.toFixed(1)}%) · IMI cutoff ₹${cr(cutNow.imi.inr)} -> ₹${cr(cutThen.imi.inr)} Cr · `
+        + `${churn} companies change sides of the deletion bar`;
+    },
+    /**
+     * ⚠ A UNIFORM SABOTAGE IS SURVIVED, AND THAT IS THE CHECK WORKING.
+     *
+     * The first attempt scaled every share count by 1.6. Nothing moved, because
+     * the cutoff is derived from the same rows: multiply the whole universe by a
+     * constant and every rank, every ratio and every verdict is unchanged. That
+     * is precisely the invariance being asserted, so the sabotage was proving
+     * the check rather than breaking it — a false negative that would have
+     * counted as a tick.
+     *
+     * What breaks the property is a share count that moves for PART of the
+     * universe, which is also the real defect shape: a feed that updated some
+     * companies and not others. The Small Cap segment then re-prices against a
+     * cutoff set by everybody else, and verdicts move because the record moved.
+     */
+    sabotage: (c) => {
+      for (const company of c.companies) {
+        if (company.segment === 'smallcap' && Number.isFinite(company.sharesOutstanding)) {
+          company.sharesOutstanding *= 2.5;
+        }
+      }
     },
   }, ctx);
 
