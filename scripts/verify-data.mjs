@@ -876,6 +876,60 @@ async function main() {
   }, ctx);
 
   await suite.check({
+    id: 56,
+    what: 'the captured baselines keep up with the prices — a rebalance the closes have passed must be on the record',
+    clone: deepClone,
+    run: (c) => {
+      /*
+       * ⚠ THE ONE PLACE THIS CAN BE ASKED WITHOUT ANSWERING ITSELF.
+       *
+       * `price-history.json` derives its baseline set from
+       * `closedReviews(prices.tradeDate)`, so ASKING THE SAME QUESTION INSIDE
+       * THAT SCRIPT IS CIRCULAR: the newest closed review is in the set by
+       * construction, whatever the anchor says, and the check passes on the
+       * exact state it exists to catch. Measured on anchor 2026-08-28: captured
+       * {2026-05, 2026-02, 2025-11, 2025-08}, newest closed 2026-05, silent
+       * while August 2026 is missing.
+       *
+       * Here the two sides come from files written by DIFFERENT scripts at
+       * DIFFERENT times — `prices.tradeDate` from fetch-bhavcopy, the baselines
+       * from fetch-price-history — so the question has an answer the anchor
+       * cannot fix in its own favour. It fires exactly when the price file has
+       * moved past a rebalance the baseline file has not captured, which is the
+       * state that produced a screen baselined on May while its own calendar
+       * said August had happened, with every other check green.
+       */
+      const context = c.companiesFile.sinceRebalance;
+      ok(context?.baselines?.length, 'the record carries its captured baselines');
+      const priceDate = c.prices.tradeDate;
+      const newestClosed = closedReviews(priceDate, 1)[0] ?? null;
+      ok(newestClosed, 'the calendar names a closed review as of the price date', priceDate);
+
+      const captured = context.baselines.map((b) => b.review);
+      ok(captured.includes(newestClosed.review),
+        'the newest review the committed closes have passed must be among the captured baselines — '
+        + 'a narrower set means price-history.json is behind prices.json; re-run fetch-price-history.mjs',
+        `closes through ${priceDate} passed ${newestClosed.review} (effective ${newestClosed.effectiveDate}), `
+        + `captured ${captured.join(', ')}`);
+
+      // And the default must be one of them, measurable — §2.12.3's walk-back
+      // decides WHICH, this decides that the set it chooses from is current.
+      ok(captured.includes(context.defaultReview),
+        'the default baseline is one of the captured set', `${context.defaultReview} vs ${captured.join(', ')}`);
+
+      return `closes through ${priceDate} · newest closed review ${newestClosed.review} captured · `
+        + `${captured.length} baselines on the record, default ${context.defaultReview}`;
+    },
+    sabotage: (c) => {
+      // price-history.json a capture behind: the newest baseline never landed,
+      // which is exactly the shape of the 1 Sep 2026 record.
+      const context = c.companiesFile.sinceRebalance;
+      const newest = closedReviews(c.prices.tradeDate, 1)[0];
+      context.baselines = context.baselines.filter((b) => b.review !== newest.review);
+    },
+  }, ctx);
+
+  await suite.check({
     id: 55,
     what: 'the benchmark series reach the price date, or 1,230 index legs vanish behind a reason that names neither',
     clone: deepClone,
