@@ -413,3 +413,50 @@ export const FLOAT_SOURCE_RULE = {
     + 'wherever BSE has no reading at all',
   attribution: "the desk's rule, not a published methodology from either exchange or from MSCI",
 };
+
+/**
+ * ---------------------------------------------------------------------------
+ * WHEN A COMPANY IS IN THE EM ETF *AND* A SMALL-CAP FUND
+ * ---------------------------------------------------------------------------
+ * CLAUDE.md §2.15 recorded the segments as strictly disjoint on the committed
+ * holdings and said, in as many words, that a future holdings file breaking the
+ * pattern would invalidate the derivation. The August 2026 files broke it, and
+ * the two ways they broke it are different facts:
+ *
+ *   1. DIFFERENT DATES. EEM and SMIN were re-downloaded after the review took
+ *      effect; EEMS was not. Laurus Labs shows in EEM (31 Aug) and in EEMS
+ *      (17 Aug) because it migrated up and the older file has not caught up.
+ *      Nothing is wrong with the funds; the record is comparing two moments.
+ *
+ *   2. SAME DATE, ONE SIDE A RESIDUE. Astral shows in EEM at 0.0002% ($0.08m)
+ *      and in SMIN at 0.4387% ($3.40m), both files dated 31 Aug. That is what a
+ *      migration LOOKS LIKE while the trade is still unwinding — a real, tiny,
+ *      shrinking leg on the side being left.
+ *
+ * So the derivation gains one rule, and it is the desk's:
+ *
+ *   THE NEWEST FILE THAT NAMES THE COMPANY DECIDES ITS SEGMENT. Where the files
+ *   are dated the same, the larger position by market value decides.
+ *
+ * Newer evidence beats older evidence; equally-dated evidence is settled by
+ * where the money actually is. Both halves are recorded on the company, so a
+ * reader sees the overlap rather than a segment that quietly picked a side.
+ */
+export const SEGMENT_OVERLAP = {
+  /**
+   * Below this share of the larger position, a same-dated second leg is read as
+   * a residue being unwound rather than as a second membership.
+   *
+   * Measured on the 31 Aug 2026 files: Astral's EM leg is 2.4% of its small-cap
+   * leg, and it is the only same-dated overlap in the record. 10% is the desk's
+   * round number an order of magnitude above that — not a published tolerance,
+   * and not MSCI's. It classifies an overlap; it never decides a segment, which
+   * the rule above does on its own.
+   */
+  residualShareOfLargerPct: 10,
+  rule: 'the newest file that names the company decides its segment; where the files share a date, '
+    + 'the larger position by market value decides',
+  attribution: "the desk's rule. MSCI publishes no such tie-break because MSCI's own segments "
+    + 'are disjoint by construction — the overlap is an artefact of reading two tracking funds, '
+    + 'captured at two moments, as evidence of one index.',
+};

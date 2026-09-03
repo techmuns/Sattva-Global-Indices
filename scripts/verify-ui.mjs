@@ -2659,6 +2659,123 @@ async function main() {
     restore: restoreColumns,
   }, ctx);
 
+  /* ── the rebalance scorecard ────────────────────────────────────────────*/
+  suite.section('Scoring the last review');
+
+  await suite.check({
+    id: 54,
+    what: 'the Latest Rebalance view shows what the forecast MISSED, and never a single blended accuracy',
+    run: async (c) => {
+      // ⚠ THIS IS THE HONESTY TEST FOR THE ONE SCREEN THAT MARKS ITS OWN
+      // HOMEWORK, and it is about what the page is willing to show against
+      // itself.
+      //
+      // 1,232 of 1,265 companies did not move, so a single "accuracy" figure
+      // counting those true negatives reads above 97% for a model that never
+      // fired at all. The page must therefore quote TWO figures, each with its
+      // own denominator — of what we flagged, how many moved; of what moved,
+      // how many we flagged — and it must list the movements it did not call.
+      // A scorecard showing only its hits is an advertisement.
+      await c.page.evaluate(() => { window.location.hash = '#/rebalance'; });
+      await c.page.waitForFunction(() => Boolean(document.querySelector('[data-view="rebalance"] h1')), null, { timeout: 20000 });
+
+      const m = await c.page.evaluate(async () => {
+        const payload = await (await fetch('data/rebalance-2026-08.json', { cache: 'no-cache' })).json();
+        const host = document.querySelector('[data-view="rebalance"]');
+        const text = host.innerText;
+        const CLAIMS = {
+          'likely-inclusion': 'entered', 'possible-inclusion': 'entered',
+          'likely-exclusion': 'exited', 'exclusion-risk': 'exited',
+          'migration-up': 'migration-up', 'migration-down': 'migration-down', stable: 'no-change',
+        };
+        // Derived from the file, so the check cannot agree with the page by
+        // both being wrong in the same way.
+        const missed = payload.companies.filter((r) => r.inForecast && r.predictedVerdict !== 'unknown'
+          && r.event !== 'no-change' && CLAIMS[r.predictedVerdict] !== r.event);
+        return {
+          hash: location.hash,
+          screenerHidden: document.querySelector('[data-view="companies"]').hidden,
+          navCurrent: document.querySelector('[data-view-link][aria-current="page"]')?.dataset.viewLink ?? null,
+          text,
+          // THE MISSES SECTION SPECIFICALLY, not the page as a whole. Every
+          // missed company also appears in the entered/exited table it belongs
+          // to, so asserting the names are "somewhere on the page" passes even
+          // with the misses collected away — which is exactly what the first
+          // version of this check did, and --prove caught it.
+          missesSection: [...document.querySelectorAll('[data-view="rebalance"] section')]
+            .find((el) => /did not call/i.test(el.querySelector('h2')?.textContent ?? ''))?.innerText ?? null,
+          // Digit grouping is the formatter's business, not this check's. The
+          // figures are matched against the text with separators removed, so a
+          // change of locale cannot fail an assertion about honesty.
+          plain: text.replace(/,/g, ''),
+          missed: missed.map((r) => r.name),
+          // Both denominators, exactly as the file states them.
+          precision: `${payload.scorecard.precision.moved} of ${payload.scorecard.precision.flagged}`,
+          recall: `${payload.scorecard.recall.flagged} of ${payload.scorecard.recall.moved}`,
+          stable: `${payload.scorecard.stable.right} of ${payload.scorecard.stable.calls}`,
+          effective: payload.effectiveDate,
+          forecastHoldings: payload.forecast.holdingsAsOf,
+          notReRead: payload.funds.notReRead.map((id) => payload.funds.names[id] ?? id),
+        };
+      });
+
+      equal(m.hash, '#/rebalance', 'the view must be addressable, so it can be shared and reloaded');
+      equal(m.navCurrent, 'rebalance', 'the nav must mark the view the reader is on');
+      ok(m.screenerHidden, 'the screener must be put away rather than left stacked under the rebalance view');
+
+      // The two figures, with their denominators, both on screen.
+      ok(m.plain.includes(m.precision), 'the page must state how many of the companies it FLAGGED actually moved',
+        `looked for "${m.precision}"`);
+      ok(m.plain.includes(m.recall), 'and how many of the companies that MOVED it had flagged',
+        `looked for "${m.recall}"`);
+
+      // The no-change rate may be shown, but never without saying what it is.
+      ok(m.plain.includes(m.stable), 'the no-change rate must be on screen', `looked for "${m.stable}"`);
+      ok(/true-negative/i.test(m.text),
+        'the no-change rate must be captioned as a true-negative rate — unqualified it reads as accuracy');
+
+      // One review is one data point, and the page has to say so.
+      ok(/one data point/i.test(m.text),
+        'the page must say a single scored review is not a base rate, or it reads as a backtest');
+
+      // Provenance of the scoring itself.
+      ok(m.text.includes('17 Aug 2026') && m.text.includes('31 Aug 2026'),
+        'the page must name the date the forecast was struck and the date the review took effect',
+        `forecast ${m.forecastHoldings}, effective ${m.effective}`);
+      for (const fund of m.notReRead) {
+        ok(m.text.includes(fund),
+          'a fund that was not re-read must be NAMED — "we did not look" and "nothing changed" are different facts',
+          `looked for "${fund}"`);
+      }
+
+      // THE LOAD-BEARING ONE: every movement the forecast did not call is on
+      // the page, by name.
+      ok(m.missed.length > 0, 'there must be misses to show, or this check passes vacuously',
+        `${m.missed.length} missed movements in the record`);
+      ok(m.missesSection !== null,
+        'the page must COLLECT what the forecast did not call into a section of its own — scattered '
+        + 'among the hits, a miss is something a reader has to go looking for');
+      const hidden = m.missed.filter((name) => !m.missesSection.includes(name));
+      empty(hidden, 'every movement the forecast did not call must be named in that section', (n) => n);
+
+      await c.page.evaluate(() => { window.location.hash = '#/companies'; });
+      return `${m.missed.length} missed movements all named · flagged ${m.precision} moved · movers ${m.recall} flagged`
+        + ` · no-change ${m.stable}, captioned as a true-negative rate`;
+    },
+    // Show only the hits. The change made when the misses look bad in a demo —
+    // and the one that turns this page into marketing.
+    sabotage: persistent(`(() => {
+      const strip = () => {
+        for (const section of document.querySelectorAll('[data-view="rebalance"] section')) {
+          if (/did not call/i.test(section.textContent ?? '')) section.remove();
+        }
+      };
+      strip();
+      new MutationObserver(strip).observe(document.body, { childList: true, subtree: true });
+    })()`),
+    restore: restoreByReload,
+  }, ctx);
+
   /* ── the live path ──────────────────────────────────────────────────────*/
   suite.section('The live path');
 

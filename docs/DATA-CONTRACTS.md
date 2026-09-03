@@ -927,8 +927,8 @@ output would be checkable** — that is the whole difference between it and a nu
 Two commands. Neither needs the other, and both exit non-zero if any check failed.
 
 ```bash
-node scripts/verify-data.mjs                                   # 42 checks, no browser, no network
-node scripts/verify-ui.mjs                                     # 33 checks vs http://127.0.0.1:8080
+node scripts/verify-data.mjs                                   # 45 checks, no browser, no network
+node scripts/verify-ui.mjs                                     # 35 checks vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live  # vs `npx wrangler dev`
 node scripts/verify-data.mjs --prove                           # break each check; it must go red
 ```
@@ -963,6 +963,8 @@ that undoing the fix turns something red:
 | 19 | `rawQuote` round-trips; absent ⇒ null | a digit-leading key swallowed into the previous value |
 | 20 | the collision guard fires when forced | two rows of one fund on one ISIN |
 | 21 | the naive tripwire is proved to exempt its own victim | a guard reading its threshold from the value under test |
+| 44 | the scored forecast predates the review AND differs from the live record | a snapshot regenerated after the outcome — the model marked on the answer sheet |
+| 45 | the scorecard re-derives its headline from the rows, and never scores an `unknown` | counting a refusal to call as a correct no-change call |
 
 | | Interface assertion | The trap it remembers |
 | --- | --- | --- |
@@ -992,6 +994,7 @@ that undoing the fix turns something red:
 | 48 | figure cells stay in inline flow | one `inline-flex` wrapper, which Chrome cuts with no ellipsis |
 | 49 | a hidden column is named, and a sort on one says so | rows in an order whose basis is off-screen |
 | 53 | putting a column away re-shares its width | a band of white where the column had been, and `width:100%` unsettling every width to close it |
+| 54 | the scorecard names what the forecast MISSED, and quotes both denominators | a single blended accuracy reading 97% for a model that never fired |
 | 50 | widths and hidden columns survive a reload; Reset restores the shipped layout | a layout that has to be rebuilt every morning, and one with no way back |
 
 Three checks in `verify-data` cover the second methodology (`public/js/model/gimi.js`):
@@ -1125,13 +1128,28 @@ Written down deliberately, and before a client finds it. Every layer under this 
 this repo, so these are not suspicions — they are the known load-bearing assumptions, ranked by how
 much a portfolio manager would lose by not knowing about them.
 
-### 1. Nothing here has ever been checked against a review
+### 1. One review has been scored. That is a data point, not a validation
 
-Every figure is computed from today's data. There is no backtest, no hit rate, no measured
-false-positive rate, and no evidence that a `likely-inclusion` verdict has ever preceded an
-inclusion. The model is *reasonable*; it is not *validated*, and those are different claims. The
-section above is the route to closing this, and until it is closed, the verdict column is an
-ordering of candidates and not a forecast of outcomes.
+Until 3 Sep 2026 nothing here had ever been checked against a review at all. The August 2026 review
+has now been scored against a forecast frozen before it took effect (CLAUDE.md §2.32), and the
+result is genuinely informative in both directions:
+
+| | |
+| --- | --- |
+| companies that changed segment | **33 of 1,265** |
+| of the **166** we flagged, how many moved | **23** — a 7-in-8 false-positive rate |
+| of the **33** that moved, how many we flagged | **23**, every one with the right event named |
+| movements we did not call at all | **10**, the largest Nippon Life at ₹21,445 Cr, called `stable` |
+
+So the model finds most of what moves and flags roughly seven companies for every one that does. It
+is over-eager, which is the failure mode a desk can work with — but **one review is one data point.**
+A probability still needs a base rate and a base rate still needs history, so §2.13's refusal stands
+and there is still no probability anywhere in the product. Three more reviews would begin to make
+these figures a rate rather than an anecdote.
+
+The no-change rate — 1,063 of 1,073 — is reported everywhere it appears as the true-negative rate it
+is. 1,232 of 1,265 companies did not move, so any blended accuracy would read above 97% for a model
+that never fired, and no such figure is offered.
 
 ### 2. The verdict tests a necessary condition, not a sufficient one
 

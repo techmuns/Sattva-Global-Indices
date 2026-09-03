@@ -641,17 +641,37 @@ function main() {
   // measured fact on the committed data, not an assumption, so it is re-checked
   // here every build: if a future holdings file breaks it, the derivation is
   // invalid and this must fail rather than silently pick a segment.
-  const disjoint = assertDisjoint(out);
+  // ⚠ THE OVERLAP IS CLASSIFIED, NOT JUST COUNTED. See segments.js: an overlap
+  // whose two workbooks are dated differently, or whose losing leg is a residue
+  // of the winning one, is a migration being read through two funds rather than
+  // a break in the segment structure. Only an unexplained overlap — same date,
+  // both legs substantial — invalidates the derivation, and that still fails.
+  const holdingsAsOfByFund = Object.fromEntries(funds.funds.map((f) => [f.id, f.asOf ?? null]));
+  const disjoint = assertDisjoint(out, holdingsAsOfByFund);
   checks.assert(
     disjoint.ok,
-    'no company is held by the EM ETF and by a small-cap fund (the segments are disjoint)',
+    'every EM-ETF/small-cap overlap is explained by a stale sibling file or a residual leg',
     disjoint.violations.slice(0, 5).map((v) => `${v.name}: ${v.funds.join('+')}`).join(' | '),
   );
-  checks.assert(
-    disjoint.emSmallCapIsSubset,
-    'EM Small-Cap holds no India company that India Small-Cap lacks (it samples the segment)',
-    disjoint.emSmallCapOnly.slice(0, 5).map((c) => c.name).join(' | '),
-  );
+  // The subset property cannot be tested across two dates, and passing it
+  // anyway would be worse than failing it: EM SC "holding what India SC lacks"
+  // is precisely what a stale EM SC file looks like after a review. `null` is
+  // NOT MEASURABLE, and it is reported in those words rather than rounded to a
+  // tick (§2.4).
+  if (disjoint.emSmallCapSubsetComparable) {
+    checks.assert(
+      disjoint.emSmallCapIsSubset,
+      'EM Small-Cap holds no India company that India Small-Cap lacks (it samples the segment)',
+      disjoint.emSmallCapOnly.slice(0, 5).map((c) => c.name).join(' | '),
+    );
+  } else {
+    checks.skip(
+      'EM Small-Cap ⊆ India Small-Cap is NOT MEASURABLE — the two workbooks are dated '
+      + `${disjoint.emSmallCapSubsetAsOf.smin} and ${disjoint.emSmallCapSubsetAsOf.eems}, so the `
+      + `${disjoint.emSmallCapOnly.length} companies EM SC holds and India SC lacks are what a stale `
+      + 'file looks like after a review, not a break in the sampling relationship',
+    );
+  }
 
   const keyOfCompany = (c) => c.isin ?? `bse:${c.bseScripCode}`;
   const boundary = observedBoundary(out, segmentOf);
@@ -1451,6 +1471,16 @@ function main() {
     );
   }
 
+  // A SKIP IS A RESULT AND IS ALWAYS PRINTED. A build that quietly stops
+  // testing something and still reports a clean sheet manufactures confidence
+  // rather than providing it — so the skips go out on every run, passing or
+  // failing, before the write decision.
+  if (checks.skipped.length > 0) {
+    process.stdout.write(`\nNot measurable on this record — ${checks.skipped.length} check(s) skipped:\n\n`);
+    checks.printSkips();
+    process.stdout.write('\n');
+  }
+
   if (!checks.passed) {
     process.stderr.write(`\nREFUSING TO WRITE ${rel(OUT_PATH)} — ${checks.failures.length} check(s) failed:\n\n`);
     checks.print();
@@ -1466,8 +1496,23 @@ function main() {
       + 'exist both are kept so the disagreement stays inspectable. Every monetary field is RUPEES. '
       + 'A null in funds{} means NOT HELD by that fund — it is not a zero weight.',
     builtAt: new Date().toISOString(),
+    // WHICH FUND IS ON WHICH DATE. Deliberately NOT inside `asOf`: that block is
+    // a registry of single dated feeds and the freshness surface walks it key by
+    // key, so an object sitting among the dates is a key no feed can carry.
+    // Kept beside it so a surface can NAME the stale fund rather than leave a
+    // reader to infer it from one date.
+    holdingsAsOfByFund: Object.fromEntries(funds.funds.map((fund) => [fund.id, fund.asOf ?? null])),
     asOf: {
-      isharesHoldings: funds.funds[0]?.asOf ?? null,
+      // ⚠ THE OLDEST OF THE THREE, NEVER THE FIRST. This read `funds[0].asOf`
+      // while all three workbooks shared a date, and was harmless only for
+      // that reason. EEM and SMIN were refreshed for the August 2026 review
+      // and EEMS was not, so the first fund is now the NEWEST — and the
+      // freshness pill, which exists to name the oldest input, would have
+      // claimed a fortnight of currency the record does not have (§2.10).
+      isharesHoldings: funds.funds
+        .map((fund) => fund.asOf)
+        .filter((date) => typeof date === 'string')
+        .sort()[0] ?? null,
       nseSession: nseFreeFloat.sessionTimestamp,
       bseCapturedAt: bseFreeFloat.capturedAt,
       bhavcopyTradeDate: prices.tradeDate,
