@@ -1208,8 +1208,24 @@ has a correction MSCI prints and we can cite.
 > the same two sit at −31.6% and −31.7%, where that same buffer misses BOTH.
 >
 > A first attempt read that as "MSCI's number does not transfer" and proposed a fitted −30%, on
-> n=2. It transfers perfectly; the model was measuring the wrong thing. **Before deciding that a
-> published rule does not fit, check what you are applying it to.**
+> n=2. It transfers perfectly. **Before deciding that a published rule does not fit, check what you
+> are applying it to.**
+>
+> ### ⚠ AND FULL MARKET CAP DOES NOT ORDER THEM BETTER — IT ORDERS THEM WORSE
+>
+> The obvious next sentence — "so full market cap is the better measure" — is false, and it was
+> written here before it was checked. Rank the 166 Standard constituents from smallest up and the
+> two real migration-downs are **#1 and #2 by free float** and **#4 and #6 by full market cap**.
+> Free float orders them perfectly; full market cap does not.
+>
+> What full market cap buys is not a better ordering, it is **a threshold somebody else published**.
+> On free float, catching both needs a bar we invent — the worst two, or −30%, fitted to n=2. On
+> full market cap, MSCI's own −33.3% catches both with 7 flags. Both end at roughly seven flags and
+> two hits on this review; the difference is entirely whose number sets the bar.
+>
+> So the reason to cut on full market cap is §2.25's, and only §2.25's: it is the quantity MSCI
+> expresses a cutoff in. A separation argument for it would be reading a preference out of noise —
+> as the AUC figures below already show, twice.
 
 **The cutoffs are ours, the ratios are MSCI's, and nothing may blur them.** Both cutoffs are the Nth
 company by full market cap across the **whole** record, where N is the number of India names the
@@ -1280,11 +1296,27 @@ on the review that motivated it is answering a question it has already seen. The
 file says so, and verify-ui 55 fails if either stops saying it. §2.13 is unchanged: one review is one
 data point, and there is still no probability anywhere in this product.
 
-**Six movers it would still miss**, and they are named on the page: three entrants below the entry
-buffer (Amagi Media Labs, WeWork India, Embassy Developments), Clean Max below the free-float
-minimum, Laurus Labs 0.7% short of the 1.5× migration bar, and Nippon Life India AMC — which did not
-shrink but grew out of Small Cap, and reads as an exit only because the fund that would have received
-it does not hold it.
+**Three movers it would still miss**, and they are named on the page: Embassy Developments, below the
+entry buffer; Laurus Labs, 0.7% short of the 1.5× migration bar; and Nippon Life India AMC — which
+did not shrink but grew out of Small Cap, and reads as an exit only because the fund that would have
+received it does not hold it.
+
+> ### ⚠ ONE MSCI RATIO DOES NOT SURVIVE OUR CUTOFF, AND IT IS THE FREE-FLOAT MINIMUM
+>
+> MSCI asks a new constituent for free float of at least 50% of the size-segment cutoff (p. 30). The
+> ratio is fine. The cutoff it scales is ours, and it sits **1.41× above MSCI's own published range**
+> — so half of it is a bar 40% too high, and on the entry side that bites.
+>
+> Measured: it removed 22 of the 77 candidates clearing the IMI cutoff, and **three of the 22
+> entered** (Clean Max, Amagi Media Labs, WeWork India). 13.6% of what it discarded went on to
+> enter, against 11.7% of the pool it filtered — **it is anti-selective**, throwing candidates away
+> at a higher rate than the ones it keeps. Gating on it cost 3 of 33 movers and bought 0.8 pp of
+> precision.
+>
+> So it is recorded on every row and decides nothing, on the DESK_BAND_ROLE pattern. **The exit side
+> keeps its free-float test**, and that is not inconsistency: there the bar is 2/3 × 50% of the same
+> cutoff — low enough to still work as a floor — and it earns 4 of the 18 exits. Same ratio, same
+> bias, different distance from the thing being measured.
 
 #### The ceiling this does not break
 

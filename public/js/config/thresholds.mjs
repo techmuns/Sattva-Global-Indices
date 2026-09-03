@@ -548,10 +548,12 @@ export const AUGUST_2026_CALIBRATION = {
   scoresLiveIn: 'public/data/rebalance-2026-08.json',
   inSample: true,
   changes: [
-    'size decided on full market cap, with free float as a separate minimum (GIMI pp. 28, 30)',
+    'size decided on full market cap, which is the basis MSCI expresses a cutoff in (GIMI p. 28)',
     "MSCI's asymmetric migration buffers, 2/3 out and 1.5x in (pp. 44-45)",
     "MSCI's 0.15 Foreign Inclusion Factor floor (pp. 21, 45)",
     'cutoffs derived by rank against the observed constituent count, not by the coverage walk',
+    "the free-float minimum for a NEW constituent (p. 30) recorded but NOT applied — our cutoff is "
+      + 'too high for it, and it discarded three of this review\'s twelve entrants',
   ],
   attribution:
     "the desk's decision, taken after seeing one review's outcome. The RATIOS are MSCI's and are "

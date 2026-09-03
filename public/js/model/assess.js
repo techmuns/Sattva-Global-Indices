@@ -363,7 +363,33 @@ export function assess(company, context) {
     if (failsFif) {
       return finish('stable', rulesFired, null, segment, company, 'fif-floor');
     }
-    // The separate free-float minimum: 50% of the size-segment cutoff (p. 30).
+    // ---- the free-float minimum: MEASURED HERE AND DECIDING NOTHING --------
+    //
+    // ⚠ THIS IS THE ONE MSCI RATIO WHOSE TRANSFER OUR CUTOFF BREAKS, AND THE
+    // BREAK IS MEASURABLE RATHER THAN ARGUED.
+    //
+    // MSCI asks a new constituent for free-float market cap of at least 50% of
+    // the size-segment cutoff (p. 30). The ratio is fine; the cutoff it scales
+    // is ours, and `model.sizeCutoffReference` measures that ours sits 1.41x
+    // above MSCI's own published EM IMI range because the funds sample rather
+    // than replicate. Half of a bar that is 40% too high is a bar 40% too high.
+    //
+    // On the August 2026 review it removed 22 of the 77 candidates that clear
+    // the IMI cutoff — and THREE OF THE 22 ENTERED (Clean Max, Amagi Media
+    // Labs, WeWork India). 13.6% of what it discarded went on to enter, against
+    // 11.7% of the pool it was filtering: it is anti-selective, throwing away
+    // candidates at a HIGHER rate than the ones it keeps. Measured over the
+    // whole model, gating on it costs 3 of 33 movers and buys 0.8 pp of
+    // precision.
+    //
+    // The EXIT side keeps its free-float test, and the asymmetry is not
+    // inconsistency: there the bar is 2/3 x 50% of the same cutoff, low enough
+    // to still work as a floor, and it earns 4 of the 18 exits. Same ratio,
+    // same bias, different distance from the thing being measured.
+    //
+    // So the rule fires, records its result, and nothing branches on it — the
+    // DESK_BAND_ROLE pattern, for the same reason: a reader has to be able to
+    // see the test MSCI publishes even where we cannot honestly apply it.
     rulesFired.push(rule(
       'entry-free-float-minimum',
       `Free float vs ${MIN_FREE_FLOAT_MCAP.newConstituentMultipleOfCutoff * 100}% of the IMI cutoff`,
@@ -371,11 +397,10 @@ export function assess(company, context) {
       freeFloat >= bars.entryFreeFloatInr ? 'above' : 'below',
       `A new constituent needs free-float market cap of at least `
       + `${MIN_FREE_FLOAT_MCAP.newConstituentMultipleOfCutoff * 100}% of the size-segment cutoff `
-      + `(${bars.source}, pp. ${bars.pages.minFreeFloat.join(', ')}). The cutoff is ours.`,
+      + `(${bars.source}, pp. ${bars.pages.minFreeFloat.join(', ')}). RECORDED AND NOT APPLIED: the `
+      + 'cutoff is ours and sits above MSCI\'s own published reference range, so this bar is too high '
+      + 'to gate on — it discarded three of the August review\'s twelve entrants.',
     ));
-    if (freeFloat < bars.entryFreeFloatInr) {
-      return finish('stable', rulesFired, distanceTo(freeFloat, bars.entryFreeFloatInr), segment, company, 'entry-free-float-minimum');
-    }
     // The entry buffer: 1.5x the cutoff (p. 44).
     rulesFired.push(rule(
       'entry-buffer', `Full market cap vs ${BUFFERS.upperMultiple}x the IMI cutoff`,
@@ -513,11 +538,13 @@ export function verdictFromRules(rulesFired) {
   const fif = byKey.get('fif-floor');
   const failsFif = Boolean(fif) && fif.result === 'below';
 
-  // Outside the index: FIF floor, then the free-float minimum, then the buffers.
+  // Outside the index: the FIF floor, then the buffers. `entry-free-float-minimum`
+  // is present on every one of these rows and is deliberately NOT read — it is
+  // recorded and does not decide (see the rule's own note). Branching on it here
+  // would recover a verdict `assess` does not produce.
   const entryMin = byKey.get('entry-free-float-minimum');
   if (entryMin) {
     if (failsFif) return 'stable';
-    if (entryMin.input < entryMin.threshold) return 'stable';
     const buffer = byKey.get('entry-buffer');
     if (buffer && buffer.input >= buffer.threshold) return 'likely-inclusion';
     const cutoff = byKey.get('entry-cutoff');

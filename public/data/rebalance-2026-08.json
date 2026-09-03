@@ -10,7 +10,7 @@
     "to": "2026-07-31",
     "note": "MSCI used one of the business days in this window and does not say which"
   },
-  "builtAt": "2026-09-03T12:27:13.847Z",
+  "builtAt": "2026-09-03T14:30:32.433Z",
   "forecast": {
     "holdingsAsOf": "2026-08-17",
     "builtAt": "2026-09-01T23:45:04.573Z",
@@ -23,7 +23,7 @@
       "smin": "2026-08-31",
       "eems": "2026-08-17"
     },
-    "builtAt": "2026-09-03T12:27:13.594Z"
+    "builtAt": "2026-09-03T14:30:32.167Z"
   },
   "funds": {
     "reRead": [
@@ -153,35 +153,35 @@
       }
     },
     "verdictTally": {
-      "stable": 1097,
-      "likely-inclusion": 52,
+      "stable": 1075,
+      "likely-inclusion": 55,
       "migration-down": 7,
       "exclusion-risk": 55,
-      "possible-inclusion": 3,
+      "possible-inclusion": 22,
       "unknown": 30,
       "likely-exclusion": 21
     },
     "precision": {
       "label": "Of the companies these rules would flag, how many moved",
-      "flagged": 138,
-      "moved": 27,
-      "rightEvent": 27
+      "flagged": 160,
+      "moved": 30,
+      "rightEvent": 30
     },
     "recall": {
       "label": "Of the companies that moved, how many these rules would flag",
       "moved": 33,
-      "rightEvent": 27
+      "rightEvent": 30
     },
     "matrix": {
       "no-change": {
-        "no-change": 1091,
+        "no-change": 1072,
         "migration-up": 1,
         "exited": 1,
-        "entered": 4
+        "entered": 1
       },
       "entered": {
-        "no-change": 47,
-        "entered": 8
+        "no-change": 66,
+        "entered": 11
       },
       "migration-down": {
         "no-change": 5,
@@ -193,23 +193,14 @@
       }
     },
     "changes": [
-      "size decided on full market cap, with free float as a separate minimum (GIMI pp. 28, 30)",
+      "size decided on full market cap, which is the basis MSCI expresses a cutoff in (GIMI p. 28)",
       "MSCI's asymmetric migration buffers, 2/3 out and 1.5x in (pp. 44-45)",
       "MSCI's 0.15 Foreign Inclusion Factor floor (pp. 21, 45)",
-      "cutoffs derived by rank against the observed constituent count, not by the coverage walk"
+      "cutoffs derived by rank against the observed constituent count, not by the coverage walk",
+      "the free-float minimum for a NEW constituent (p. 30) recorded but NOT applied — our cutoff is too high for it, and it discarded three of this review's twelve entrants"
     ],
     "attribution": "the desk's decision, taken after seeing one review's outcome. The RATIOS are MSCI's and are cited to a page; the rupee cutoffs they are applied to are ours, derived from the constituents the funds hold. No threshold was tuned to fit the 33 events.",
     "stillMissed": [
-      {
-        "isin": "INE121R01077",
-        "name": "Amagi Media Labs Ltd",
-        "event": "entered"
-      },
-      {
-        "isin": "INE647U01026",
-        "name": "Clean Max Enviro Energy Solutions Ltd",
-        "event": "entered"
-      },
       {
         "isin": "INE069I01010",
         "name": "Embassy Developments Ltd",
@@ -224,11 +215,6 @@
         "isin": "INE298J01013",
         "name": "Nippon Life India Asset Management Ltd",
         "event": "exited"
-      },
-      {
-        "isin": "INE085001019",
-        "name": "WeWork India Management Ltd",
-        "event": "entered"
       }
     ],
     "asForecast": {
