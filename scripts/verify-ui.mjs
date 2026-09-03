@@ -3114,10 +3114,16 @@ async function main() {
         // "opened" from "has the flow section" keeps a failure diagnosable — the
         // return carries the drill title and a snippet.
         await window.__until(
-          () => (document.querySelector('[data-drill-body]')?.innerText?.length ?? 0) > 0,
+          () => (document.querySelector('[data-drill-body]')?.textContent?.length ?? 0) > 0,
           'the drill opening',
         );
-        const text = document.querySelector('[data-drill-body]').innerText;
+        // ⚠ textContent, NOT innerText. innerText applies CSS text-transform, and
+        // the "Estimated flow" heading and the "Flow not mandated" banner both
+        // carry Tailwind's `uppercase` — so with the CDN loaded (CI) innerText
+        // returns them UPPERCASED and a case-sensitive match misses, while the
+        // sandbox (CDN blocked) leaves them as authored. textContent is the raw
+        // authored text, unaffected by styling. This was three red CI runs.
+        const text = document.querySelector('[data-drill-body]').textContent;
         const drillTitle = document.querySelector('[data-panel] h2')?.textContent?.trim() ?? null;
         const i = text.indexOf('Estimated flow');
         // Wide enough to clear the (long) ASM banner and reach the flow card. The
