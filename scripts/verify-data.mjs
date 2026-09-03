@@ -33,7 +33,7 @@ import { segmentOf } from '../public/js/model/segments.js';
 import { seriesToMap, summarise, assertSeriesDates, comparableInInr } from '../public/js/model/benchmarks.js';
 import { reviewCutoffs, CONVENTION } from '../public/js/model/calendar.js';
 import * as MSCI from '../public/js/config/msci-methodology.mjs';
-import { SEGMENT_BAND_ADJUSTMENT } from '../public/js/config/thresholds.mjs';
+import { SEGMENT_BAND_ADJUSTMENT, SEGMENT_OVERLAP } from '../public/js/config/thresholds.mjs';
 import { gimiCutoffs, assessGimi, reviewWindow, METHODOLOGIES, METHODOLOGY_IDS } from '../public/js/model/gimi.js';
 import { METHODOLOGIES as STATE_METHODOLOGIES } from '../public/js/core/state.js';
 import { inrFlow, pct, pp, signedPct, factorPct, count, cr, EM_DASH } from '../public/js/core/format.js';
@@ -152,6 +152,8 @@ function loadContext() {
     prices: readJson('public/data/prices.json'),
     reconciliation: readJson('public/data/share-reconciliation.json'),
     relativeBaselines: readJson('public/data/relative-baselines.json'),
+    predictions: readJson('public/data/predictions-2026-08.json'),
+    rebalance: readJson('public/data/rebalance-2026-08.json'),
     sources: loadSources(),
     // Injected so a check can be broken by swapping the thing it verifies.
     fn: { assertBhavcopyShape, assertContinuity, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count, parseRange, withinRange, chooseBaseline },
@@ -198,12 +200,17 @@ async function main() {
 
   await suite.check({
     id: 1,
-    what: 'India equity rows 165 / 461 / 414 and weight sums 11.315 / 99.729 / 21.271',
+    what: 'India equity rows 168 / 453 / 414 and weight sums 11.360 / 99.442 / 21.271',
     clone: deepClone,
     run: (c) => {
+      // Re-measured on 2026-09-03 when EEM and SMIN were refreshed for the
+      // August review. EEMS was not re-downloaded and is unchanged. These
+      // describe the COMMITTED WORKBOOKS, never the funds in general — a fresh
+      // download legitimately moves every one of them, and the response is to
+      // re-measure in the same commit, never to loosen the check.
       const EXPECT = {
-        eem: { rows: 165, weight: '11.315' },
-        smin: { rows: 461, weight: '99.729' },
+        eem: { rows: 168, weight: '11.360' },
+        smin: { rows: 453, weight: '99.442' },
         eems: { rows: 414, weight: '21.271' },
       };
       const measured = {};
@@ -248,22 +255,68 @@ async function main() {
 
   await suite.check({
     id: 2,
-    what: 'segments strictly disjoint: EM ∩ India SC = 0, EM ∩ EM SC = 0, EM SC ⊆ India SC',
+    what: 'every EM-ETF/small-cap overlap is explained — by a stale sibling file or by a residual leg',
     clone: deepClone,
     run: (c) => {
-      const emAndSmin = c.companies.filter((x) => heldBy(x, 'eem') && heldBy(x, 'smin'));
-      const emAndEems = c.companies.filter((x) => heldBy(x, 'eem') && heldBy(x, 'eems'));
+      // ⚠ THIS CHECK USED TO ASSERT ZERO OVERLAPS, and the August 2026 files
+      // broke it exactly as CLAUDE.md §2.15 said a future file would. Two
+      // breaks, two different facts:
+      //
+      //   Laurus Labs  EEM (31 Aug) + EEMS (17 Aug) — it migrated up and the
+      //                older workbook has not caught up. A date gap, not an
+      //                overlap.
+      //   Astral       EEM 0.0002% + SMIN 0.4387%, both 31 Aug — a migration
+      //                caught mid-trade, the leg it is leaving nearly unwound.
+      //
+      // What must still be zero is an UNEXPLAINED overlap: same date, both legs
+      // substantial. That would mean the segments genuinely are not disjoint
+      // and every verdict resting on the derivation is void.
+      const asOfByFund = c.companiesFile.holdingsAsOfByFund ?? {};
+      const residualPct = SEGMENT_OVERLAP.residualShareOfLargerPct;
+      const overlaps = [];
+      for (const company of c.companies) {
+        if (!heldBy(company, 'eem')) continue;
+        const scFund = ['smin', 'eems'].find((f) => heldBy(company, f));
+        if (!scFund) continue;
+        const emAsOf = asOfByFund.eem ?? null;
+        const scAsOf = asOfByFund[scFund] ?? null;
+        const emUsd = company.funds.eem?.marketValueUsd ?? 0;
+        const scUsd = company.funds[scFund]?.marketValueUsd ?? 0;
+        const larger = Math.max(emUsd, scUsd);
+        const share = larger > 0 ? (Math.min(emUsd, scUsd) / larger) * 100 : 100;
+        const kind = emAsOf && scAsOf && emAsOf !== scAsOf
+          ? 'stale-sibling'
+          : share < residualPct ? 'residual' : 'unexplained';
+        overlaps.push({ name: company.name, kind, scFund, share });
+      }
+      const unexplained = overlaps.filter((o) => o.kind === 'unexplained');
+      empty(unexplained,
+        'a same-dated overlap with two substantial legs means the segments are NOT disjoint and the '
+        + 'whole segment derivation is void',
+        (o) => `${o.name}: eem+${o.scFund}, smaller leg is ${o.share.toFixed(1)}% of the larger`);
+
+      // The subset property cannot be tested across two dates. Reporting it as
+      // a pass would be worse than failing it, so it is named as not measurable.
+      const sminAsOf = asOfByFund.smin ?? null;
+      const eemsAsOf = asOfByFund.eems ?? null;
+      const comparable = !(sminAsOf && eemsAsOf) || sminAsOf === eemsAsOf;
       const eemsNotSmin = c.companies.filter((x) => heldBy(x, 'eems') && !heldBy(x, 'smin'));
-      empty(emAndSmin, 'EM ETF and India Small-Cap must not share a company', (x) => x.name);
-      empty(emAndEems, 'EM ETF and EM Small-Cap must not share a company', (x) => x.name);
-      empty(eemsNotSmin, 'EM Small-Cap must be a subset of India Small-Cap', (x) => x.name);
+      if (comparable) {
+        empty(eemsNotSmin, 'EM Small-Cap must be a subset of India Small-Cap', (x) => x.name);
+      }
+
       const sampled = c.companies.filter((x) => heldBy(x, 'eems')).length;
       const smin = c.companies.filter((x) => heldBy(x, 'smin')).length;
-      return `EM ∩ SMIN 0 · EM ∩ EEMS 0 · EM SC samples ${sampled} of India SC's ${smin}`;
+      const byKind = overlaps.reduce((acc, o) => ({ ...acc, [o.kind]: (acc[o.kind] ?? 0) + 1 }), {});
+      return `${overlaps.length} overlap(s), 0 unexplained (${Object.entries(byKind).map(([k, n]) => `${n} ${k}`).join(', ') || 'none'})`
+        + ` · EM SC samples ${sampled} of India SC's ${smin}`
+        + (comparable ? '' : ` · subset NOT MEASURABLE: smin ${sminAsOf} vs eems ${eemsAsOf}, ${eemsNotSmin.length} EM-SC-only`);
     },
+    // Same date, both legs real — the one shape that voids the derivation.
     sabotage: (c) => {
-      const em = c.companies.find((x) => heldBy(x, 'eem'));
-      em.funds.smin = { weightPct: 0.5, quantity: 1, marketValueUsd: 1 };
+      const em = c.companies.find((x) => heldBy(x, 'eem') && !heldBy(x, 'smin') && !heldBy(x, 'eems'));
+      em.funds.smin = { weightPct: 0.5, quantity: 1, marketValueUsd: em.funds.eem.marketValueUsd };
+      c.companiesFile.holdingsAsOfByFund = { eem: '2026-08-31', smin: '2026-08-31', eems: '2026-08-17' };
     },
   }, ctx);
 
@@ -2247,6 +2300,134 @@ async function main() {
       c.benchmarks.fx.series.push({ date: last.date, close: last.close * 1.0012 });
     },
   }, ctx);
+
+  /* ── scoring a review that has happened ─────────────────────────────────*/
+  suite.section('The rebalance scorecard');
+
+  await suite.check({
+    id: 44,
+    what: 'the scored forecast PREDATES the review and is not the live record wearing a date',
+    clone: deepClone,
+    run: (c) => {
+      // ⚠ THE CHECK THE WHOLE SCORECARD RESTS ON.
+      //
+      // Verdicts recompute from whatever holdings are committed. Regenerate the
+      // snapshot after the workbooks are refreshed and every verdict silently
+      // becomes hindsight — the model marked against the answer sheet, scoring
+      // beautifully and meaning nothing. Nothing in the output file distinguishes
+      // the two cases, so it has to be established here.
+      //
+      // Two independent things must hold, and neither implies the other:
+      //   1. THE DATE. The forecast's holdings predate the effective date. Its
+      //      threshold is the calendar's effective date, which the snapshot
+      //      cannot move — the §3.8 rule about a guard's own threshold.
+      //   2. THE CONTENT. The frozen verdicts genuinely DIFFER from what the
+      //      live record says today. A snapshot regenerated post-hoc would be
+      //      identical to the record on every row, and would pass (1) whenever
+      //      somebody had also edited the date.
+      const forecast = c.predictions;
+      const effective = forecast.effectiveDate;
+      const holdingsAsOf = forecast.forecastFrom?.asOf?.isharesHoldings ?? null;
+      ok(typeof holdingsAsOf === 'string', 'the forecast must state the holdings it was struck on');
+      ok(holdingsAsOf < effective,
+        'the forecast must have been struck BEFORE the review took effect, or it is hindsight',
+        `holdings ${holdingsAsOf} vs effective ${effective}`);
+
+      // The calendar decides the effective date, not the file.
+      const fromCalendar = reviewCutoffs(Number(forecast.review.slice(0, 4)), Number(forecast.review.slice(5)));
+      ok(fromCalendar.price.from === forecast.priceWindow.from && fromCalendar.price.to === forecast.priceWindow.to,
+        "the forecast's price window must be the calendar's, not a window typed into the file",
+        `${forecast.priceWindow.from}..${forecast.priceWindow.to} vs ${fromCalendar.price.from}..${fromCalendar.price.to}`);
+
+      const live = new Map(c.companies.map((x) => [x.isin, x.assessment?.verdict ?? null]));
+      let compared = 0;
+      let differ = 0;
+      for (const company of forecast.companies) {
+        if (!live.has(company.isin)) continue;
+        compared += 1;
+        if (live.get(company.isin) !== company.verdict) differ += 1;
+      }
+      ok(compared > 0, 'the forecast and the record must share companies to compare');
+      ok(differ > 0,
+        'the frozen forecast is IDENTICAL to the live record on every company — either nothing moved at '
+        + 'this review, or the snapshot was regenerated after the outcome landed and is not a forecast',
+        `${compared} compared, 0 differ`);
+      return `forecast struck on holdings of ${holdingsAsOf}, ${effective} effective · `
+        + `${differ} of ${compared} verdicts have since changed, so the frozen file is not the live record`;
+    },
+    // Regenerate the snapshot from today's record — the one mistake that makes
+    // the scorecard worthless while making it look perfect.
+    sabotage: (c) => {
+      const live = new Map(c.companies.map((x) => [x.isin, x.assessment?.verdict ?? null]));
+      for (const company of c.predictions.companies) {
+        if (live.has(company.isin)) company.verdict = live.get(company.isin);
+      }
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 45,
+    what: 'the scorecard counts what it says it counts, and never scores a refusal to call',
+    clone: deepClone,
+    run: (c) => {
+      const r = c.rebalance;
+      const s = r.scorecard;
+      const CLAIMS = {
+        'likely-inclusion': 'entered',
+        'possible-inclusion': 'entered',
+        'likely-exclusion': 'exited',
+        'exclusion-risk': 'exited',
+        'migration-up': 'migration-up',
+        'migration-down': 'migration-down',
+        stable: 'no-change',
+      };
+      // Every headline figure re-derived from the companies array, so a summary
+      // block cannot drift from the rows it claims to summarise.
+      const scorable = r.companies.filter((x) => x.inForecast && x.predictedVerdict && x.predictedVerdict !== 'unknown');
+      const flagged = scorable.filter((x) => x.claimsAMove);
+      const moved = scorable.filter((x) => x.event !== 'no-change');
+      equal(s.scored, scorable.length, 'the scored population');
+      equal(s.precision.flagged, flagged.length, 'companies flagged as moving');
+      equal(s.precision.moved, flagged.filter((x) => x.event !== 'no-change').length, 'flagged companies that moved');
+      equal(s.recall.moved, moved.length, 'companies that moved');
+      equal(s.recall.flagged, moved.filter((x) => x.claimsAMove).length, 'moved companies that were flagged');
+
+      // AN "unknown" VERDICT IS A REFUSAL TO CALL, NOT A WRONG CALL. Folding it
+      // into either column would turn honesty into a score — in either
+      // direction — so it must appear in neither.
+      const unknowns = r.companies.filter((x) => x.predictedVerdict === 'unknown');
+      empty(unknowns.filter((x) => x.predictedClaim !== null),
+        'an "unknown" verdict must carry no claim, so it can be scored neither right nor wrong',
+        (x) => `${x.name}: claim ${x.predictedClaim}`);
+      equal(s.unknownAtForecast, unknowns.length, 'unknowns counted apart');
+      ok(scorable.every((x) => x.predictedVerdict !== 'unknown'), 'no unknown reached the scored population');
+
+      // The claim mapping is the one in the builder, re-stated here rather than
+      // imported: a mapping that agreed with itself would test nothing.
+      const mismatched = scorable.filter((x) => CLAIMS[x.predictedVerdict] !== x.predictedClaim);
+      empty(mismatched, 'every verdict maps to the event it claims',
+        (x) => `${x.name}: ${x.predictedVerdict} claimed ${x.predictedClaim}`);
+
+      // Only re-read funds may be evidence: a fund whose workbook did not move
+      // says nothing about what this review did.
+      const reRead = new Set(r.funds.reRead);
+      ok(reRead.size > 0, 'at least one fund must have been re-read');
+      empty(r.funds.notReRead.filter((id) => reRead.has(id)),
+        'a fund cannot be both re-read and not re-read', (id) => id);
+      return `${s.scored} scored · ${s.precision.moved} of ${s.precision.flagged} flagged moved · `
+        + `${s.recall.flagged} of ${s.recall.moved} movers flagged · ${s.unknownAtForecast} refusals not scored · `
+        + `compared over ${[...reRead].join(', ')}`;
+    },
+    // Score the refusals as correct no-change calls — the change that makes the
+    // headline better by counting the rows the model declined to judge.
+    sabotage: (c) => {
+      for (const row of c.rebalance.companies) {
+        if (row.predictedVerdict === 'unknown') row.predictedClaim = 'no-change';
+      }
+      c.rebalance.scorecard.unknownAtForecast = 0;
+    },
+  }, ctx);
+
 
   process.exit(suite.report([
     `Sources scanned: ${ctx.sources.length} .js/.mjs files under ${SCAN_ROOTS.join(', ')}`,

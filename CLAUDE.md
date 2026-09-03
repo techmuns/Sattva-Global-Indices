@@ -1068,6 +1068,108 @@ first paint has always had, not something the switch introduced.
 > point. The wait is `__setBaseline`, on the baseline strip being re-rendered — a signal only the
 > switch produces, and produced by different code from the cells the check reads.
 
+### 2.32 A scorecard is the easiest thing here to fake by accident
+
+The August 2026 review happened, EEM and SMIN were re-downloaded, and the product can now say how
+its forecast fared. That is the first outcome this repo has ever had — and the first number on it a
+reader could be badly misled by.
+
+> ### ⚠ THE FORECAST MUST BE FROZEN BEFORE THE ANSWER LANDS
+>
+> Every verdict recomputes from whatever holdings are committed. Import the post-rebalance workbooks
+> and the verdicts silently recompute against the new membership; score *those* and the model is
+> being marked on the answer sheet. It would score beautifully and mean nothing, and **nothing in
+> the output would look wrong.**
+>
+> So `scripts/snapshot-predictions.mjs` writes the forecast to `predictions-<review>.json` from a
+> record whose holdings predate the effective date, and refuses twice: it will not write from a
+> record dated on or after the review, and it will not overwrite an existing snapshot without
+> `--force`. The effective date comes from `model/calendar.js` — a source the record under test
+> cannot move, which is §3.8's guard rule applied to time.
+>
+> `verify-data` 44 asserts both halves, and the second is the one that matters: the frozen verdicts
+> must **measurably differ** from the live record. A snapshot regenerated post-hoc would be identical
+> on every row. Measured: **21 of 1,265 verdicts have changed** since the freeze, which is what a
+> real forecast looks like once its subject has moved. Its sabotage is that regeneration.
+
+**Only a re-read fund is evidence about what changed.** EEMS was not supplied for this review, so a
+company that left India Small-Cap is still in the fortnight-old EM Small-Cap file. A segment derived
+from all three funds reads it as "still small cap" and scores a real exit as a miss that never
+happened. Both sides of every comparison are therefore restricted to the funds whose workbook moved
+between the two dates — measured from the dates, never a hard-coded list — and the fund left out is
+**named on the page**, because *we did not look* and *nothing happened* are different facts (§2.4).
+
+**Two figures, never one, each with its denominator.** Measured on the August review:
+
+| | |
+| --- | --- |
+| companies that changed segment | **33 of 1,265** — 12 entered, 18 left, 3 migrated |
+| of what we flagged, how many moved | **23 of 166** |
+| of what moved, how many we flagged | **23 of 33**, and every one named the right event |
+| no-change calls that held | 1,063 of 1,073 |
+
+That last line is the trap. **1,232 of 1,265 companies did not move**, so calling "no change" is
+nearly free and any blended accuracy counting those true negatives reads above 97% for a model that
+never fired at all. It is shown, and captioned as a true-negative rate in the same breath. **No
+single accuracy figure is offered anywhere in the product**, and `verify-ui` 54 asserts both
+denominators are on screen along with that caption.
+
+**The page shows what it missed, in a section of its own.** Ten movements were not called, Nippon
+Life (₹21,445 Cr, called `stable`) the largest. Scattering them among the hits is not the same as
+collecting them: the first version of check 54 asserted only that missed companies were named
+*somewhere* on the page, which passed with the misses section deleted — every one of them also
+appears in the entered/exited table it belongs to. `--prove` caught it. The check now asserts they
+are in the misses section specifically.
+
+**One review is one data point, and the page says so above everything else.** §2.13 refuses to print
+a probability because a probability needs a base rate and a base rate needs history. A single scored
+review is not that history. Nothing here changes §2.13.
+
+> ### ⚠ The segments stopped being disjoint, exactly as §2.15 said they would
+>
+> §2.15 recorded `EM ∩ India SC = 0` as measured, not assumed, and said a future holdings file
+> breaking the pattern would invalidate the derivation. The August files broke it in two different
+> ways:
+>
+> | | |
+> | --- | --- |
+> | **Laurus Labs** | EEM (31 Aug) + EEMS (17 Aug) — it migrated up and the older workbook has not caught up. A date gap, not an overlap. |
+> | **Astral** | EEM 0.0002% ($0.08m) + SMIN 0.4387% ($3.40m), both 31 Aug — a migration caught mid-trade, the leg it is leaving nearly unwound. |
+>
+> So the derivation gains one rule, the desk's, in `SEGMENT_OVERLAP`: **the newest file that names a
+> company decides its segment; where the files share a date, the larger position decides.** Newer
+> evidence beats older; equally-dated evidence is settled by where the money is. Both legs stay on
+> the record so the overlap is visible rather than resolved away, and the segment is decided **once,
+> at build time, with the dates** — every later reader honours `company.segment` rather than
+> re-deriving without them and quietly disagreeing about two companies.
+>
+> What still fails the build is an **unexplained** overlap: same date, both legs substantial. That
+> would mean the segments genuinely are not disjoint and every verdict resting on the derivation is
+> void. `verify-data` 02 was rewritten around exactly that distinction.
+>
+> And the **EM SC ⊆ India SC** check cannot run across two dates at all. EM SC "holding nine
+> companies India SC lacks" is precisely what a stale file looks like after a review. Passing it
+> would be worse than failing it, so it reports **NOT MEASURABLE** and `CheckList` gained a `skip`
+> that is printed on every run — a suite that quietly stops testing something and still reports a
+> clean sheet manufactures confidence rather than providing it.
+
+> ### ⚠ The record now mixes two holdings dates, and the freshness claim nearly lied
+>
+> `asOf.isharesHoldings` read `funds[0].asOf` — harmless only while all three workbooks shared a
+> date. EEM is now the *newest*, so the header pill, whose whole job is to name the **oldest** input
+> (§2.10), would have claimed a fortnight of currency the record does not have. It takes the minimum
+> now, and `holdingsAsOfByFund` carries all three so a surface can name the stale one.
+>
+> That map lives **beside** `asOf`, not inside it: `asOf` is a registry of single dated feeds and the
+> freshness surface walks it key by key. An object among the dates is a key no feed can carry, and
+> assertion 35 said so immediately.
+
+**Identity is ISIN here too, and it earned its keep on the first run.** BlackRock respelled Bajaj
+Auto's ticker from `BAJAJ-AUTO` to `BAJAJ.AUTO` between the two files. A ticker-keyed diff reports
+that as one exit and one entry — two fabricated events on a company that did not move, in a table
+whose entire purpose is to count events. Keyed on ISIN it reads as what it is: no change, with a
+weight move.
+
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
 ### 3.1 The iShares `.xls` files are not `.xls` files
@@ -1554,8 +1656,12 @@ scripts/
                                    -> public/data/price-history.json
   fetch-corporate-actions.mjs      BSE's own action history → public/data/corporate-actions.json
   build-companies.mjs              everything → public/data/companies.json
-  verify-data.mjs                  43 data assertions; no browser, no network
-  verify-ui.mjs                    34 interface assertions; the served site
+  snapshot-predictions.mjs         FREEZE the forecast before a review lands
+                                   -> public/data/predictions-<review>.json
+  build-rebalance.mjs              frozen forecast vs the outcome
+                                   -> public/data/rebalance-<review>.json
+  verify-data.mjs                  45 data assertions; no browser, no network
+  verify-ui.mjs                    35 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
@@ -1585,6 +1691,10 @@ public/
                                    fetched by the browser only on demand
   data/corporate-actions.json      generated — BSE's published bonuses, splits, rights
   data/companies.json              generated — the record the interface reads
+  data/predictions-2026-08.json    generated ONCE, before the August review took
+                                   effect. Never regenerated: see 2.32
+  data/rebalance-2026-08.json      generated — what the review did, and how the
+                                   frozen forecast fared against it
   js/model/thresholds.js           desk bands + the observed boundary, both labelled
   js/model/segments.js             constituent → segment; disjointness re-checked
   js/model/assess.js               the rules engine → verdict + rulesFired
@@ -1595,6 +1705,9 @@ public/
   js/core/live.js                  visibility-aware poller
   js/core/range.js                 a typed min–max range, validated before it is converted
   js/data/quotes.js                live overlay; memory only, never written back
+  js/data/rebalance.js             the single reader of rebalance-<review>.json
+  js/tabs/rebalance.js             the Latest Rebalance view — the one screen
+                                   that marks its own homework
 worker/
   index.js                         static assets + POST /api/quotes
   http.mjs                         ETag / 304 / CORS / cache-state helpers
@@ -1631,13 +1744,18 @@ node scripts/reconcile-shares.mjs      # share-count outliers -> quarantine list
 node scripts/fetch-corporate-actions.mjs  # ~1,240 requests, ~4 min - BEFORE price history
 node scripts/fetch-price-history.mjs   # 37 requests: both MSCI price windows + the rebalance baselines
 node scripts/build-companies.mjs       # no network; joins everything
+
+# BEFORE refreshing the workbooks for a review that is about to take effect:
+node scripts/snapshot-predictions.mjs --review=2026-11   # freeze the forecast
+# ...then drop in the fresh .xls files, re-measure EXPECTED, rerun the pipeline:
+node scripts/build-rebalance.mjs --review=2026-11        # score it
 node scripts/verify-data.mjs           # the data assertions; run before committing
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 42 assertions; no browser, no network
+node scripts/verify-data.mjs           # 45 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 34 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 35 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 
