@@ -3092,48 +3092,61 @@ async function main() {
     what: "an ASM name's forced flow is shown but marked 'not mandated', with days-of-volume flagged understated",
     run: async (c) => {
       await c.settle();
-      const target = await c.page.evaluate(() => {
+      const m = await c.page.evaluate(async () => {
         const S = window.__sattva;
         const TRADE = new Set(['likely-inclusion', 'possible-inclusion', 'migration-up', 'migration-down', 'exclusion-risk', 'likely-exclusion']);
-        const co = S.data.all().find((x) => x.assessment?.asm?.binding && x.flowEstimate?.asmConstraint && TRADE.has(x.assessment.verdict));
-        return co ? { key: co.isin ?? `bse:${co.bseScripCode}`, name: co.name, survCode: co.asm.survCode, verdict: co.assessment.verdict } : null;
-      });
-      ok(target, 'a trade-implying ASM company must exist to inspect', JSON.stringify(target));
-
-      // Open the drill DETERMINISTICALLY by its URL param — the mechanism check
-      // 30 proves works on a cold load. A search-then-click sequence has a race
-      // that CI exposed (the row list catching up to the query), which is a flaw
-      // in the check, not the page; this removes it entirely.
-      await c.load(`#/companies?company=${encodeURIComponent(target.key)}`);
-      await c.page.waitForSelector('[data-drill-body]', { timeout: 10000 });
-
-      const m = await c.page.evaluate(async () => {
+        // Paint every row so the target is in the DOM, then open its drill by
+        // CLICKING its own row — the mechanism checks 30 and 35 prove in CI. A
+        // cold-load ?company= URL was tried and is unreliable here (the drill
+        // opened for no flow); a search-then-click races the filtered rows. The
+        // painted <tr>s and rows() are index-aligned, so click the target's row.
+        if (S.flush) S.flush();
+        await new Promise((r) => requestAnimationFrame(() => r()));
+        const rows = S.rows();
+        const idx = rows.findIndex((x) => x.assessment?.asm?.binding && x.flowEstimate?.asmConstraint && TRADE.has(x.assessment.verdict));
+        if (idx < 0) return { error: 'no trade-implying ASM row is present' };
+        const target = rows[idx];
+        const trs = [...document.querySelectorAll('[data-score-table] tbody tr')];
+        const tr = trs[idx];
+        if (!tr) return { error: `the target row at index ${idx} is not painted (${trs.length} painted)` };
+        (tr.querySelector('td:nth-child(2)') ?? tr).click();
+        // Wait for the drill to OPEN (any body text), then read it. Separating
+        // "opened" from "has the flow section" keeps a failure diagnosable — the
+        // return carries the drill title and a snippet.
         await window.__until(
-          () => document.querySelector('[data-drill-body]')?.innerText.includes('Estimated flow'),
-          'the drill flow section',
+          () => (document.querySelector('[data-drill-body]')?.innerText?.length ?? 0) > 0,
+          'the drill opening',
         );
         const text = document.querySelector('[data-drill-body]').innerText;
+        const drillTitle = document.querySelector('[data-panel] h2')?.textContent?.trim() ?? null;
         const i = text.indexOf('Estimated flow');
         // Wide enough to clear the (long) ASM banner and reach the flow card. The
         // banner carries no ₹ (it says "rupee sizes" in words), so any ₹ here is
         // the flow figure itself.
         const region = i >= 0 ? text.slice(i, i + 1800) : '';
         return {
+          name: target.name, survCode: target.asm.survCode, verdict: target.assessment.verdict,
+          drillTitle,
+          hasFlowSection: i >= 0,
           banner: /Flow not mandated — under NSE ASM/.test(text),
           // The desk chose to SHOW the mechanical size, marked — not suppress it.
           // So the flow region must still carry a rupee figure.
           figureShown: /₹/.test(region),
           timingMarked: /understated \(ASM\)/.test(text),
           notMandatedText: /not mandated to rebalance/i.test(text),
+          snippet: text.slice(0, 200).replace(/\s+/g, ' '),
         };
       });
 
+      ok(!m.error, 'a trade-implying ASM row must be present and painted to inspect', JSON.stringify(m));
+      equal(m.drillTitle, m.name, 'the target company\'s own drill must open');
+      ok(m.hasFlowSection, 'the drill shows the Estimated flow section for a trade-implying ASM name', JSON.stringify(m));
       ok(m.banner, "the drill flags an ASM name's forced flow as not mandated", JSON.stringify(m));
       ok(m.figureShown, 'the mechanical flow size is still shown (shown-with-caveat, not suppressed)', JSON.stringify(m));
       ok(m.timingMarked, 'days-of-volume is marked understated under ASM', JSON.stringify(m));
       ok(m.notMandatedText, 'the drill states the desk\'s "not mandated to rebalance" judgement', JSON.stringify(m));
       await c.page.keyboard.press('Escape');
-      return `${target.name} (${target.verdict}, ${target.survCode}): banner + figure shown + timing marked`;
+      return `${m.name} (${m.verdict}, ${m.survCode}): banner + figure shown + timing marked`;
     },
     // Blank the banner on the drill as it renders. A one-shot DOM edit would lose
     // the race against the condition-based wait, so this re-applies on every
