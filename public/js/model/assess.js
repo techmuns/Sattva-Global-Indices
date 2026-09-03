@@ -27,7 +27,7 @@
  * ---------------------------------------------------------------------------
  * Until September 2026 every verdict here was one comparison: free-float market
  * cap against the desk's rupee band. The August review scored that model at
- * 13.9% precision, and the diagnosis was not a mis-set number — it was three
+ * 13.9% precision, and the diagnosis was not a mis-set number — it was four
  * category errors, each with a published correction. See
  * AUGUST_2026_CALIBRATION in config/thresholds.mjs for the measurement and
  * CLAUDE.md §2.33 for the doctrine.
