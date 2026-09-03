@@ -266,6 +266,65 @@ function renderPayload(host, payload) {
       : el('p', { class: 'px-4 py-6 text-sm text-slate-400' }, 'Every movement at this review was called.'),
   ));
 
+  // ---- what changed BECAUSE of this review -------------------------------
+  // ⚠ EVERYTHING ABOVE IS THE RECORD. THIS IS NOT.
+  //
+  // The scorecard is what was actually forecast and it cannot move. But the
+  // rules were rewritten because of what it showed, and a change made for a
+  // reason has to be able to show it addresses the reason — so the current
+  // rules are replayed over the frozen inputs and scored against the same
+  // outcome. That figure is IN-SAMPLE: the model was designed knowing this
+  // answer. It is captioned as such here, in the block, and on every row.
+  const r = payload.retrospective;
+  if (r) {
+    const pctOf = (hit, of) => (of > 0 ? `${((hit / of) * 100).toFixed(1)}%` : EM_DASH);
+    host.append(section(
+      'What the model would say now',
+      r.caveat,
+      el('div', { class: 'rounded-2xl bg-amber-50/60 p-4 ring-1 ring-amber-200' }, [
+        el('div', { class: 'flex flex-wrap items-center gap-2' }, [
+          el('span', {
+            class: 'rounded-full bg-amber-200/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-900',
+            title: r.caveat,
+          }, 'In-sample — not a track record'),
+          el('span', { class: 'text-[11px] text-amber-900/80' },
+            `replayed from ${r.replayedFrom}`),
+        ]),
+        (() => {
+          const wrap = el('div', { class: 'mt-3 overflow-x-auto rounded-xl bg-white ring-1 ring-amber-100' });
+          const row = (label, a, b) => '<tr class="border-t border-amber-50">'
+            + `<td class="px-3 py-2 text-[12px] text-slate-600">${escapeHtml(label)}</td>`
+            + `<td class="px-3 py-2 text-right text-[13px] tabular-nums text-slate-500">${escapeHtml(a)}</td>`
+            + `<td class="px-3 py-2 text-right text-[13px] font-semibold tabular-nums text-slate-900">${escapeHtml(b)}</td>`
+            + '</tr>';
+          wrap.innerHTML = '<table class="w-full border-collapse text-left">'
+            + '<thead class="bg-amber-50/80"><tr>'
+            + '<th class="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500"></th>'
+            + '<th class="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">As forecast</th>'
+            + '<th class="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">Rules as they stand</th>'
+            + '</tr></thead><tbody>'
+            + row('Companies flagged as moving', num(r.asForecast.flagged), num(r.precision.flagged))
+            + row('Of those, the right event named', num(r.asForecast.rightEvent), num(r.precision.rightEvent))
+            + row('Precision', pctOf(r.asForecast.rightEvent, r.asForecast.flagged), pctOf(r.precision.rightEvent, r.precision.flagged))
+            + row(`Of the ${num(r.recall.moved)} that moved, named`, num(r.asForecast.rightEvent), num(r.recall.rightEvent))
+            + row('Recall', pctOf(r.asForecast.rightEvent, r.asForecast.moved), pctOf(r.recall.rightEvent, r.recall.moved))
+            + '</tbody></table>';
+          return wrap.firstElementChild;
+        })(),
+        el('div', { class: 'mt-3 text-[10px] font-bold uppercase tracking-wider text-amber-900/70' }, 'What changed'),
+        el('ul', { class: 'mt-1 space-y-1 text-xs leading-relaxed text-slate-700' },
+          r.changes.map((change) => el('li', {}, `· ${change}`))),
+        el('p', { class: 'mt-3 text-xs leading-relaxed text-slate-600' }, r.attribution),
+        r.stillMissed.length
+          ? el('p', { class: 'mt-2 text-xs leading-relaxed text-slate-600' },
+            `Still not called: ${r.stillMissed.map((mrow) => `${mrow.name} (${payload.eventTypes[mrow.event]?.label ?? mrow.event})`).join(', ')}.`)
+          : el('p', { class: 'mt-2 text-xs leading-relaxed text-slate-600' },
+            'These rules would have named every movement at this review — which, on the review they were '
+            + 'designed after, is what being in-sample looks like.'),
+      ]),
+    ));
+  }
+
   // ---- what is not scored ------------------------------------------------
   host.append(el('div', { class: 'rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200' }, [
     el('div', { class: 'text-[10px] font-bold uppercase tracking-wider text-slate-400' }, 'Not scored, and why'),
