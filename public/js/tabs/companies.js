@@ -1774,13 +1774,34 @@ function pendingRebalance(context) {
   const newest = closedReviews(today, 1)[0];
   if (!newest || newest.review <= context.defaultReview) return null;
   const awaiting = (context.awaitingSession ?? []).find((b) => b.review === newest.review);
+  if (awaiting) return { ...newest, cause: 'no-session-after', reason: awaiting.reason };
+
+  // ⚠ A THIRD CAUSE, AND NAMING IT WRONGLY WAS SELF-REFUTING.
+  //
+  // This used to say "the newest close on the record is X, which is before it"
+  // for everything that was not `awaitingSession`. But the prices and the
+  // baselines are written by different scripts, so the record can carry closes
+  // well past a rebalance while `price-history.json` — the only file that holds
+  // the baseline spans — has not captured it. The chip then stated a reason the
+  // date beside it disproved.
+  //
+  // Measured on 1 Sep 2026: `fetch-price-history.mjs` ran only in the monthly
+  // job, so between a review taking effect and the first of the month this was
+  // the state the screen was actually in.
+  if (context.latestDate >= newest.effectiveDate) {
+    return {
+      ...newest,
+      cause: 'not-captured',
+      reason: `the record has closes through ${context.latestDate}, past the rebalance, but the baseline `
+        + 'spans in price-history.json were captured before it — run fetch-price-history.mjs and rebuild',
+    };
+  }
+
   return {
     ...newest,
-    onTheRecord: Boolean(awaiting),
-    reason: awaiting
-      ? awaiting.reason
-      : `the newest close on the record is ${context.latestDate}, which is before it — the daily refresh `
-        + 'has not read a session on or after the rebalance yet',
+    cause: 'no-close-yet',
+    reason: `the newest close on the record is ${context.latestDate}, which is before it — the daily refresh `
+      + 'has not read a session on or after the rebalance yet',
   };
 }
 

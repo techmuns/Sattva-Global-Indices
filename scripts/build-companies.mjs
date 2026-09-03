@@ -729,7 +729,33 @@ function main() {
   // bands by the segment's own price return is what makes a verdict account for
   // the index rather than only the company. Measured in RUPEES — see
   // model/benchmarks.js for why the dollar figure would be wrong by 9-13 points.
-  const lastReview = previousReview(reviewAnchor);
+  //
+  // ⚠ THE SAME ZERO-LENGTH WINDOW AS §2.12.3, ARRIVING ON A DIFFERENT PATH.
+  //
+  // `previousReview` is inclusive: on the day a review takes effect it returns
+  // THAT review, with daysSince 0. The segment return is then struck over a
+  // window of no elapsed time and comes out 0.000% for every segment — not a
+  // segment that did not move, but a segment that has not been given a chance
+  // to. Below `minMovePct` nothing floats, so on 31 Aug 2026 the record carried
+  // no floated band at all and the daily refresh went red on verify-data 27 and
+  // threw away four days of correctly fetched prices.
+  //
+  // `sinceRebalance` was given this walk-back on 1 Sep 2026 through
+  // `chooseBaseline`; the band adjustment was not, and this is the same rule for
+  // the same reason: a baseline needs a session strictly after it, or the
+  // reading it produces is a fabricated zero.
+  let lastReview = previousReview(reviewAnchor);
+  if (lastReview && lastReview.effectiveDate >= prices.tradeDate) {
+    const dayBefore = new Date(`${lastReview.effectiveDate}T00:00:00Z`);
+    dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
+    const stepped = previousReview(dayBefore);
+    process.stdout.write(
+      `  band adjustment: the ${lastReview.label} review took effect ${lastReview.effectiveDate}, which is not\n`
+      + `                   before the newest close ${prices.tradeDate}, so there is no session to measure over.\n`
+      + `                   Baselined on ${stepped ? `${stepped.label} (${stepped.effectiveDate})` : 'nothing — no earlier review'} instead.\n`,
+    );
+    lastReview = stepped;
+  }
   const fxMap = benchmarks ? seriesToMap(benchmarks.fx?.series ?? []) : null;
   // Keyed on the BENCHMARK id, not the fund id. INDA holds nothing here and has
   // fundId null, so a fund-keyed map would silently drop the Standard segment's

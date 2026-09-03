@@ -216,3 +216,37 @@ export function bhavcopyUrl(date) {
   const compact = date.replace(/-/g, '');
   return `https://www.bseindia.com/download/BhavCopy/Equity/BhavCopy_BSE_CM_0_0_0_${compact}_F_0000.CSV`;
 }
+
+/**
+ * The continuity block exactly as it must reach prices.json.
+ *
+ * ---------------------------------------------------------------------------
+ * ⚠ THIS EXISTS BECAUSE A WHITELIST ATE THE REASON
+ * ---------------------------------------------------------------------------
+ * `fetch-bhavcopy.mjs` serialised this inline, naming four fields — `against`,
+ * `compared`, `failures` and the renamed `skipped`. Every other field the
+ * continuity logic computes was silently dropped, and the three it dropped are
+ * the ones that say whether a SKIPPED check was legitimate: `skippedReason`,
+ * `gapDays`, `carriedForwardFrom`.
+ *
+ * verify-data 18 accepts a stated reason in place of a comparison, precisely so
+ * that a gap in our own record is not reported as corruption in BSE's data. With
+ * the reason never reaching disk, that escape hatch could not be satisfied by
+ * any input — so one missed session made the record PERMANENTLY unable to close
+ * its own gap: no comparison possible, no reason recorded, check 18 red, commit
+ * step skipped, gap still there tomorrow. Measured: four consecutive weekdays of
+ * correctly fetched prices discarded, 31 Aug to 3 Sep 2026.
+ *
+ * A fix in three layers — compute the reason, write it, accept it — shipped with
+ * the middle layer missing, and nothing tested the middle. So the serialisation
+ * lives here, as one pure function with one caller, and verify-data 54 asserts
+ * that a skipped block round-trips its reason.
+ *
+ * The ONE rename is `skipped` -> `noCounterpart`, because on the wire the field
+ * means "scrips with no counterpart in the previous file", not "the check was
+ * skipped" — two things a reader of the JSON would otherwise confuse.
+ */
+export function continuityRecord(continuity) {
+  const { skipped, ...rest } = continuity ?? {};
+  return { ...rest, noCounterpart: skipped ?? 0 };
+}

@@ -17,6 +17,19 @@ read `docs/HANDOFF.md`.
 
 ---
 
+## Found while unblocking the price pipeline (3 Sep 2026) — not fixed here
+
+Each is measured, none is currently producing a wrong number on the record, and each would under the
+right conditions. Listed so they are not rediscovered.
+
+| Item | Effort | What it is |
+| --- | --- | --- |
+| **A clamped sensitivity span reads as MORE robust** | small | `baselineSpans` clamps a baseline's `to` at the newest session, so a capture run on or near an effective date produces a one-sided span. `sessions >= 3` still passes, and a sensitivity test that could only look forward is not the ±2 test `REBALANCE_BASELINE.bandPct` was measured against — so it makes more readings look robust than are. Today's August span is 2026-08-27..2026-09-02 and two-sided, so nothing on the record is affected. Fix: record `clamped` and refuse `robust` on a one-sided span. |
+| **An unclosed US session can be committed as an index close** | small | The benchmark series are US-listed ETFs; a bar for a session that has not closed is an intraday quote. Over a quarter it is one of ~65 points; three sessions after a rebalance it is one of two. Yahoo's `meta` already carries the exchange timezone and gmtoffset used for the FX fix (CLAUDE.md §3.8.2). Fix: drop or mark the unclosed bar so `indexOn(latestDate)` never pairs a live US quote against a settled BSE close. |
+| **No alarm when the pipeline stops** | small | `verify.yml` validates the **committed** record, so it stayed green through four days of a dead refresh — by construction it cannot see the outage (CLAUDE.md §2.34). A red `daily-refresh` for two consecutive trading days is the only available signal. Nobody is paged on it. |
+
+---
+
 ## Detail on the two the owner must do
 
 ### Liveness probe — **not yet run**

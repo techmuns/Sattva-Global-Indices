@@ -447,6 +447,33 @@ async function run() {
       `${b.review}'s sensitivity span has at least 3 sessions`,
       `${b.sessions} session(s) in ${b.from}..${b.to}`);
   }
+  /*
+   * ⚠ THE NEWEST CLOSED REVIEW MUST BE AMONG THEM, OR THIS IS A SILENT SUCCESS.
+   *
+   * The baseline set is derived from `closedReviews(prices.tradeDate)`, so a
+   * stale price anchor quietly narrows it — and the run then reports success
+   * over a set that is missing the very rebalance the screen should be
+   * baselined on. That is exactly what happened on 1 Sep 2026: the monthly job
+   * executed and passed while `prices.json` was frozen at 28 Aug, so the August
+   * review — effective 31 Aug, and closed by then — was never captured, and
+   * nothing anywhere said so.
+   *
+   * The anchor is what is wrong in that case, not this file, and this cannot
+   * repair it. What it can do is refuse to write a set that is missing the
+   * newest closed review, and name the anchor that produced it — a 200 is not a
+   * contract (§3.8), and neither is an exit code.
+   */
+  const newestClosed = closedReviews(prices.tradeDate, 1)[0] ?? null;
+  const captured = new Set(perBaseline.map((b) => b.review));
+  check(!newestClosed || captured.has(newestClosed.review),
+    'the newest CLOSED review is among the captured baselines',
+    newestClosed
+      ? `${newestClosed.review} (effective ${newestClosed.effectiveDate}) `
+        + `${captured.has(newestClosed.review) ? 'captured' : `MISSING — anchored on prices.tradeDate ${prices.tradeDate}, `
+          + `captured ${[...captured].join(', ') || 'nothing'}. Run fetch-bhavcopy.mjs first: this set is `
+          + 'narrowed by a stale price anchor, not by anything upstream'}`
+      : 'no closed review in range');
+
   const failedInBaseline = failed.filter((f) => baselineDates.has(f.date));
   check(failedInBaseline.length === 0, 'no session inside a rebalance baseline span failed to fetch',
     failedInBaseline.map((f) => `${f.date}: ${f.reason}`).join(' | ') || 'none');

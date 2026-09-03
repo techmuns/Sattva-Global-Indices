@@ -391,8 +391,17 @@ then a plain `fetch()` is correct and is what `worker/index.js` already does.
 
 | Workflow | Cron (UTC) | IST | Does |
 | --- | --- | --- | --- |
-| `daily-refresh.yml` | `30 14 * * 1-5` | **20:00 IST, Mon–Fri** | fetch the BSE bhavcopy, rebuild `companies.json`, commit if anything changed |
+| `daily-refresh.yml` | `30 14 * * 1-5` | **20:00 IST, Mon–Fri** | fetch the BSE bhavcopy, corporate actions and the rebalance/price-window history, rebuild `companies.json`, commit if anything changed |
 | `monthly-float.yml` | `30 20 1 * *` | **02:00 IST on the 2nd** | scrip master, NSE universe, NSE + BSE free float, quote stats, prices, rebuild, commit |
+
+**Corporate actions and price history moved onto the daily job on 3 Sep 2026**, and the reason is
+worth keeping. `fetch-price-history.mjs` is the only writer of the rebalance baseline set, and it
+decides which rebalances to capture from `closedReviews(prices.tradeDate)`. On the monthly cadence it
+could not have captured the August 2026 review — effective 31 Aug — until 1 October, so the screener
+would have spent a month baselining its relative columns on May while telling the reader, from the
+calendar, that August had already happened. Actions come first because a price series without them
+reads a 1:1 bonus as a 50% collapse, and their far end now advances daily. Measured cost: ~4 min and
+~1 min, inside a 45-minute budget.
 
 The daily job runs comfortably after the 15:30 IST close and after BSE has published. The monthly
 cron crosses midnight in conversion — 20:30 UTC on the 1st is 02:00 IST on the *second* — which the
