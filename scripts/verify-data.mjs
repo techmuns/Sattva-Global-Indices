@@ -41,6 +41,8 @@ import { parseRange, withinRange } from '../public/js/core/range.js';
 import { feedRegistry } from '../public/js/data/companies.js';
 import { relativeOf, windowMean, WINDOW_STATES, REBASE_STATES, adjustmentBetween, flowPressure } from '../public/js/model/relative.js';
 import { RELATIVE_PERFORMANCE, REBALANCE_BASELINE } from '../public/js/config/thresholds.mjs';
+import { ASM_REFRESH } from '../public/js/config/thresholds.mjs';
+import { diffAsmSnapshots } from './lib/asm-diff.mjs';
 import { closedReviews, chooseBaseline } from '../public/js/model/calendar.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -157,12 +159,14 @@ function loadContext() {
     rebalance: readJson('public/data/rebalance-2026-08.json'),
     sources: loadSources(),
     // Injected so a check can be broken by swapping the thing it verifies.
-    fn: { assertBhavcopyShape, assertContinuity, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count, parseRange, withinRange, chooseBaseline },
+    fn: { assertBhavcopyShape, assertContinuity, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count, parseRange, withinRange, chooseBaseline, diffAsmSnapshots },
+    asmRefresh: structuredClone(ASM_REFRESH),
     fixtures: {
       spaShell: readText('scripts/fixtures/bhavcopy-spa-shell.html'),
       bhavToday: readText('scripts/fixtures/bhavcopy-sample-20260819.csv'),
       bhavPrev: readText('scripts/fixtures/bhavcopy-sample-20260818.csv'),
       rawQuote: readText('scripts/fixtures/munshot-rawquote-reliance.txt'),
+      asmWorkflow: readText('.github/workflows/asm-refresh.yml'),
     },
   };
 }
@@ -176,6 +180,7 @@ const clone = (ctx) => ({
   benchmarks: structuredClone(ctx.benchmarks),
   master: structuredClone(ctx.master),
   asm: structuredClone(ctx.asm),
+  asmRefresh: structuredClone(ctx.asmRefresh),
   prices: structuredClone(ctx.prices),
   reconciliation: structuredClone(ctx.reconciliation),
   relativeBaselines: structuredClone(ctx.relativeBaselines),
@@ -2954,6 +2959,119 @@ async function main() {
       // qualifier exists to prevent.
       const victim = c.companies.find((co) => co.assessment?.asm?.binding && co.flowEstimate?.asmConstraint);
       victim.flowEstimate.asmConstraint.mandated = true;
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 54,
+    what: 'the ASM change report keys on ISIN — a respelled NSE symbol is a respelling, not an entry and an exit',
+    clone: deepClone,
+    run: (c) => {
+      // §2.32 measured this exact failure on real data: BlackRock respelled
+      // Bajaj Auto's ticker between two files and a ticker-keyed diff reported
+      // it as one exit and one entry — two invented events on a company that
+      // had not moved. The fortnightly ASM job reports events for a living, so
+      // the same trap here would manufacture surveillance news.
+      const diff = c.fn.diffAsmSnapshots;
+      const source = c.asm.companies;
+      ok(source.length > 3, 'the ASM snapshot has enough rows to test against', String(source.length));
+
+      // --- the trap: same ISINs, one symbol spelt differently ---------------
+      const before = { companies: source.map((r) => ({ ...r })) };
+      const after = { companies: source.map((r) => ({ ...r })) };
+      after.companies[0].symbol = `${after.companies[0].symbol ?? 'X'}.RESPELT`;
+
+      const quiet = diff(before, after);
+      ok(quiet.comparable, 'two real snapshots are comparable', JSON.stringify(quiet.reason));
+      equal(quiet.entered.length, 0, 'a respelled symbol enters nothing');
+      equal(quiet.left.length, 0, 'a respelled symbol leaves nothing');
+      equal(quiet.reclassified.length, 0, 'a respelled symbol reclassifies nothing');
+      equal(quiet.respelled.length, 1, 'the respelling is reported in its own bucket');
+
+      // --- the positive control ---------------------------------------------
+      // A differ that always answered "nothing changed" would sail through the
+      // assertions above. §3.8.1: a detector that finds nothing is
+      // indistinguishable from a broken one, so make it find something.
+      const moved = { companies: source.map((r) => ({ ...r })) };
+      moved.companies[1].survCode = 'LTASM - IV (16)';
+      moved.companies[1].stage = 'Stage IV';
+      const dropped = moved.companies.pop();
+      moved.companies.push({
+        isin: 'INE000TEST01', symbol: 'TESTCO', companyName: 'Test Co',
+        category: 'longterm', stage: 'Stage I', survCode: 'LTASM - I (13)', survDesc: 'x', asmDate: null,
+      });
+      const loud = diff(before, moved);
+      equal(loud.entered.length, 1, 'a genuinely new ISIN reads as an entry');
+      equal(loud.left.length, 1, 'an ISIN that has gone reads as an exit');
+      equal(loud.reclassified.length, 1, 'a changed stage on a stable ISIN reads as a reclassification');
+      ok(loud.entered[0].isin === 'INE000TEST01', 'the entry names the ISIN that actually appeared', loud.entered[0].isin);
+      ok(loud.left[0].isin === dropped.isin, 'the exit names the ISIN that actually went', loud.left[0].isin);
+
+      // And a missing previous list is NOT "nothing changed" (§2.4).
+      const blind = diff(null, after);
+      ok(blind.comparable === false, 'no previous snapshot reports as not-comparable', JSON.stringify(blind.comparable));
+      equal(blind.entered.length, 0, 'and invents no entries to fill the gap');
+
+      return `${source.length} ASM rows · respelling → 0 events, 1 respelling · real move → 1 in, 1 out, 1 reclassified`;
+    },
+    sabotage: (c) => {
+      // The naive differ this project has already been bitten by: key on the
+      // label instead of the identity.
+      c.fn.diffAsmSnapshots = (before, after) => {
+        const key = (r) => r.symbol;
+        const prev = new Map((before?.companies ?? []).map((r) => [key(r), r]));
+        const next = new Map((after?.companies ?? []).map((r) => [key(r), r]));
+        return {
+          comparable: Boolean(before?.companies),
+          reason: null,
+          entered: [...next.keys()].filter((k) => !prev.has(k)).map((k) => next.get(k)),
+          left: [...prev.keys()].filter((k) => !next.has(k)).map((k) => prev.get(k)),
+          reclassified: [], respelled: [], unchanged: 0,
+          beforeCount: prev.size, afterCount: next.size,
+        };
+      };
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 55,
+    what: 'the ASM refresh schedule and its staleness window have ONE owner, and the workflow honours it',
+    clone: deepClone,
+    run: (c) => {
+      const cfg = c.asmRefresh;
+      const yaml = c.fixtures.asmWorkflow;
+
+      ok(Number.isFinite(cfg.staleAfterDays) && cfg.staleAfterDays > 0,
+        'the freshness window is a real positive number of days', JSON.stringify(cfg.staleAfterDays));
+
+      // The schedule is written in two places that cannot see each other — a
+      // cron line in YAML and a string in the config the interface reads. If
+      // they drift, the screen describes a cadence the runner is not keeping.
+      const crons = [...yaml.matchAll(/-\s*cron:\s*'([^']+)'/g)].map((m) => m[1]);
+      equal(crons.length, 1, 'the ASM workflow carries exactly one schedule');
+      equal(crons[0], cfg.cron, 'the workflow cron is the one the config publishes');
+
+      // The window is enforced by the job, so the job must actually assert it.
+      ok(/--assert-fresh/.test(yaml),
+        'the workflow runs the freshness assertion — otherwise nothing enforces the guarantee', 'no --assert-fresh');
+      // ...and only report changes when it genuinely re-read NSE (§2.4).
+      ok(/--before=/.test(yaml), 'the workflow reports what moved against the previous list', 'no --before');
+
+      // One owner, not two: the interface must read the window from the config
+      // rather than carrying its own copy that can drift.
+      const registry = c.sources.find((f) => f.path.endsWith('public/js/data/companies.js'));
+      ok(registry, 'the feed registry source was scanned', 'missing');
+      ok(/staleAfterDays:\s*ASM_REFRESH\.staleAfterDays/.test(registry.text),
+        'the freshness strip reads the window from ASM_REFRESH, never a typed literal',
+        'the registry types its own staleAfterDays');
+
+      return `window ${cfg.staleAfterDays}d · cron ${cfg.cron} · workflow asserts freshness and reports changes`;
+    },
+    sabotage: (c) => {
+      // Drift the schedule away from the number the interface publishes: the
+      // screen would keep claiming a fortnightly guarantee the runner stopped
+      // keeping.
+      c.fixtures.asmWorkflow = c.fixtures.asmWorkflow.replace(/-\s*cron:\s*'[^']+'/, "- cron: '0 4 1 1 *'");
     },
   }, ctx);
 

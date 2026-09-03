@@ -1,0 +1,166 @@
+# The fortnightly NSE ASM refresh — and the first thing that FAILS when the
+# surveillance list goes stale.
+#
+# ⚠ WHY THIS EXISTS WHEN ASM IS ALREADY FETCHED TWICE ELSEWHERE.
+#
+# `daily-refresh.yml` attempts the ASM list every trading day and
+# `weekly-nse-crosscheck.yml` attempts it again with three spaced retries. Both
+# of those steps are `continue-on-error`, deliberately: NSE's edge refuses a
+# datacentre IP unpredictably (§3.7) and an ASM throttle must not take down the
+# float pipeline standing behind it.
+#
+# The consequence was that NOTHING FAILED WHEN THE FEED WENT STALE. The list
+# could freeze for a month, every workflow would stay green, and the dashboard
+# would keep showing surveillance stages that had moved on — while the data
+# contract claimed the feed was "guaranteed weekly", which nothing enforced.
+#
+# This job is that guarantee. It re-reads NSE with patience, reports what
+# actually moved, and fails loudly when the committed list is older than the
+# desk's window.
+#
+# ⚠ IT FAILS ON STALENESS, NOT ON A THROTTLE.
+#
+# Hard-failing merely because THIS run could not reach NSE would cry wolf: the
+# daily job may have read the list successfully yesterday. So a refused scrape
+# falls through to a freshness test against the committed `capturedAt`, and the
+# job fails only when the data is genuinely older than
+# ASM_REFRESH.staleAfterDays. A guard waived every fortnight is a guard nobody
+# reads (§3.8.2).
+#
+# ⚠ AND A RUN THAT COULD NOT LOOK NEVER REPORTS "NOTHING CHANGED" (§2.4).
+#
+# The change report runs only when the scrape actually succeeded. With the file
+# unchanged a diff would print zero changes, which is true about the file and a
+# lie about NSE.
+name: Fortnightly NSE ASM refresh
+
+on:
+  schedule:
+    # 04:00 UTC on the 1st and the 16th = 09:30 IST. The market is shut and
+    # NSE's edge is quiet, the same window the weekly cross-check uses.
+    #
+    # ⚠ This is NOT "every 15 days" and must not be described as though it were:
+    # cron cannot express that. The 1st to the 16th is exactly 15 days; the 16th
+    # to the next 1st is 13 to 16 depending on the month. The desk asked for
+    # roughly a fortnight and this is the closest a schedule gets to it.
+    # ASM_REFRESH.cron in public/js/config/thresholds.mjs carries the same
+    # expression so the interface and the schedule cannot drift apart.
+    - cron: '0 4 1,16 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: asm-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Keep the list we are about to overwrite. Without it the run can refresh
+      # the file but cannot say what MOVED, which is the half the desk reads.
+      - name: Keep the previous ASM list, to compare against
+        run: |
+          git show HEAD:public/data/nse-asm.json > "${RUNNER_TEMP}/asm-before.json" 2>/dev/null \
+            || echo "No committed ASM list at HEAD — this run cannot report changes, and will say so."
+
+      # Three attempts, ten minutes apart. The scraper already retries within a
+      # run; this is the outer loop for a throttle that outlasts one. Soft here,
+      # because the freshness gate below decides whether a refusal matters.
+      - name: NSE ASM list, with patience
+        id: scrape
+        continue-on-error: true
+        run: |
+          for attempt in 1 2 3; do
+            echo "=== NSE ASM attempt ${attempt} of 3 ==="
+            if node scripts/scrape-nse-asm.mjs; then
+              echo "NSE answered on attempt ${attempt}."
+              exit 0
+            fi
+            if [ "${attempt}" -lt 3 ]; then
+              echo "Throttled. Waiting 10 minutes before the next attempt."
+              sleep 600
+            fi
+          done
+          exit 1
+
+      # ---- the guarantee -------------------------------------------------
+      # Reached only when all three attempts were refused. Passes quietly if the
+      # daily job kept the list fresh; fails loudly if it did not.
+      - name: The guarantee — fail only if the list is genuinely stale
+        if: steps.scrape.outcome == 'failure'
+        run: |
+          echo "::warning title=NSE ASM unreachable this run::Three spaced attempts were all refused."\
+               "nse-asm.json is unchanged. Checking whether it is still inside the freshness window."
+          node scripts/check-nse-asm.mjs --assert-fresh --summary
+
+      - name: Say so when the list is stale beyond the window
+        if: failure() && steps.scrape.outcome == 'failure'
+        run: |
+          echo "::error title=NSE ASM list is stale::NSE has refused us for longer than the desk's"\
+               "window. The dashboard is showing surveillance stages that may have moved on, and the"\
+               "daily and weekly ASM attempts are soft, so this job is the only thing that says so."
+
+      # ---- what moved ----------------------------------------------------
+      # Only when the scrape succeeded: see the header note on §2.4.
+      - name: What changed on NSE's surveillance list
+        if: steps.scrape.outcome == 'success'
+        id: changes
+        run: |
+          node scripts/check-nse-asm.mjs \
+            --before="${RUNNER_TEMP}/asm-before.json" \
+            --oneline --summary 2> "${RUNNER_TEMP}/asm-oneline.txt"
+          cat "${RUNNER_TEMP}/asm-oneline.txt"
+          line="$(sed -n 's/^ONELINE://p' "${RUNNER_TEMP}/asm-oneline.txt" | head -1)"
+          echo "summary=${line:-refreshed}" >> "$GITHUB_OUTPUT"
+
+      - name: Rebuild the company record
+        if: steps.scrape.outcome == 'success'
+        run: node scripts/build-companies.mjs
+
+      - name: Verify the record
+        if: steps.scrape.outcome == 'success'
+        run: node scripts/verify-data.mjs
+
+      - name: Commit if anything changed
+        if: steps.scrape.outcome == 'success'
+        run: |
+          if git diff --quiet -- public/data; then
+            echo "No change in public/data — NSE's list matches what is already committed."
+            exit 0
+          fi
+          git config user.name  "sattva-bot"
+          git config user.email "tech@muns.io"
+          git add public/data
+          git commit -m "Fortnightly NSE ASM refresh — ${{ steps.changes.outputs.summary }}"
+
+          # REBASE AND RETRY. This job holds the tree for up to twenty minutes
+          # across the patient retries, and any push to main inside that window
+          # makes the final push non-fast-forward — measured in daily-refresh.yml
+          # on 28 Aug 2026, where a clean end-to-end run threw itself away on
+          # `! [rejected] main -> main (fetch first)`.
+          #
+          # Safe here for the same reason it is safe there: this job only ever
+          # touches public/data, so replaying its one commit onto whatever landed
+          # cannot lose somebody else's work.
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              echo "Pushed on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Push rejected on attempt ${attempt} — someone pushed while this ran. Rebasing."
+            sleep $((attempt * 5))
+            git pull --rebase origin main || {
+              echo "::error title=Rebase failed::public/data conflicts with origin/main. Resolve by hand."
+              exit 1
+            }
+          done
+          echo "::error title=Push failed::Five attempts, all rejected. The list is refreshed and verified but not committed."
+          exit 1

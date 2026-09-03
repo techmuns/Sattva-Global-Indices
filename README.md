@@ -54,8 +54,8 @@ npx wrangler dev                      # serves the same site plus POST /api/quot
 Two suites, 42 assertions, both exit non-zero on any failure.
 
 ```bash
-node scripts/verify-data.mjs                                      # 21 checks, no browser, no network
-node scripts/verify-ui.mjs                                        # 21 checks vs http://127.0.0.1:8080
+node scripts/verify-data.mjs                                      # 55 checks, no browser, no network
+node scripts/verify-ui.mjs                                        # 38 checks vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs `npx wrangler dev`
 node scripts/verify-data.mjs --prove                              # break each check; it must go red
 node scripts/verify-ui.mjs --prove
@@ -97,6 +97,7 @@ node scripts/fetch-bse-master.mjs      # 1 request, ~1.7 MB
 node scripts/fetch-nse-universe.mjs    # 2 requests, the ISIN bridge
 node scripts/scrape-nse-freefloat.mjs  # 3 requests, 261 symbols
 node scripts/scrape-nse-asm.mjs        # 1 request, the NSE surveillance (ASM) list
+node scripts/check-nse-asm.mjs --before=<prev>  # what moved on it; --assert-fresh for the window
 node scripts/scrape-bse-freefloat.mjs  # ~3,600 requests, ~25 min — the long one
 node scripts/fetch-bhavcopy.mjs        # 1 request, the whole market's closes
 node scripts/fetch-quote-stats.mjs --concurrency 1 --gap-ms 1200
