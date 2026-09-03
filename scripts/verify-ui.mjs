@@ -3096,17 +3096,18 @@ async function main() {
         const S = window.__sattva;
         const TRADE = new Set(['likely-inclusion', 'possible-inclusion', 'migration-up', 'migration-down', 'exclusion-risk', 'likely-exclusion']);
         const co = S.data.all().find((x) => x.assessment?.asm?.binding && x.flowEstimate?.asmConstraint && TRADE.has(x.assessment.verdict));
-        return co ? { name: co.name, survCode: co.asm.survCode, verdict: co.assessment.verdict } : null;
+        return co ? { key: co.isin ?? `bse:${co.bseScripCode}`, name: co.name, survCode: co.asm.survCode, verdict: co.assessment.verdict } : null;
       });
       ok(target, 'a trade-implying ASM company must exist to inspect', JSON.stringify(target));
 
-      const m = await c.page.evaluate(async (name) => {
-        const search = document.querySelector('input[type="search"], input[placeholder*="Search"]');
-        search.value = name;
-        search.dispatchEvent(new Event('input', { bubbles: true }));
-        await window.__settleSearch(name);
-        const row = document.querySelector('[data-score-table] tbody tr');
-        row.click();
+      // Open the drill DETERMINISTICALLY by its URL param — the mechanism check
+      // 30 proves works on a cold load. A search-then-click sequence has a race
+      // that CI exposed (the row list catching up to the query), which is a flaw
+      // in the check, not the page; this removes it entirely.
+      await c.load(`#/companies?company=${encodeURIComponent(target.key)}`);
+      await c.page.waitForSelector('[data-drill-body]', { timeout: 10000 });
+
+      const m = await c.page.evaluate(async () => {
         await window.__until(
           () => document.querySelector('[data-drill-body]')?.innerText.includes('Estimated flow'),
           'the drill flow section',
@@ -3125,7 +3126,7 @@ async function main() {
           timingMarked: /understated \(ASM\)/.test(text),
           notMandatedText: /not mandated to rebalance/i.test(text),
         };
-      }, target.name);
+      });
 
       ok(m.banner, "the drill flags an ASM name's forced flow as not mandated", JSON.stringify(m));
       ok(m.figureShown, 'the mechanical flow size is still shown (shown-with-caveat, not suppressed)', JSON.stringify(m));
