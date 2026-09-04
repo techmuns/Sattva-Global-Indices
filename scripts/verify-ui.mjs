@@ -1328,6 +1328,7 @@ async function main() {
           return match ? Number(match[0]) : null;
         };
         let compared = 0;
+        let separable = 0;
         let geometric = 0;
         let wouldMatchSubtraction = 0;
         let benchmarkNamed = 0;
@@ -1365,8 +1366,13 @@ async function main() {
           const tol = 0.05 * dStock + 0.05 * dIndex + 0.05 + 1e-9;
           if (Math.abs(geo - d) <= tol) geometric += 1;
           if (Math.abs((st - i) - d) <= tol) wouldMatchSubtraction += 1;
+          // Could this row tell the two formulas apart AT THE RENDERED
+          // PRECISION? The gap between them is about stock x index, so it
+          // shrinks with the window; three sessions after a rebalance it is
+          // smaller than the rounding these cells already carry.
+          if (Math.abs(geo - (st - i)) > tol) separable += 1;
         }
-        return { ix, compared, geometric, wouldMatchSubtraction, benchmarkNamed, absences, absencesWithoutReason };
+        return { ix, compared, geometric, wouldMatchSubtraction, separable, benchmarkNamed, absences, absencesWithoutReason };
       });
 
       ok(m.ix.index >= 0 && m.ix.stock >= 0 && m.ix.delta >= 0,
@@ -1376,15 +1382,43 @@ async function main() {
         JSON.stringify(m.ix));
       ok(m.compared > 20, 'enough rows carry all three to judge', `${m.compared} rows`);
       equal(m.geometric, m.compared, 'every rendered delta is (1 + stock) / (1 + index) - 1');
-      ok(m.wouldMatchSubtraction < m.compared,
-        'and the subtraction genuinely differs on this screen, or the distinction is untested here',
-        `${m.wouldMatchSubtraction} of ${m.compared} rows would also match a plain subtraction`);
+      /*
+       * ⚠ WHETHER THE SUBTRACTION IS DISTINGUISHABLE HERE IS A FACT ABOUT THE
+       * WINDOW, NOT ABOUT THE SCREEN.
+       *
+       * The two formulas differ by roughly stock x index, so the gap scales with
+       * the PRODUCT of the two legs: across a quarter it is points wide
+       * (WELCORP's +119.7% against SMIN's +4.5% reads 115.2 pp by subtraction
+       * and 110.0% geometrically), and across the three sessions since a
+       * rebalance it is hundredths of a point — smaller than the 0.05 rounding
+       * each of these one-decimal cells already carries. Measured on the first
+       * record baselined on the August 2026 review: 0 of 1,229 rows separable,
+       * widest gap 0.078 pp against a tolerance around 0.15.
+       *
+       * Requiring the distinction to be visible was therefore a market condition
+       * gating a build, and it would have gone red for weeks after every review.
+       * The invariant above — every rendered delta IS the geometric relative of
+       * the two legs beside it — holds at any window length and is asserted
+       * unconditionally. The subtraction instance is asserted here only when the
+       * window makes it observable, and is always asserted on the unrounded
+       * stored values by verify-data 39, where 474 rows separate the two.
+       */
+      if (m.separable > 0) {
+        ok(m.wouldMatchSubtraction < m.compared,
+          'where the two formulas are separable at this precision, the rendered delta must not be the subtraction',
+          `${m.wouldMatchSubtraction} of ${m.compared} rows would also match a plain subtraction, `
+          + `though ${m.separable} are separable`);
+      }
       equal(m.benchmarkNamed, m.compared,
         'every index cell names its own benchmark — it is INDA for one row and SMIN for the next, and a bare percentage would not say which');
       equal(JSON.stringify(m.absencesWithoutReason), JSON.stringify({ index: 0, stock: 0, delta: 0 }),
         'every em dash in all three columns carries a title saying which kind of absence it is');
       return `${m.compared} rows with all three legs · every delta geometric · `
-        + `${m.compared - m.wouldMatchSubtraction} would read differently under subtraction · ${m.absences} stated absences`;
+        + (m.separable > 0
+          ? `${m.compared - m.wouldMatchSubtraction} would read differently under subtraction`
+          : 'subtraction indistinguishable at one decimal on this window — verify-data 39 carries it, '
+            + 'on the unrounded values')
+        + ` · ${m.absences} stated absences`;
     },
     // Render the delta as the difference of the two columns — the change a
     // future author makes when the three numbers "do not add up".
@@ -1422,7 +1456,17 @@ async function main() {
           const target = [...cell.querySelectorAll('span')]
             .find((sp) => /^[+-]/.test(sp.textContent.trim()));
           if (!target) continue;
-          const v = s - i;
+          // ⚠ THE SUBTRACTION ALONE IS NOT ENOUGH TO PROVE THIS CHECK, and that
+          // is a property of the window rather than of the sabotage. Three
+          // sessions after a rebalance the geometric and arithmetic deltas agree
+          // to within the rounding these one-decimal cells already carry, so a
+          // rendered subtraction is INVISIBLE here and --prove would correctly
+          // report that the check cannot fail. The offset is what keeps the
+          // invariant this check now asserts — every rendered delta is the
+          // geometric relative of the two legs beside it — falsifiable at any
+          // window length. verify-data 39 catches the subtraction itself, on the
+          // unrounded stored values, where the two are separable on 474 rows.
+          const v = (s - i) + 1;
           const next = (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
           cell.dataset.sabotaged = '1';
           if (target.textContent !== next) target.textContent = next;
@@ -1608,15 +1652,39 @@ async function main() {
       });
 
       ok(m.vi >= 0 && m.di >= 0, 'the Verdict and delta columns are both locatable', JSON.stringify(m));
-      ok(m.up + m.down > 5, 'enough chips are on screen to judge', `${m.up} up, ${m.down} down`);
-      // BOTH directions must occur. A screen where every chip pointed the same
-      // way would satisfy a one-sided mapping by accident.
-      ok(m.up > 0 && m.down > 0,
-        'both directions occur, or the mapping is only half tested', `${m.up} up, ${m.down} down`);
+
+      /*
+       * ⚠ HOW MANY CHIPS EXIST IS A FACT ABOUT THE MARKET, NOT ABOUT THE RAMP.
+       *
+       * This used to require more than five chips and at least one of each
+       * direction. Both are properties of the data: a chip fires only on a
+       * NOTABLE reading (§2.12.4), and how many readings are notable — and which
+       * way they point — depends entirely on how far the window since the last
+       * rebalance has run. Measured on the first record baselined on the August
+       * 2026 review, three sessions in: 1 chip on the whole screen, pointing up.
+       * The old assertion could not pass, and would have held the daily refresh
+       * red for weeks after every quarterly review — the same failure mode as
+       * verify-data 27 and 39.
+       *
+       * What is actually being tested is the MAPPING: an up chip is emerald, a
+       * down chip is rose, and each agrees with its own row's delta. That is
+       * asserted over every chip that exists, at any count, and a swapped ramp is
+       * caught by a single chip. Both directions are asserted only when both are
+       * on screen; when they are not, the untested half is reported rather than
+       * assumed — and with no chips at all there is nothing to judge and the
+       * check says so instead of passing on an empty set.
+       */
+      if (m.up + m.down === 0) {
+        skip('no flow chip is on screen: no reading is notable against this baseline yet, so the '
+          + 'colour ramp has nothing to be asserted over. It comes back as the window lengthens.');
+      }
       empty(m.wrongColour, 'every up chip is emerald and every down chip is rose', (x) => x);
       empty(m.wrongArrow, 'every chip points the way its own row\'s delta does', (x) => x);
+      const halves = m.up > 0 && m.down > 0
+        ? 'both directions on screen'
+        : `only ${m.up > 0 ? 'up' : 'down'} chips on screen — the ${m.up > 0 ? 'rose/down' : 'emerald/up'} half of the ramp is UNTESTED on this record`;
       return `${m.up + m.down} chips on ${m.rows} rows — ${m.up} emerald up, ${m.down} rose down, `
-        + 'each agreeing with its own delta';
+        + `each agreeing with its own delta · ${halves}`;
     },
     // Swap the ramp, which is the change that would make green mean losing.
     // Idempotent for the same reason as the sabotages above: a MutationObserver

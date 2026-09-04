@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, relative } from 'node:path';
 
 import { Suite, parseArgs, ok, equal, empty, fail } from './lib/assert.mjs';
-import { assertBhavcopyShape, parseBhavcopy, assertContinuity } from './lib/bhavcopy.mjs';
+import { assertBhavcopyShape, parseBhavcopy, assertContinuity, continuityRecord } from './lib/bhavcopy.mjs';
 import { parseRawQuote, quoteNumber, quoteText } from './lib/munshot.mjs';
 import { buildIndex, resolveAll } from './lib/resolve.mjs';
 import { assess, verdictFromRules } from '../public/js/model/assess.js';
@@ -159,7 +159,7 @@ function loadContext() {
     rebalance: readJson('public/data/rebalance-2026-08.json'),
     sources: loadSources(),
     // Injected so a check can be broken by swapping the thing it verifies.
-    fn: { assertBhavcopyShape, assertContinuity, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count, parseRange, withinRange, chooseBaseline, diffAsmSnapshots },
+    fn: { assertBhavcopyShape, assertContinuity, continuityRecord, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count, parseRange, withinRange, chooseBaseline, diffAsmSnapshots },
     asmRefresh: structuredClone(ASM_REFRESH),
     fixtures: {
       spaShell: readText('scripts/fixtures/bhavcopy-spa-shell.html'),
@@ -877,6 +877,184 @@ async function main() {
         const shifted = new Map([...prevClose].map(([k, v]) => [k, v == null ? v : v + 1]));
         return assertContinuity(rows, shifted);
       };
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 56,
+    what: 'the captured baselines keep up with the prices — a rebalance the closes have passed must be on the record',
+    clone: deepClone,
+    run: (c) => {
+      /*
+       * ⚠ THE ONE PLACE THIS CAN BE ASKED WITHOUT ANSWERING ITSELF.
+       *
+       * `price-history.json` derives its baseline set from
+       * `closedReviews(prices.tradeDate)`, so ASKING THE SAME QUESTION INSIDE
+       * THAT SCRIPT IS CIRCULAR: the newest closed review is in the set by
+       * construction, whatever the anchor says, and the check passes on the
+       * exact state it exists to catch. Measured on anchor 2026-08-28: captured
+       * {2026-05, 2026-02, 2025-11, 2025-08}, newest closed 2026-05, silent
+       * while August 2026 is missing.
+       *
+       * Here the two sides come from files written by DIFFERENT scripts at
+       * DIFFERENT times — `prices.tradeDate` from fetch-bhavcopy, the baselines
+       * from fetch-price-history — so the question has an answer the anchor
+       * cannot fix in its own favour. It fires exactly when the price file has
+       * moved past a rebalance the baseline file has not captured, which is the
+       * state that produced a screen baselined on May while its own calendar
+       * said August had happened, with every other check green.
+       */
+      const context = c.companiesFile.sinceRebalance;
+      ok(context?.baselines?.length, 'the record carries its captured baselines');
+      const priceDate = c.prices.tradeDate;
+      const newestClosed = closedReviews(priceDate, 1)[0] ?? null;
+      ok(newestClosed, 'the calendar names a closed review as of the price date', priceDate);
+
+      const captured = context.baselines.map((b) => b.review);
+      ok(captured.includes(newestClosed.review),
+        'the newest review the committed closes have passed must be among the captured baselines — '
+        + 'a narrower set means price-history.json is behind prices.json; re-run fetch-price-history.mjs',
+        `closes through ${priceDate} passed ${newestClosed.review} (effective ${newestClosed.effectiveDate}), `
+        + `captured ${captured.join(', ')}`);
+
+      // And the default must be one of them, measurable — §2.12.3's walk-back
+      // decides WHICH, this decides that the set it chooses from is current.
+      ok(captured.includes(context.defaultReview),
+        'the default baseline is one of the captured set', `${context.defaultReview} vs ${captured.join(', ')}`);
+
+      return `closes through ${priceDate} · newest closed review ${newestClosed.review} captured · `
+        + `${captured.length} baselines on the record, default ${context.defaultReview}`;
+    },
+    sabotage: (c) => {
+      // price-history.json a capture behind: the newest baseline never landed,
+      // which is exactly the shape of the 1 Sep 2026 record.
+      const context = c.companiesFile.sinceRebalance;
+      const newest = closedReviews(c.prices.tradeDate, 1)[0];
+      context.baselines = context.baselines.filter((b) => b.review !== newest.review);
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 55,
+    what: 'the benchmark series reach the price date, or 1,230 index legs vanish behind a reason that names neither',
+    clone: deepClone,
+    run: (c) => {
+      /*
+       * ⚠ THE ORDER OF TWO SCRIPTS, ASSERTED AS A PROPERTY OF THE RECORD.
+       *
+       * Every relative reading pairs a company's BSE close against its
+       * benchmark's close ON THE SAME DATE. If `fund-benchmarks.json` has not
+       * been refreshed in the same pass as `prices.json`, `indexOn(latestDate)`
+       * returns null for every company at once and 1,230 of 1,265 readings
+       * collapse to `no-index-leg` — a stated absence per row, which is honest,
+       * but one that names neither the benchmarks nor the date and reads as a
+       * fact about the companies.
+       *
+       * The record can say this about itself, so it should: the newest close in
+       * every benchmark series must reach the price date the record is struck
+       * on. A weekend or holiday cannot break it, because the price date is
+       * itself a session.
+       */
+      const benchmarks = c.companiesFile.benchmarks;
+      ok(benchmarks?.funds?.length, 'the record carries benchmark series', JSON.stringify(Object.keys(benchmarks ?? {})));
+      const priceDate = c.prices.tradeDate;
+      const behind = [];
+      for (const fund of benchmarks.funds) {
+        const newest = fund.lastClose ?? fund.newestDate ?? fund.series?.[fund.series.length - 1]?.date ?? null;
+        if (newest === null) { behind.push(`${fund.id ?? fund.fundId}: no series at all`); continue; }
+        if (newest < priceDate) behind.push(`${fund.id ?? fund.fundId}: newest ${newest} vs price date ${priceDate}`);
+      }
+      empty(behind,
+        'a benchmark series that stops before the price date empties the index leg of every row at once — '
+        + 'run fetch-fund-benchmarks.mjs in the same pass as fetch-bhavcopy.mjs',
+        (x) => x);
+
+      // And the legs the record actually carries must not be mostly absent for
+      // this reason, which is what the collapse looks like from the other side.
+      const noIndexLeg = c.companies.filter((x) => x.sinceRebalance?.state === 'no-index-leg').length;
+      ok(noIndexLeg < c.companies.length * 0.5,
+        'the index leg is present for most companies',
+        `${noIndexLeg} of ${c.companies.length} readings have no index leg`);
+
+      return `${benchmarks.funds.length} benchmark series all reach ${priceDate} · `
+        + `${noIndexLeg} of ${c.companies.length} rows without an index leg`;
+    },
+    sabotage: (c) => {
+      // The benchmarks a day behind the prices — the state a catch-up run that
+      // forgot fetch-fund-benchmarks.mjs leaves the record in.
+      for (const fund of c.companiesFile.benchmarks.funds) {
+        const back = new Date(`${c.prices.tradeDate}T00:00:00Z`);
+        back.setUTCDate(back.getUTCDate() - 1);
+        fund.lastClose = back.toISOString().slice(0, 10);
+      }
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 54,
+    what: 'a SKIPPED continuity check round-trips its reason to disk — the missing half of check 18',
+    clone: deepClone,
+    run: (c) => {
+      /*
+       * ⚠ THE NEGATIVE CONTROL THAT WAS NOT THERE.
+       *
+       * Check 18 accepts a stated reason in place of a comparison. The fetcher
+       * computed one. Nothing asserted that the reason SURVIVED SERIALISATION —
+       * and it did not: the writer named four fields and dropped the rest. So
+       * the two halves of a three-layer fix both passed their own tests while
+       * the layer between them was missing, and one missed session became a
+       * permanent lockout: no comparison possible, no reason on disk, check 18
+       * red, commit skipped, gap still open tomorrow. Four weekdays of correctly
+       * fetched prices were discarded that way, 31 Aug to 3 Sep 2026.
+       */
+      const gapCase = {
+        compared: 0,
+        failures: [],
+        skipped: 0,
+        against: '2026-08-28',
+        skippedReason: 'the stored file is 2026-08-28; the session before 2026-09-03 is 2026-09-02, '
+          + 'so the two files are not adjacent and continuity cannot hold across them',
+        gapDays: 6,
+      };
+      const written = JSON.parse(JSON.stringify(c.fn.continuityRecord(gapCase)));
+      ok(typeof written.skippedReason === 'string' && written.skippedReason.length > 0,
+        'a skipped continuity block must carry its reason all the way to the file',
+        JSON.stringify(written));
+      equal(written.gapDays, 6, 'and the size of the gap that caused it');
+      equal(written.compared, 0, 'the comparison count survives');
+      equal(written.against, '2026-08-28', 'and what it would have been compared against');
+      // The one deliberate rename, asserted so it cannot drift back.
+      equal(written.noCounterpart, 0, 'skipped is written as noCounterpart — scrips with no counterpart, not a skipped check');
+      ok(!('skipped' in written), 'and the ambiguous name does not also survive', JSON.stringify(written));
+
+      // The same-day case names itself differently and must survive too.
+      const carried = c.fn.continuityRecord({
+        compared: 1229, failures: [], skipped: 3, against: '2026-09-02',
+        carriedForwardFrom: '2026-09-03',
+        note: 'this run re-fetched the same trade date',
+      });
+      equal(carried.carriedForwardFrom, '2026-09-03', 'a carried-forward record keeps what it was carried from');
+      ok(typeof carried.note === 'string', 'and the note that explains it');
+
+      // And check 18's own reader must accept what this writer produces —
+      // asserting the two halves against each other rather than each alone.
+      const readerAccepts = (record) => record.compared > 0
+        || (typeof record.skippedReason === 'string' && record.skippedReason.length > 0)
+        || typeof record.carriedForwardFrom === 'string';
+      ok(readerAccepts(written), 'check 18 must accept a written gap record');
+      ok(readerAccepts(carried), 'check 18 must accept a written carried-forward record');
+
+      return `gap record keeps ${Object.keys(written).length} fields including its reason; `
+        + `carried-forward record keeps ${Object.keys(carried).length}`;
+    },
+    sabotage: (c) => {
+      // The whitelist that shipped: four fields, and the reason on the floor.
+      c.fn.continuityRecord = (continuity) => ({
+        against: continuity.against,
+        compared: continuity.compared,
+        failures: continuity.failures,
+        noCounterpart: continuity.skipped,
+      });
     },
   }, ctx);
 
@@ -1645,16 +1823,68 @@ async function main() {
         }
       }
       empty(wrong, 'a floated band moves with its segment and keeps the raw band beside it', (w) => w);
-      ok(floated.length > 0, 'the adjustment actually fired on this record', `${floated.length} floated rules`);
-      return `${floated.length} floated band rules across ${c.companies.length} companies`;
+
+      /*
+       * ⚠ WHETHER IT FIRED IS A FACT ABOUT THE MARKET, NOT ABOUT THE CODE.
+       *
+       * This used to assert `floated.length > 0` unconditionally, and that
+       * turned a quarterly market condition into a build failure. §2.24 is
+       * explicit that the adjustment is RECORDED AND NOT APPLIED below
+       * `minMovePct` (1%), because a segment that moved a fraction of a percent
+       * cannot meaningfully have moved MSCI's cut-off. In the days right after
+       * a review the window from the last effective date is a few sessions
+       * long, so the move is inside the dead band and NOTHING floats — by
+       * design.
+       *
+       * Measured on the run that exposed it: the August 2026 review took effect
+       * on 31 Aug, and from the first build after it INDA read −0.52% and SMIN
+       * −0.21% over 31 Aug → 3 Sep. Nothing floated, this check went red, and
+       * the daily refresh threw away four consecutive days of correctly fetched
+       * prices — 31 Aug, 1, 2 and 3 September — because the commit step is
+       * gated on the whole suite. It would have done so after every February,
+       * May, August and November review for as long as the segment stayed
+       * inside 1%.
+       *
+       * So the expectation is DERIVED FROM THE SAME MEASURED INPUT THE RULE
+       * READS, rather than asserted against whatever data is in front of it: it
+       * must have fired if and only if some segment cleared the dead band.
+       */
+      const moves = Object.entries(adj.segmentReturnsInrPct ?? {});
+      ok(moves.length > 0, 'the adjustment records the segment moves it was decided on', JSON.stringify(adj));
+      const clears = moves.filter(([, pctMove]) => Math.abs(pctMove) >= adj.minMovePct);
+      const movesLabel = moves.map(([seg, pctMove]) => `${seg} ${pctMove > 0 ? '+' : ''}${pctMove}%`).join(', ');
+
+      if (clears.length > 0) {
+        ok(floated.length > 0,
+          'a segment cleared the dead band, so the adjustment must have fired',
+          `${movesLabel} against minMovePct ${adj.minMovePct} — but ${floated.length} floated rules`);
+      } else {
+        equal(floated.length, 0,
+          `no segment cleared ±${adj.minMovePct}% (${movesLabel}), so nothing may have floated`);
+      }
+
+      return clears.length > 0
+        ? `${floated.length} floated band rules across ${c.companies.length} companies · ${movesLabel}`
+        : `0 floated, correctly: every segment inside the ±${adj.minMovePct}% dead band (${movesLabel}) — `
+          + 'recorded, not applied';
     },
     sabotage: (c) => {
       // Strip the raw band: the screen would then show an adjusted number with
-      // nothing to compare it against.
+      // nothing to compare it against. On a record where nothing floated, that
+      // sabotage has nothing to bite on — so also break the OTHER half, the one
+      // that now decides what to expect: claim a segment moved far enough to
+      // float while no rule floated.
+      let touched = 0;
       for (const company of c.companies) {
         for (const r of company.assessment?.rulesFired ?? []) {
-          if (r.band?.applied) { r.band.rawInclusion = null; r.band.rawExclusion = null; }
+          if (r.band?.applied) { r.band.rawInclusion = null; r.band.rawExclusion = null; touched += 1; }
         }
+      }
+      if (touched === 0) {
+        const adj = c.companiesFile.benchmarks.adjustment;
+        adj.segmentReturnsInrPct = Object.fromEntries(
+          Object.keys(adj.segmentReturnsInrPct ?? { standard: 0 }).map((seg) => [seg, adj.minMovePct * 10]),
+        );
       }
     },
   }, ctx);
@@ -2095,23 +2325,57 @@ async function main() {
       // is a SMALL difference on small returns, which is what makes it dangerous
       // — it would look right on most rows and be wrong on exactly the movers
       // the desk is reading the column for.
+      const TOLERANCE_PP = 0.005;
       const notGeometric = [];
       let widest = 0;
       let widestName = null;
+      let discriminating = 0;
       for (const company of c.companies) {
         const r = company.sinceRebalance;
         if (!r || r.relativePct === null) continue;
         const expected = relativeOf(r.stockPct, r.indexPct);
-        if (Math.abs(expected - r.relativePct) > 0.005) {
+        if (Math.abs(expected - r.relativePct) > TOLERANCE_PP) {
           notGeometric.push(`${company.name}: stored ${r.relativePct}, (1+s)/(1+i)-1 = ${expected.toFixed(3)}`);
         }
-        const arithmetic = Math.abs((r.stockPct - r.indexPct) - r.relativePct);
-        if (arithmetic > widest) { widest = arithmetic; widestName = company.name; }
+        // How far the arithmetic difference sits from the geometric one on THIS
+        // row. Rows where that exceeds the tolerance above are the rows on which
+        // the assertion can actually tell the two formulas apart.
+        const gap = Math.abs((r.stockPct - r.indexPct) - expected);
+        if (gap > TOLERANCE_PP) discriminating += 1;
+        if (gap > widest) { widest = gap; widestName = company.name; }
       }
       empty(notGeometric, 'every delta is (1 + stock) / (1 + index) - 1', (x) => x);
-      ok(widest > 1,
-        'and the two formulas genuinely diverge on this data, or the distinction would be untested',
-        `widest gap ${widest.toFixed(2)} pp at ${widestName}`);
+
+      /*
+       * ⚠ THE DISCRIMINATION IS ABOUT THIS CHECK'S TOLERANCE, NOT ABOUT THE
+       * SIZE OF THE MARKET'S MOVE.
+       *
+       * This used to require the widest gap to exceed 1 pp, and that is a
+       * statement about the window rather than about the code. The two formulas
+       * differ by roughly stock x index, so the gap scales with the PRODUCT of
+       * the two returns: across a quarter it is pp-sized (WELCORP: +119.7%
+       * against SMIN's +4.5% is 115.2 pp apart arithmetically and 110.0%
+       * geometrically), and across the three sessions since a rebalance, where
+       * both legs are around a percent, it is necessarily hundredths of a point.
+       *
+       * Measured on the first record baselined on the August 2026 review: widest
+       * gap 0.08 pp. The old assertion could not have passed, and would have
+       * failed for weeks after every review — the same failure mode as check 27,
+       * on a different check, and the reason both are worth stating as a class:
+       * AN ASSERTION ABOUT WHAT THE MARKET DID IS NOT AN ASSERTION ABOUT THE
+       * CODE, and it will hold the pipeline hostage on the day the market
+       * declines to cooperate.
+       *
+       * What the check actually needs is that it COULD have caught a stored
+       * arithmetic difference — i.e. at least one row where the two formulas are
+       * further apart than the tolerance this check compares with. That is true
+       * at any window length where the legs are non-zero, and it is exactly what
+       * `--prove`'s sabotage exercises.
+       */
+      ok(discriminating > 0,
+        'at least one row must separate the two formulas by more than this check\'s own tolerance, '
+        + 'or a stored arithmetic difference would pass unnoticed',
+        `0 of ${c.companies.length} rows differ by more than ${TOLERANCE_PP} pp`);
 
       const unnamed = c.companies.filter((x) => x.sinceRebalance && !REBASE_STATES[x.sinceRebalance.state]);
       empty(unnamed, 'every state is one this model names', (x) => `${x.name}: ${x.sinceRebalance.state}`);
@@ -2179,7 +2443,9 @@ async function main() {
         `${up} outperformed, ${down} underperformed`);
 
       return `${withReading} of ${c.companies.length} have a reading · ${robust} robust `
-        + `(${up} up, ${down} down) · ${rechecked} stock legs and ${legsChecked} index legs recomputed`;
+        + `(${up} up, ${down} down) · ${rechecked} stock legs and ${legsChecked} index legs recomputed `
+        + `· geometric vs arithmetic separated on ${discriminating} rows, widest ${widest.toFixed(3)} pp `
+        + `at ${widestName}`;
     },
     sabotage: (c) => {
       // The bare subtraction, on this reading.
@@ -2963,7 +3229,7 @@ async function main() {
   }, ctx);
 
   await suite.check({
-    id: 54,
+    id: 59,
     what: 'the ASM change report keys on ISIN — a respelled NSE symbol is a respelling, not an entry and an exit',
     clone: deepClone,
     run: (c) => {
@@ -3034,7 +3300,7 @@ async function main() {
   }, ctx);
 
   await suite.check({
-    id: 55,
+    id: 60,
     what: 'the ASM refresh schedule and its staleness window have ONE owner, and the workflow honours it',
     clone: deepClone,
     run: (c) => {

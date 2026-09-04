@@ -778,7 +778,20 @@ market cap moves with price, not with a distribution paid out in cash.
 universe rather than one segment, and the proxy is a fund rather than an index. Directionally right,
 approximately sized, and never to be shown as MSCI's arithmetic. Below `minMovePct` (1%) it is
 recorded and not applied, because a segment that moved a fraction of a percent cannot meaningfully
-have moved MSCI's cut-off and applying it would churn verdicts on noise.
+have moved MSCI's cut-off and applying it would churn verdicts on noise. **That is the normal state
+for the first weeks of a quarter**, when the window since the review is a few sessions long — 0
+floated rules is the correct answer then, not a broken build (§2.34).
+
+> ### ⚠ The baseline needs a session after it here too, and this path did not have one
+>
+> The window is `previousReview(prices.tradeDate)` → the newest close, and `previousReview` is
+> INCLUSIVE: on the day a review takes effect it returns that review, with `daysSince: 0`. The
+> segment return is then struck over no elapsed time at all and comes out **0.000%** for every
+> segment — a fabricated zero of exactly the shape §2.12.3 names, on a different code path.
+>
+> `sinceRebalance` was given the walk-back through `chooseBaseline()`; this was not. On 31 Aug 2026 it
+> produced a record with no floated band anywhere and turned the daily refresh red. It now steps back
+> to the review before, and says so on the build's own output.
 
 ### 2.25 MSCI's published rules are not the desk's heuristics, and the code must never blur them
 
@@ -1349,6 +1362,58 @@ was left out because 4 of the 12 entrants are long-listed — Embassy Developmen
 Energy at 11.0 — so gating on it buys precision by losing movers. It is the best-supported thing not
 in the model.
 
+### 2.34 A check may not assert what the MARKET did — that is how a suite takes the pipeline hostage
+
+The daily refresh committed nothing for **four consecutive trading days** — 31 Aug to 3 Sep 2026 —
+while fetching a correct bhavcopy every one of them. The scheduled runs fired on time, BSE served
+real CSVs, `build-companies.mjs` exited 0, and then `verify-data.mjs` went red and the commit step,
+gated on it, was skipped. A complete, correct record was built and thrown away, daily.
+
+Nothing was wrong with the data. **What went red were checks whose subject was the market.**
+
+| Check | What it demanded | Why it could not hold |
+| --- | --- | --- |
+| verify-data 27 | the segment band adjustment *actually fired* | §2.24 says it must NOT fire below `minMovePct`; three sessions after a review the segment had moved −0.43% |
+| verify-data 39 | the geometric and arithmetic deltas *differ by >1 pp* | they differ by about `stock × index`, which over three sessions is 0.078 pp |
+| verify-ui 46 | the subtraction is *visibly* wrong on screen | at one decimal it is not — the gap is below the rounding the cells already carry |
+| verify-ui 51 | *both* chip directions are on screen, more than five | a chip fires only on a notable reading; three days in there was exactly one |
+
+Every one of them passes for most of a quarter and fails for the weeks after a review, because the
+window since the last rebalance is short and small returns behave differently from large ones. They
+were all written while looking at a long window and they all encoded *that window's shape* as an
+invariant.
+
+**The rule.** An assertion must be about the code, the arithmetic or the contract — never about what
+the numbers happened to be. Where a check needs the data to be discriminating in order to mean
+anything, the requirement is not "the data is spread out"; it is one of:
+
+- **derive the expectation from the same input the rule reads.** Check 27 now asserts the adjustment
+  fired **if and only if** a segment cleared `minMovePct`, and reports the measured move either way.
+- **assert against the check's own tolerance, not against a market-sized number.** Check 39 now asks
+  whether any row separates the two formulas by more than the tolerance it compares with — true at
+  any window length — instead of demanding a 1 pp spread.
+- **assert the invariant unconditionally and report the discrimination.** Check 46 asserts every
+  rendered delta is the geometric relative of its own legs at any window, and *states* when the
+  window is too short for the subtraction to be distinguishable at the rendered precision — with
+  verify-data 39 carrying that burden on the unrounded values.
+- **assert over whatever exists, and name what is therefore untested.** Check 51 asserts the ramp on
+  every chip on screen, requires both directions only when both occur, and reports "the rose/down
+  half of the ramp is UNTESTED on this record" when it cannot.
+
+> ### ⚠ And a sabotage inherits the same problem
+>
+> Check 46's sabotage rendered the arithmetic difference — which, on a window where the two agree to
+> the rendered precision, changes nothing at all. `--prove` would then have reported CANNOT FAIL,
+> correctly. A sabotage has to break the invariant the check actually asserts, at any window: it now
+> offsets the delta by a point, and the subtraction instance is proved in verify-data 39 where the
+> two are separable on 474 rows.
+
+**The suite that watches main cannot see this class of failure.** `verify.yml` runs the same
+assertions against the **committed** record — whose `lastReview` was still May and whose continuity
+block was a real comparison — so exactly the checks that fail on fresh data pass on stale data. Main
+was green through the entire outage. A red daily refresh for two consecutive trading days is the only
+signal that a pipeline has stopped, and it is worth alerting on for that reason.
+
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
 ### 3.1 The iShares `.xls` files are not `.xls` files
@@ -1563,6 +1628,52 @@ request; it is struck at an undisclosed moment and must never render as a compan
 > pointing the fetcher at that URL.
 >
 > Same family as the delisted-scrip trap: the response is well-formed and about something else.
+
+> ### ⚠ THE OBVIOUS GUARD FOR A NARROWED BASELINE SET CANNOT FAIL
+>
+> `price-history.json` derives which rebalances to capture from
+> `closedReviews(prices.tradeDate)`, so a stale price anchor quietly narrows the set and the run
+> reports success over a set missing the very rebalance the screen should be baselined on. That is
+> the 1 Sep 2026 state: the monthly job ran and passed while prices were frozen at 28 Aug, so the
+> August review — effective 31 Aug, closed by then — was never captured.
+>
+> Asking *inside that script* whether `closedReviews(prices.tradeDate, 1)[0]` is among the captured
+> baselines is **§3.8's self-defeating guard**: both sides come from the same anchor, so the answer is
+> yes by construction. Measured on anchor 2026-08-28 — captured `{2026-05, 2026-02, 2025-11,
+> 2025-08}`, newest closed `2026-05`, guard silent while August is missing. It was written that way
+> here first, and an adversarial review of the fix is what caught it.
+>
+> Two guards replace it, each anchored on something the failure cannot move. The fetcher refuses to
+> **lose a baseline the previous capture held** — the shrink rule every other writer here follows.
+> And verify-data 56 asks the question across **two files written by different scripts**: the newest
+> review the committed closes have passed must be among the baselines the record carries. That one
+> fires exactly when `price-history.json` falls behind `prices.json`, and its sabotage is to drop the
+> newest baseline.
+
+> ### ⚠ A REASON THAT IS COMPUTED BUT NOT WRITTEN IS A REASON THAT DOES NOT EXIST
+>
+> Continuity cannot hold across a gap: if the stored file is 28 Aug and this one is 3 Sep, today's
+> previous-close is 2 Sep's close and comparing it to 28 Aug's fails for essentially every scrip that
+> moved. So the fetcher SKIPS the check across a gap and records why — and verify-data 18 accepts a
+> stated reason in place of a comparison, precisely so that a hole in our own record is not reported
+> as corruption in BSE's data.
+>
+> The writer dropped the reason. It named four fields — `against`, `compared`, `failures`, and the
+> renamed `skipped` — and every other field the continuity logic computes went on the floor, including
+> `skippedReason`, `gapDays` and `carriedForwardFrom`. So the escape hatch could not be satisfied by
+> any input, and **one missed session locked the record permanently**: no comparison possible, no
+> reason on disk, check 18 red, commit skipped, gap still there tomorrow.
+>
+> A fix in three layers — compute the reason, write it, accept it — shipped with the middle layer
+> missing, and each end tested only itself. The serialisation is now one pure function
+> (`continuityRecord` in `scripts/lib/bhavcopy.mjs`) with one caller, and verify-data 54 asserts the
+> round trip with the four-key whitelist as its sabotage.
+>
+> **Recovery is sequential, never a jump.** `latestTradeDate()` never consults the stored file, so a
+> catch-up run fetches only the newest session and leaves the intervening closes missing. Fetching
+> `--date` for each missing session in order keeps every pair adjacent, so the tripwire actually runs:
+> 31 Aug, 1, 2 and 3 Sep 2026 were repaired that way — 1,229 / 1,229 / 1,231 / 1,229 scrips compared,
+> **zero failures** at every step.
 
 > ### ⚠ A file-level date check cannot see a stale row
 >
@@ -1841,7 +1952,7 @@ scripts/
                                    -> public/data/predictions-<review>.json
   build-rebalance.mjs              frozen forecast vs the outcome
                                    -> public/data/rebalance-<review>.json
-  verify-data.mjs                  55 data assertions; no browser, no network
+  verify-data.mjs                  58 data assertions; no browser, no network
   verify-ui.mjs                    38 interface assertions; the served site
   check-nse-asm.mjs                what moved on NSE's ASM list, and the freshness guarantee
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
@@ -1939,7 +2050,7 @@ node scripts/verify-data.mjs           # the data assertions; run before committ
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 55 assertions; no browser, no network
+node scripts/verify-data.mjs           # 58 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
 node scripts/verify-ui.mjs             # 38 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev

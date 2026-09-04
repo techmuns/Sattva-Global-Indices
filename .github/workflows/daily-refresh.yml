@@ -169,6 +169,36 @@ jobs:
             node scripts/fetch-bhavcopy.mjs
           fi
 
+      # ---- the rebalance baselines ---------------------------------------
+      #
+      # ⚠ THESE TWO USED TO RUN ONLY IN monthly-float.yml, AND THAT MADE THE
+      # REBALANCE BASELINE A MONTHLY FACT.
+      #
+      # `fetch-price-history.mjs` is the only writer of the baseline set, and it
+      # decides which rebalances to capture from `closedReviews(prices.tradeDate)`.
+      # On the monthly cadence alone, the August 2026 review — effective 31 Aug —
+      # could not have been captured until the run on 1 October, however promptly
+      # the price fetch was fixed. The screener would have spent a month
+      # baselining its relative columns on May while telling the reader, from the
+      # calendar, that August had already happened.
+      #
+      # Corporate actions come first because a price series without them reads a
+      # 1:1 bonus as a 50% collapse (CLAUDE.md §3.8.1), and their far end — the
+      # interval (baselineDate, latestDate] — now advances every day, so a monthly
+      # capture of the actions inside a daily-advancing window is the same
+      # mismatch one layer down.
+      #
+      # Measured cost: actions ~4 min over ~1,240 scrips, history ~1 min over 38
+      # sessions. Both inside the 45-minute budget. Both HARD: a soft failure
+      # here leaves the relative columns measuring against stale action data,
+      # which is the one combination that produces a confident wrong number
+      # rather than a stated absence.
+      - name: BSE corporate actions
+        run: node scripts/fetch-corporate-actions.mjs
+
+      - name: Per-stock price history across the review windows and rebalance baselines
+        run: node scripts/fetch-price-history.mjs
+
       - name: Rebuild the company record
         run: node scripts/build-companies.mjs
 

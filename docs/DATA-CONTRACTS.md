@@ -258,8 +258,8 @@ still green. `asm-refresh.yml` is that guarantee, and it is deliberately narrow:
 `scripts/check-nse-asm.mjs` produces both halves and writes nothing. The diff itself is
 `scripts/lib/asm-diff.mjs`, pure and **keyed on ISIN** — §2.32 measured a ticker-keyed diff turning
 one respelled symbol into a fabricated entry *and* exit, so a symbol change on a stable ISIN is
-reported as a **respelling** and never counted as an ASM event. `verify-data` 54 proves that, with a
-positive control so a differ that found nothing could not pass it; `verify-data` 55 proves the
+reported as a **respelling** and never counted as an ASM event. `verify-data` 59 proves that, with a
+positive control so a differ that found nothing could not pass it; `verify-data` 60 proves the
 workflow's cron and the interface's staleness marker come from the one `ASM_REFRESH` block.
 
 ---
