@@ -276,6 +276,45 @@ async function main() {
         return filled();
       };
       /**
+       * Tick a multi-select filter, the way a person does — open the panel and
+       * CLICK the checkboxes. Not by writing into view.filters: a helper that
+       * reached past the control would stop testing the control, which is the
+       * half most likely to break.
+       *
+       * `values` replaces whatever is ticked; `[]` clears it.
+       */
+      window.__pickMulti = async (id, values) => {
+        const wrap = document.querySelector(`[data-multi="${id}"]`);
+        if (!wrap) throw new Error(`no multi filter named ${id}`);
+        const toggle = wrap.querySelector('button[data-multi-toggle]');
+        if (toggle && wrap.querySelector('[data-multi-panel]')?.hidden) toggle.click();
+        // Clear first so the call is absolute rather than cumulative.
+        for (const box of wrap.querySelectorAll('[data-multi-option]')) {
+          if (box.checked) { box.click(); await frame(); }
+        }
+        for (const value of values) {
+          let box = wrap.querySelector(`[data-multi-option][value="${CSS.escape(value)}"]`);
+          if (!box) {
+            // The picker renders only what matches the current query, so an
+            // option that is not on screen has to be SEARCHED FOR first —
+            // exactly what a person does. The company key is the ISIN, which
+            // the option's own haystack contains.
+            const query = wrap.querySelector('[data-multi-search]')
+              ?? (wrap.contains(document.querySelector('[data-search]')) ? document.querySelector('[data-search]') : null);
+            if (query) {
+              query.value = value;
+              query.dispatchEvent(new Event('input', { bubbles: true }));
+              await frame();
+              box = wrap.querySelector(`[data-multi-option][value="${CSS.escape(value)}"]`);
+            }
+          }
+          if (!box) throw new Error(`${id} has no option ${value}`);
+          box.click();
+          await frame();
+        }
+        return filled();
+      };
+      /**
        * Type into a min–max range control, the way a person does.
        *
        * Typing is debounced in the interface, so this waits for the VIEW to
@@ -583,10 +622,20 @@ async function main() {
 
       const filters = await c.page.evaluate(async () => {
         // EVERY CONTROL IN THE TOOLBAR, not every <select>. The market-cap
-        // filter became a typed range on 31 Aug 2026, and an enumeration that
+        // filter became a typed range on 31 Aug 2026, and the Verdict filter and
+        // the company picker became multi-selects after it; an enumeration that
         // only ever looked for a <select> would have gone on reporting a tick
-        // while quietly covering one filter fewer.
+        // while quietly covering two filters fewer. The lesson has now cost the
+        // same check twice, so it is written as "whatever kinds exist".
         const controls = [
+          ...[...document.querySelectorAll('[data-multi]')].map((wrap) => ({
+            id: wrap.dataset.multi,
+            // The first option the panel renders — enough to narrow, and it is
+            // on screen so no search is needed to reach it.
+            value: wrap.querySelector('[data-multi-option]')?.value,
+            apply: (v) => window.__pickMulti(wrap.dataset.multi, [v]),
+            clear: () => window.__pickMulti(wrap.dataset.multi, []),
+          })),
           ...[...document.querySelectorAll('select[data-filter]')].map((select) => ({
             id: select.dataset.filter,
             value: [...select.options].find((o) => o.value !== '')?.value,
@@ -1997,13 +2046,15 @@ async function main() {
 
         const headings = [...document.querySelectorAll('[data-score-table] thead th')].map((th) => th.textContent.trim());
         const verdictIndex = headings.findIndex((h) => /^Verdict/i.test(h));
-        const select = document.querySelector('select[data-filter="verdict"]');
-        const verdicts = [...select.options]
-          .filter((o) => o.value)
-          .map((o) => ({ value: o.value, label: o.textContent.trim() }));
+        // The verdict filter is a multi-select popover, so its options are
+        // checkboxes rather than <option>s. One verdict is ticked at a time
+        // here, which is what makes each pill attributable to its own verdict.
+        const wrap = document.querySelector('[data-multi="verdict"]');
+        const verdicts = [...wrap.querySelectorAll('[data-multi-option]')]
+          .map((box) => ({ value: box.value, label: box.closest('label').textContent.trim() }));
         const seen = [];
         for (const { value } of verdicts) {
-          await window.__set(select, value);
+          await window.__pickMulti('verdict', [value]);
           const pill = document.querySelector('[data-score-table] tbody tr')?.children[verdictIndex]?.querySelector('span');
           if (!pill) continue;
           const cs = getComputedStyle(pill);
@@ -2016,7 +2067,7 @@ async function main() {
             ring: cs.borderColor,
           });
         }
-        await window.__set(select, '');
+        await window.__pickMulti('verdict', []);
         return { tailwindLoaded, verdictIndex, headings, verdicts, seen };
       });
 
@@ -2104,7 +2155,7 @@ async function main() {
 
         // And again with a filter applied, to prove the file says so.
         await c.page.evaluate(async () => {
-          await window.__set(document.querySelector('select[data-filter="verdict"]'), 'likely-inclusion');
+          await window.__pickMulti('verdict', ['likely-inclusion']);
         });
         const [download2] = await Promise.all([
           c.page.waitForEvent('download', { timeout: 15000 }),
@@ -2112,7 +2163,7 @@ async function main() {
         ]);
         filteredCsv = readFileSync(await download2.path(), 'utf8');
         await c.page.evaluate(async () => {
-          await window.__set(document.querySelector('select[data-filter="verdict"]'), '');
+          await window.__pickMulti('verdict', []);
         });
       }
 
@@ -3580,6 +3631,111 @@ async function main() {
     // rows that should show a weight show a dash. Persistent so it survives the
     // settle the check runs first (§2.22).
     sabotage: persistent('(() => { for (const co of window.__sattva.data.all()) co.ftse = null; })()'),
+    restore: restoreByReload,
+  }, ctx);
+
+  await suite.check({
+    id: 59,
+    what: 'the multi-select filters OR their picks, keep an empty pick meaning ALL, and show what is pinned',
+    run: async (c) => {
+      await c.settle();
+      const m = await c.page.evaluate(async () => {
+        const S = window.__sattva;
+        const total = S.data.all().length;
+
+        // ---- 1. two verdicts read as EITHER, not BOTH -----------------------
+        // A row carries one verdict, so an AND across two would always be empty
+        // — and an empty table reads as a finding about the companies (§2.4).
+        const wrap = document.querySelector('[data-multi="verdict"]');
+        const values = [...wrap.querySelectorAll('[data-multi-option]')].map((b) => b.value);
+        const pick = async (vals) => { await window.__pickMulti('verdict', vals); return S.rows().length; };
+        const first = values[0];
+        const second = values.find((v, i) => i > 0);
+        const a = await pick([first]);
+        const b = await pick([second]);
+        const both = await pick([first, second]);
+
+        // ---- 2. clearing restores EVERY row, never none ---------------------
+        const cleared = await pick([]);
+
+        // ---- 3. the company picker pins a basket ---------------------------
+        const search = document.querySelector('[data-search]');
+        const cwrap = document.querySelector('[data-multi="companies"]');
+        search.focus();
+        const type = async (text) => {
+          search.value = text;
+          search.dispatchEvent(new Event('input', { bubbles: true }));
+          await window.__settleSearch(text);
+        };
+        const named = S.data.all().slice(0, 2).map((r) => ({ key: S.data.keyOf(r), name: r.name }));
+        await type(named[0].name);
+        const listedForQuery = cwrap.querySelectorAll('[data-multi-option]').length;
+        await window.__pickMulti('companies', [named[0].key, named[1].key]);
+        const pinnedRows = S.rows().map((r) => S.data.keyOf(r));
+
+        // The text is cleared when a company is pinned, so the two filters
+        // never fight and produce an empty intersection.
+        const searchAfterPick = search.value;
+
+        // ---- 4. a pinned option stays visible when the query moves ---------
+        // Otherwise a reader cannot untick what they can no longer see.
+        await type('zzzz-no-company-matches-this');
+        const stillListed = [...cwrap.querySelectorAll('[data-multi-option]')].filter((x) => x.checked).length;
+        await type('');
+
+        // ---- 5. what is pinned is SHOWN ------------------------------------
+        const chips = document.querySelector('[data-multi-chips="companies"]');
+        const chipText = chips ? chips.textContent : '';
+        const chipsVisible = chips ? !chips.hidden : false;
+
+        const summary = S.view.table()?.filterSummary?.() ?? '';
+        await window.__pickMulti('companies', []);
+        const restored = S.rows().length;
+        return {
+          total, a, b, both, cleared, listedForQuery, pinnedRows, searchAfterPick,
+          stillListed, chipText, chipsVisible, summary, restored,
+          wantKeys: named.map((x) => x.key), wantNames: named.map((x) => x.name),
+        };
+      });
+
+      // 1. OR, not AND.
+      ok(m.a > 0 && m.b > 0, 'each verdict on its own matches some rows', `${m.a} and ${m.b}`);
+      equal(m.both, m.a + m.b, 'ticking two verdicts matches EITHER — the union, not the empty intersection');
+
+      // 2. Empty is ALL. This is the §2.4 failure the control must never have.
+      equal(m.cleared, m.total, 'clearing every tick restores the whole record — an empty pick is not "none"');
+      equal(m.restored, m.total, 'clearing the company picker restores the whole record too');
+
+      // 3. The picker pins exactly the companies chosen.
+      ok(m.listedForQuery > 0, 'typing narrows the picker to matching companies', String(m.listedForQuery));
+      equal(m.pinnedRows.length, 2, 'two pinned companies leave exactly two rows');
+      empty(m.wantKeys.filter((k) => !m.pinnedRows.includes(k)),
+        'the rows left are the companies that were ticked', (k) => k);
+      equal(m.searchAfterPick, '', 'pinning a company clears the text, so the two filters cannot fight');
+
+      // 4. A pinned option survives a query that does not match it.
+      equal(m.stillListed, 2, 'a ticked company stays listed when the query no longer matches it');
+
+      // 5. And it is visible, and it travels into the export summary (§2.7).
+      ok(m.chipsVisible, 'the pinned companies are shown as chips, not hidden in a closed dropdown', String(m.chipsVisible));
+      for (const name of m.wantNames) {
+        ok(m.chipText.includes(name), `the chips name ${name}`, m.chipText.slice(0, 120));
+      }
+      ok(/Companies:/.test(m.summary) && /2 of/.test(m.summary),
+        'the filter summary names the picks and their denominator, so an export can carry them',
+        m.summary.slice(0, 160));
+
+      return `verdict: ${m.a} + ${m.b} = ${m.both} as a union · picker: 2 pinned of ${m.total} · chips shown · ${m.summary.slice(0, 60)}`;
+    },
+    // Cut the wire between the checkboxes and the view: the control still looks
+    // right and still ticks, but nothing reaches the table. That is the
+    // regression this check exists to catch, and it fails the OR, the pinning
+    // and the chips at once.
+    sabotage: persistent(
+      "document.addEventListener('change', (e) => {"
+      + " if (e.target.closest && e.target.closest('[data-multi-option]')) e.stopImmediatePropagation();"
+      + " }, true)",
+    ),
     restore: restoreByReload,
   }, ctx);
 

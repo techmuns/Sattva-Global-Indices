@@ -2381,6 +2381,35 @@ export function renderCompanies(host, { onStatusChange } = {}) {
       rowCountLabel: (shown, total) => `${num(shown)} of ${num(total)} rows`,
       filters: [
         {
+          // ⚠ THE PICKER IS A FILTER, NOT A SEARCH. Typing in the box still
+          // filters the table as it always did; this pins a specific BASKET of
+          // companies, which is a different question — "show me these five"
+          // rather than "show me anything matching these letters". Both apply,
+          // and the status line under the toolbar says which are in force.
+          //
+          // Its options are the companies themselves, so there is no count per
+          // option: a company matches exactly one row and `(1)` beside 1,265
+          // names would be noise, not a denominator.
+          id: 'companies',
+          label: 'Companies',
+          multi: true,
+          anchor: 'search',
+          allLabel: 'All companies',
+          options: rows.map((row) => {
+            const key = data.keyOf(row);
+            return {
+              value: key,
+              label: row.name ?? key,
+              sub: [row.nseSymbol, row.sector].filter(Boolean).join(' · '),
+              // The same haystack the table's own search reads, so the list
+              // narrows on the identifiers a reader actually types (§3.9 keys
+              // on ISIN, and somebody pasting one should find the company).
+              search: `${row.name ?? ''} ${row.nseSymbol ?? ''} ${row.isin ?? ''} ${row.bseScripCode ?? ''}`,
+              match: (candidate) => data.keyOf(candidate) === key,
+            };
+          }),
+        },
+        {
           id: 'fund',
           label: 'Fund',
           allLabel: 'Any fund status',
@@ -2406,6 +2435,7 @@ export function renderCompanies(host, { onStatusChange } = {}) {
         {
           id: 'verdict',
           label: 'Verdict',
+          multi: true,
           allLabel: 'Any verdict',
           // ⚠ THE COUNT IS ON THE OPTION, AND A VERDICT NOBODY CARRIES SAYS SO.
           //
@@ -2426,6 +2456,10 @@ export function renderCompanies(host, { onStatusChange } = {}) {
               label: n === 0
                 ? `${VERDICTS[key].label} — none on this record`
                 : `${VERDICTS[key].label} (${count(n)})`,
+              // The chip and the export drop the count. In the list it is a
+              // denominator; on a chip beside two other chips it reads as "47
+              // selected", which is a different claim entirely.
+              pickedLabel: VERDICTS[key].label,
               match,
             };
           }),

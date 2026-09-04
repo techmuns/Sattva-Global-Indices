@@ -55,7 +55,7 @@ Two suites, 42 assertions, both exit non-zero on any failure.
 
 ```bash
 node scripts/verify-data.mjs                                      # 60 checks, no browser, no network
-node scripts/verify-ui.mjs                                        # 39 checks vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs                                        # 40 checks vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs `npx wrangler dev`
 node scripts/verify-data.mjs --prove                              # break each check; it must go red
 node scripts/verify-ui.mjs --prove
