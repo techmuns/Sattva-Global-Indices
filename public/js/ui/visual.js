@@ -83,6 +83,11 @@ const FUND_CHIP_STYLE = {
   eem: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
   smin: 'bg-purple-50 text-purple-700 ring-purple-200',
   eems: 'bg-pink-50 text-pink-700 ring-pink-200',
+  // A DIFFERENT INDEX FAMILY, so a different colour ramp on purpose. The three
+  // above are MSCI trackers whose weights drive every verdict here; this one is
+  // FTSE and drives none of them. A reader should be able to see at a glance
+  // that it is not one of the same three.
+  'ftse-em': 'bg-teal-50 text-teal-700 ring-teal-200',
 };
 
 /** A chip naming one fund. A weight is only ever shown beside one of these. */

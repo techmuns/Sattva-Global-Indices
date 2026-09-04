@@ -12,7 +12,7 @@
  */
 
 import { parseFeedDate } from '../core/format.js';
-import { ASM_REFRESH } from '../config/thresholds.mjs';
+import { ASM_REFRESH, FTSE_BOOK } from '../config/thresholds.mjs';
 
 let payload = null;
 let byIsinIndex = null;
@@ -96,6 +96,8 @@ export const disagreement = () => requireLoaded().floatFactorDisagreement ?? {};
  * paint every company as unflagged — the §2.4 lie. `null` only before load.
  */
 export const asm = () => requireLoaded().asm ?? null;
+/** The FTSE book's meta. A second opinion — it feeds no MSCI verdict (§3.5). */
+export const ftse = () => requireLoaded().ftse ?? null;
 
 /**
  * How each fund's own basket has moved, and the band adjustment derived from it.
@@ -325,6 +327,14 @@ export function feedRegistry(asOf = {}) {
       cadence: ASM_REFRESH.cadenceLabel,
       staleAfterDays: ASM_REFRESH.staleAfterDays,
     },
+    {
+      id: 'ftse',
+      label: 'FTSE book (Vanguard)',
+      raw: asOf.ftseHoldings ?? null,
+      detail: "Vanguard's own as-at date for its FTSE Emerging Markets holdings — a second opinion beside MSCI, and the oldest input here",
+      cadence: FTSE_BOOK.cadence,
+      staleAfterDays: FTSE_BOOK.staleAfterDays,
+    },
   ];
   return feeds.map((feed) => ({ ...feed, date: parseFeedDate(feed.raw) }));
 }
@@ -509,6 +519,30 @@ export function sourceRegistry() {
       status: asm()?.available ? 'ok' : 'missing',
       count: asm()?.flaggedInUniverse ?? null,
       countLabel: 'tracked companies under ASM',
+    },
+    {
+      id: 'ftse',
+      name: 'FTSE Emerging Markets book (Vanguard)',
+      publisher: 'The Vanguard Group',
+      what:
+        "Vanguard's own published holdings for its FTSE Emerging Markets All Cap Index ETF, India slice, "
+        + 'carried through unchanged. A SECOND OPINION beside MSCI: FTSE runs its own index with its own '
+        + 'constituents, size rules and review calendar, so nothing here moves a verdict, a segment or a '
+        + 'flow on this screen. Vanguard publishes no ISIN, so each holding is joined by name and house '
+        + 'ticker and then PROVED against our own close for the same company on the same day — a row that '
+        + 'fails that check is left unresolved rather than guessed. The book is struck in CANADIAN dollars.',
+      tier: 'measured',
+      asOf: meta.ftseHoldings ?? null,
+      asOfDate: parseFeedDate(meta.ftseHoldings ?? null),
+      cadence: byId.ftse?.cadence ?? null,
+      staleAfterDays: byId.ftse?.staleAfterDays ?? null,
+      status: ftse()?.available ? 'ok' : 'missing',
+      // "X of Y" rather than a bare X (§2.5): the join is not complete and the
+      // gap is part of the reading.
+      count: ftse()?.resolved ?? null,
+      countLabel: ftse()?.available
+        ? `of ${ftse().indiaRows} FTSE India holdings matched to a tracked company`
+        : 'FTSE India holdings matched',
     },
   ];
 }

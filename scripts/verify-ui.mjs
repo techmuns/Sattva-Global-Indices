@@ -3480,6 +3480,109 @@ async function main() {
     restore: restoreByReload,
   }, ctx);
 
+  await suite.check({
+    id: 58,
+    what: "the FTSE column shows Vanguard's own weight where held, and a dash that says FTSE — never a zero",
+    run: async (c) => {
+      await c.settle();
+      const m = await c.page.evaluate(async () => {
+        const S = window.__sattva;
+        const headings = [...document.querySelectorAll('[data-score-table] thead th')].map((th) => th.textContent.trim());
+        const idx = headings.findIndex((h) => /FTSE/i.test(h));
+        const meta = S.data.ftse();
+        const all = S.data.all();
+        const renderedHeld = all.filter((x) => x.ftse).length;
+
+        const rows = S.rows();
+        const trs = [...document.querySelectorAll('[data-score-table] tbody tr')];
+        const n = Math.min(rows.length, trs.length);
+        let heldShown = 0; let notHeldDash = 0; let notHeldTitleOk = 0; let zeroLie = 0;
+        const mism = [];
+        for (let i = 0; i < n; i += 1) {
+          const co = rows[i];
+          const cell = trs[i].children[idx];
+          if (!cell) continue;
+          const txt = cell.textContent.trim();
+          const title = cell.querySelector('[title]')?.getAttribute('title') || cell.getAttribute('title') || '';
+          if (co.ftse) {
+            if (/\d/.test(txt)) heldShown += 1;
+            else mism.push(`${co.name}: in the FTSE book but cell="${txt}"`);
+          } else {
+            if (/^[—-]$/.test(txt)) notHeldDash += 1;
+            else mism.push(`${co.name}: not in the FTSE book but cell="${txt}"`);
+            // §2.3 — the failure this column must never have: a company FTSE
+            // does not hold rendering as a real 0%, which sorts and ranks.
+            if (/^0(\.0+)?\s*%$/.test(txt)) zeroLie += 1;
+            if (/FTSE/i.test(title)) notHeldTitleOk += 1;
+          }
+        }
+        // The drill must name the fund and say it bears on no verdict here.
+        // Paint every row, then open the drill by CLICKING its own row — the
+        // mechanism checks 30, 35 and 57 already prove. A ?company= cold load is
+        // unreliable here and a search-then-click races the filtered rows.
+        let drillErr = null;
+        if (S.flush) S.flush();
+        await new Promise((r) => requestAnimationFrame(() => r()));
+        const painted = [...document.querySelectorAll('[data-score-table] tbody tr')];
+        const all2 = S.rows();
+        const target = all2.findIndex((x) => x.ftse);
+        let drillText = '';
+        if (target >= 0 && painted[target]) {
+          try {
+          (painted[target].querySelector('td:nth-child(2)') ?? painted[target]).click();
+          await window.__until(
+            () => (document.querySelector('[data-drill-body]')?.textContent?.length ?? 0) > 0,
+            'the drill opening',
+          );
+          // ⚠ textContent, NOT innerText: innerText applies CSS text-transform,
+          // and headings here are uppercased by Tailwind in CI but not in a
+          // sandbox without the CDN — which is exactly how a case-sensitive
+          // match passes locally and fails in CI.
+          drillText = document.querySelector('[data-drill-body]').textContent || '';
+          } catch (e) { drillErr = String(e && e.message || e); }
+        }
+        return {
+          drillErr, targetIndex: target, paintedCount: painted.length,
+          headings, idx, available: meta?.available ?? null, declaredResolved: meta?.resolved ?? null,
+          indiaRows: meta?.indiaRows ?? null, currency: meta?.currency ?? null, asOf: meta?.asOf ?? null,
+          renderedHeld, painted: n, heldShown, notHeldDash, notHeldTitleOk, zeroLie, mism,
+          drillText, drillOpened: target >= 0 && Boolean(painted[target]),
+        };
+      });
+
+      ok(m.idx >= 0, 'a column naming FTSE must be present in the header', m.headings.join(' | '));
+      ok(m.available === true, 'the record must declare the FTSE book available so a dash means "not held"', String(m.available));
+      equal(m.renderedHeld, m.declaredResolved, 'the companies carrying an FTSE holding match the count the record declares');
+      ok(m.renderedHeld > 0, 'at least one company is in the FTSE book', String(m.renderedHeld));
+      empty(m.mism, 'every painted FTSE cell agrees with its company — a weight where held, a dash where not', (x) => x);
+      ok(m.heldShown > 0, 'the column renders a weight for companies FTSE holds', `${m.heldShown} of ${m.painted} painted`);
+      ok(m.notHeldDash > 0, 'a company FTSE does not hold renders a dash', `${m.notHeldDash} of ${m.painted} painted`);
+      equal(m.zeroLie, 0, 'no company FTSE does not hold renders as 0% — missing is never zero (§2.3)');
+      ok(m.notHeldTitleOk > 0, 'the dash names FTSE in its title, so the absence says WHICH book it is absent from', `${m.notHeldTitleOk} titles`);
+
+      // The drill has to make the second-opinion status explicit, because the
+      // column alone cannot say that this weight moves nothing on the screen.
+      ok(m.drillOpened, 'a company in the FTSE book has a row to open', String(m.drillOpened));
+      // Surfaced rather than swallowed: a drill that failed to open would
+      // otherwise read as a drill with no FTSE text in it, which is a different
+      // fault with the same symptom.
+      equal(m.drillErr, null, 'the drill opened without error');
+      const drill = m.drillText;
+      ok(/FTSE/i.test(drill), 'the drill names FTSE', drill.slice(0, 160));
+      ok(/second opinion/i.test(drill), 'the drill says FTSE is a second opinion, not an input to the verdict', 'phrase missing');
+      ok(/no verdict|verdict, no segment|bears on no verdict/i.test(drill),
+        'the drill states that the FTSE holding moves no verdict on this screen', 'disclaimer missing');
+
+      return `${m.renderedHeld} of ${m.indiaRows} India rows joined · painted ${m.painted}: ${m.heldShown} weights, ${m.notHeldDash} dashes · ${m.currency} book as at ${m.asOf}`;
+    },
+    // Strip the FTSE holdings from the live data while the meta still declares
+    // 638 joined: the rendered count then disagrees with the published one, and
+    // rows that should show a weight show a dash. Persistent so it survives the
+    // settle the check runs first (§2.22).
+    sabotage: persistent('(() => { for (const co of window.__sattva.data.all()) co.ftse = null; })()'),
+    restore: restoreByReload,
+  }, ctx);
+
   await browser.close();
 
   process.exit(suite.report([

@@ -81,8 +81,9 @@ import { seriesToMap, summarise, rateOn, FUND_BENCHMARKS } from '../public/js/mo
 import { assessRelative, assessSinceRebalance, WINDOW_STATES, REBASE_STATES } from '../public/js/model/relative.js';
 import {
   SEGMENT_BAND_ADJUSTMENT, RELATIVE_PERFORMANCE, REBALANCE_BASELINE,
-  AUGUST_2026_CALIBRATION, DESK_BAND_ROLE,
+  AUGUST_2026_CALIBRATION, DESK_BAND_ROLE, FTSE_JOIN,
 } from '../public/js/config/thresholds.mjs';
+import { buildFtseIndex, resolveFtseHoldings, assertCurrency } from './lib/ftse-resolve.mjs';
 import { renderTable, num, round, CheckList } from './lib/report.mjs';
 import {
   SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
@@ -174,6 +175,22 @@ function main() {
   // company's null ASM field can be read as "not flagged" or "we could not check".
   const asmPath = join(REPO, 'public', 'data', 'nse-asm.json');
   const asmData = existsSync(asmPath) ? JSON.parse(readFileSync(asmPath, 'utf8')) : null;
+
+  // Vanguard's FTSE Emerging Markets book. A SECOND OPINION and nothing more:
+  // FTSE runs its own index, with its own constituents, size rules and review
+  // calendar, so this file feeds no MSCI segment, cutoff, verdict or flow. It is
+  // attached to companies AFTER they are assembled and lands in its own `ftse`
+  // field — never in `funds`, never in `held` — so no MSCI derivation can reach
+  // it even by accident. verify-data proves that by moving these weights and
+  // asserting not one verdict follows.
+  const ftsePath = join(REPO, 'public', 'data', 'ftse-funds.json');
+  const ftseData = existsSync(ftsePath) ? JSON.parse(readFileSync(ftsePath, 'utf8')) : null;
+  // INR per CAD, its own feed rather than a column in fund-benchmarks.json: that
+  // file's fund series must reach the committed price date (verify-data 55), so
+  // chaining a currency lookup to four ETFs' publication schedule would block the
+  // FTSE join on any day one of them lagged. See scripts/fetch-ftse-fx.mjs.
+  const ftseFxPath = join(REPO, 'public', 'data', 'ftse-fx.json');
+  const ftseFx = existsSync(ftseFxPath) ? JSON.parse(readFileSync(ftseFxPath, 'utf8')) : null;
 
   const checks = new CheckList('build');
 
@@ -586,6 +603,171 @@ function main() {
   }
 
   out.sort((a, b) => (b.fullMcapInr ?? 0) - (a.fullMcapInr ?? 0));
+
+  // ---- the FTSE book, joined and PROVED by a price it never states --------
+  //
+  // Vanguard publishes no ISIN (§3.9's only trusted key), so each holding is
+  // proposed from a name and a house ticker and then arbitrated by arithmetic:
+  // market value / shares is an implied share price in CAD, and converted at the
+  // holdings-date rate it must equal the close this project already holds for
+  // that company on that day — a figure from BSE, fetched by another script, for
+  // a date the workbook fixes rather than we do.
+  //
+  // ⚠ THE MONEY COLUMN IS CANADIAN DOLLARS AND THE FILE NEVER SAYS SO. Read as
+  // USD every rupee figure here would be 40.65% too large. `assertCurrency`
+  // re-measures that on every build rather than trusting the fund's name.
+  let ftseMeta = null;
+  const ftseByIsin = new Map();
+  if (ftseData) {
+    const fund = ftseData.funds[0];
+
+    // The FX rate for the holdings date. Both halves of a converted figure must
+    // come from the same date (§3.8.2), so an exact hit is used where there is
+    // one and any walk-back is recorded rather than absorbed.
+    const cadSeries = ftseFx?.series ?? [];
+    const exactFx = cadSeries.find((p) => p.date === fund.asOf) ?? null;
+    const walkedFx = exactFx ?? [...cadSeries].reverse().find((p) => p.date <= fund.asOf) ?? null;
+    const cadInr = walkedFx?.close ?? null;
+
+    // The price basis: our own closes on the workbook's own date where we have
+    // them. A basis struck days away is still useful — a wrong company is out by
+    // multiples, not by a few sessions — but it is a weaker test and says so.
+    const dates = priceHistory?.dates ?? [];
+    const exactAt = dates.indexOf(fund.asOf);
+    let basisDate = exactAt >= 0 ? fund.asOf : null;
+    let gapSessions = 0;
+    if (basisDate === null && dates.length) {
+      const target = Date.parse(fund.asOf);
+      let best = null;
+      dates.forEach((d, i) => {
+        const gap = Math.abs(Date.parse(d) - target);
+        if (best === null || gap < best.gap) best = { d, i, gap };
+      });
+      // How far off the record we had to reach, counted in sessions we hold.
+      const wouldBe = dates.findIndex((d) => d > fund.asOf);
+      gapSessions = Math.abs((wouldBe < 0 ? dates.length : wouldBe) - best.i);
+      if (gapSessions <= FTSE_JOIN.maxBasisGapSessions) basisDate = best.d;
+    }
+    const basisAt = basisDate ? dates.indexOf(basisDate) : -1;
+    const closeByIsin = new Map();
+    if (basisAt >= 0) {
+      for (const scrip of Object.values(priceHistory.scrips ?? {})) {
+        if (scrip.isin && scrip.closes?.[basisAt] != null) closeByIsin.set(scrip.isin, scrip.closes[basisAt]);
+      }
+    }
+    const exactBasis = basisDate === fund.asOf;
+    const basis = {
+      date: basisDate,
+      exact: exactBasis,
+      closeByIsin,
+      cadInr,
+      tolerancePct: exactBasis ? FTSE_JOIN.joinTolerancePct : FTSE_JOIN.approximateTolerancePct,
+    };
+
+    const { results, methods, collisions } = resolveFtseHoldings(fund.holdings, buildFtseIndex(out), basis);
+
+    // Two rows resolving to one company means one of them is the wrong company,
+    // and both look well-formed downstream. Same rule as the MSCI resolver.
+    checks.assert(collisions.length === 0,
+      'no two FTSE holdings resolve to the same company',
+      collisions.map((c) => `${c.isin}: ${c.names.join(' / ')}`).join('; ') || 'none');
+
+    const currency = assertCurrency(results, { tolerancePct: FTSE_JOIN.currencyTolerancePct });
+    checks.assert(currency.ok,
+      `the FTSE book is struck in ${fund.currency} — implied prices agree with our own closes`,
+      currency.ok
+        ? `median ratio ${currency.median.toFixed(4)} across ${num(currency.compared)} rows`
+        : currency.reason);
+    if (!currency.ok) {
+      process.stderr.write(`\n${currency.reason}\n\n`);
+      process.exit(1);
+    }
+
+    for (const r of results) {
+      if (!r.isin || ftseByIsin.has(r.isin)) continue;
+      ftseByIsin.set(r.isin, {
+        fundId: fund.id,
+        fundShortName: fund.shortName,
+        indexFamily: fund.indexFamily,
+        ticker: r.holding.ticker,
+        publishedName: r.holding.publishedName,
+        // Vanguard's own percent OF THE WHOLE FUND. Not comparable with any MSCI
+        // weight on this record — different fund, different denominator (§3.5).
+        weightPct: r.holding.weightPct,
+        weightPctPublished: r.holding.weightPctPublished,
+        // Vanguard already rounded this one to nothing before we saw it; the
+        // market value is the figure that survives (§2.20).
+        weightRoundedToZero: r.holding.weightRoundedToZero,
+        marketValueCad: r.holding.marketValueCad,
+        quantity: r.holding.quantity,
+        sector: r.holding.sector,
+        asOf: fund.asOf,
+        currency: fund.currency,
+        join: {
+          method: r.method,
+          priceRatio: r.priceCheck?.ratio ?? null,
+          priceCheck: r.priceCheck?.status ?? 'unavailable',
+          basisDate: r.priceCheck?.date ?? null,
+          tolerancePct: r.priceCheck?.tolerancePct ?? null,
+        },
+      });
+    }
+
+    const unresolvedRows = results.filter((r) => !r.isin);
+    ftseMeta = {
+      available: true,
+      fundId: fund.id,
+      fundName: fund.name,
+      shortName: fund.shortName,
+      indexFamily: fund.indexFamily,
+      currency: fund.currency,
+      asOf: fund.asOf,
+      downloadedOn: fund.downloadedOn,
+      note: ftseData.note,
+      // Every count with its denominator (§2.5).
+      indiaRows: fund.indiaRows,
+      resolved: results.length - unresolvedRows.length,
+      indiaWeightPct: fund.indiaWeightPct,
+      resolvedWeightPct: results.filter((r) => r.isin).reduce((a, r) => a + (r.holding.weightPct ?? 0), 0),
+      weightsExcludeCashAndFutures: fund.weightsExcludeCashAndFutures,
+      totalWeightPct: fund.totalWeightPct,
+      indiaMarketValueCad: fund.indiaMarketValueCad,
+      totalMarketValueCad: fund.totalMarketValueCad,
+      methods,
+      currencyCheck: {
+        medianPriceRatio: currency.median,
+        compared: currency.compared,
+        tolerancePct: FTSE_JOIN.currencyTolerancePct,
+        establishedBy: ftseData.currency.establishedBy,
+      },
+      priceBasis: {
+        date: basisDate,
+        exact: exactBasis,
+        gapSessions,
+        cadInr,
+        fxDate: walkedFx?.date ?? null,
+        fxWalkedBack: Boolean(walkedFx && !exactFx),
+        tolerancePct: basis.tolerancePct,
+      },
+      // Kept and named, never dropped: a holding we could not place is a gap in
+      // our join, not an absence from the fund (§2.3, §2.4).
+      unresolved: unresolvedRows.map((r) => ({
+        ticker: r.holding.ticker,
+        publishedName: r.holding.publishedName,
+        nameKind: r.holding.nameKind,
+        weightPct: r.holding.weightPct,
+        marketValueCad: r.holding.marketValueCad,
+        reason: r.reason,
+      })),
+    };
+  }
+
+  for (const company of out) {
+    // A company FTSE does not hold has no FTSE row. That is "not held by this
+    // fund" when the book loaded, and "we could not check" when it did not —
+    // told apart by the top-level `ftse.available`, never by this null (§2.3).
+    company.ftse = company.isin ? (ftseByIsin.get(company.isin) ?? null) : null;
+  }
 
   // ---- passive drift and flow primitives ---------------------------------
   //
@@ -1616,6 +1798,10 @@ function main() {
         .map((fund) => fund.asOf)
         .filter((date) => typeof date === 'string')
         .sort()[0] ?? null,
+      // Vanguard's own as-at date for the FTSE book, carried verbatim. It is a
+      // month behind the iShares workbooks, which is why it is its own key
+      // rather than being folded into any shared freshness claim (§2.10).
+      ftseHoldings: ftseMeta?.asOf ?? null,
       nseSession: nseFreeFloat.sessionTimestamp,
       bseCapturedAt: bseFreeFloat.capturedAt,
       bhavcopyTradeDate: prices.tradeDate,
@@ -1679,6 +1865,16 @@ function main() {
     // the complete list) or UNKNOWN (feed did not load). Without it, an outage
     // would render as "every company is clear" — the §2.4 lie. `flaggedInUniverse`
     // is derived from the records; the stage legend is derived too, never typed.
+    // ---- the FTSE book ----------------------------------------------------
+    // A SECOND OPINION, deliberately inert. FTSE runs its own index with its own
+    // constituents, size rules and review calendar, so nothing here feeds an
+    // MSCI segment, cutoff, verdict or flow — the holdings land in each
+    // company's own `ftse` field and in nothing else. `available` tells a null
+    // "FTSE does not hold this" apart from "the book did not load" (§2.4).
+    ftse: ftseMeta ?? {
+      available: false,
+      note: 'the FTSE book did not load, so a company without an FTSE row is UNKNOWN, not unheld',
+    },
     asm: {
       available: Boolean(asmData),
       source: asmData?.source

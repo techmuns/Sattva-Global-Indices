@@ -680,3 +680,65 @@ export const ASM_REFRESH = {
     "the desk's operational assumption. NSE publishes no refresh cadence for the ASM report and no "
     + 'undertaking about how often the list changes; this is how often we have chosen to look.',
 };
+
+/**
+ * Joining Vanguard's FTSE book to the companies this project already knows.
+ *
+ * Vanguard publishes no ISIN, so the join is proposed from a name and a house
+ * ticker and then ARBITRATED by a price the workbook never states: implied
+ * price = market value / shares, converted at the holdings-date CAD rate, must
+ * equal the close we already hold for that company on that day.
+ *
+ * `joinTolerancePct` is set from the measurement, not picked. Across 568 name
+ * matches the ratio runs p1 0.9992, median 1.0031, p99 1.0073, worst genuine
+ * 1.0142 — and the one bad row sits at 0.548. Anything from about 2% to 40%
+ * separates those two populations; 5% is comfortably inside the gap at both
+ * ends, so it neither rejects a real row nor admits the wrong company.
+ *
+ * `currencyTolerancePct` guards a different failure. The workbook prints a bare
+ * "$" and is struck in CAD; read as USD every rupee figure is 40.65% too large.
+ * The median ratio must sit near 1, and a USD file would land near 1.4 — so the
+ * band only has to be far below 40 to catch it.
+ */
+export const FTSE_JOIN = {
+  joinTolerancePct: 5,
+  currencyTolerancePct: 5,
+  // How far the price basis may sit from the holdings date before the check is
+  // treated as approximate. Exactly 0 means the workbook's own date is on the
+  // record, which is the case for the committed file (31 Jul 2026 falls inside
+  // the August review's price window, which this project already captures).
+  maxBasisGapSessions: 5,
+  // Widened when the basis is not the holdings date itself: a real price move
+  // over a few sessions is not evidence of a wrong company.
+  approximateTolerancePct: 15,
+  attribution:
+    "the desk's, and about our own join rather than about any index. FTSE publishes no mapping to ISIN "
+    + 'and Vanguard publishes no ISIN at all; this is how we decide we have the right company.',
+};
+
+/**
+ * The FTSE book as a dated feed on the freshness surface.
+ *
+ * ⚠ IT IS THE OLDEST INPUT ON THE RECORD, AND IT IS ALLOWED TO GOVERN.
+ *
+ * Vanguard publishes monthly and the committed book is struck a fortnight or
+ * more before the iShares workbooks, so adding it moves the headline freshness
+ * claim BACKWARDS. That is the correct direction. §2.10's rule is that the
+ * oldest input governs, and the failure it guards against is claiming more
+ * currency than the record has; a feed exempted from that claim is how an
+ * overclaim gets reintroduced later, one carve-out at a time.
+ *
+ * The cost is that a reader glancing at the pill sees the FTSE date rather than
+ * the MSCI one. That is paid for on the surfaces that matter: every FTSE cell
+ * carries its own as-of, and the sources modal lists each feed with its own
+ * date, so nothing is hidden by being conservative here.
+ */
+export const FTSE_BOOK = {
+  // Vanguard publishes holdings monthly, so a book older than this is behind
+  // its own publisher rather than merely older than the MSCI files.
+  staleAfterDays: 45,
+  cadence: 'published monthly by Vanguard; re-imported when a fresh workbook is dropped in',
+  attribution:
+    "Vanguard's own published holdings for its FTSE Emerging Markets fund, carried through unchanged. "
+    + 'FTSE Russell publishes the index; this is a fund that tracks it, not the index itself.',
+};

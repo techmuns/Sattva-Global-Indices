@@ -117,6 +117,99 @@ is a **subset** of the NSE column — those rows sit on NSE with no ticker assig
 
 ---
 
+## `public/data/ftse-funds.json`
+
+Vanguard's FTSE Emerging Markets All Cap book, India slice — a **second opinion beside MSCI, and an
+input to nothing**. FTSE runs its own index with its own constituents, size rules and review
+calendar, so this file feeds no segment, cutoff, verdict or flow (§2.34). It reaches the screen as
+each company's own `ftse` field and nowhere else.
+
+| | |
+| --- | --- |
+| **Produced by** | `node scripts/import-ftse.mjs` (no network — reads the committed workbook) |
+| **Upstream source** | Vanguard's "Holdings details" export, `scripts/fixtures/vanguard-ftse-em-allcap.xlsx` |
+| **Format** | real OOXML `.xlsx` — a ZIP of XML parts, read by `scripts/lib/xlsx.mjs`. **Not** the SpreadsheetML 2003 that the iShares `.xls` files use (§3.1); the two readers are not interchangeable. |
+| **Tier** | 1 — Vanguard's own published figures, carried through unchanged. |
+| **Cadence** | Vanguard publishes monthly; re-imported when a fresh workbook is dropped in. |
+| **Failure mode** | `EXPECTED` in the script describes the committed workbook; any drift refuses the write. Replace the fixture and re-measure `EXPECTED` in the same commit. |
+
+### ⚠ The money column is CAD and the workbook never says so
+
+Every figure is printed with a bare `$`. This is Vanguard **Canada's** fund; read as USD, every rupee
+figure derived from it is **40.65% too large**. The currency is established by measurement, not by
+the fund's name — implied share price (`market value / shares`) against our own close for the same
+company on the same day — and `assertCurrency` re-runs it on every build:
+
+| read as | median ratio | inside ±1% |
+| --- | --- | --- |
+| USD | 1.4065 | 0 of 568 |
+| CAD | **1.0031** | **566 of 568** |
+
+The rate is `CADINR=X`, in its own `public/data/ftse-fx.json` — **not** in `fund-benchmarks.json`,
+whose fund series must reach the committed price date (`verify-data` 55), so chaining a currency
+lookup to four ETFs' publication schedule would block the FTSE join on any day one of them lagged.
+It reads through the same `scripts/lib/yahoo.mjs` the benchmarks use, so it inherits the timezone
+and duplicate-bar guards (§3.8.2). It is **never** derived from this workbook, which would
+make the guard read its threshold from the value under test (§3.8).
+
+### Top level
+
+| Field | Meaning |
+| --- | --- |
+| `source`, `note`, `fixtures` | Provenance, and the standing statement that this is a second opinion. |
+| `units` | What each column means, including that `weightPct` is a percent of the **whole fund**. |
+| `currency` | `code`, how it was `establishedBy`, and where it is re-checked. |
+| `funds[]` | One fund. `id`, `name`, `shortName`, `indexFamily`, `currency`, `asOf`, `downloadedOn`. |
+
+### `funds[0]`
+
+| Field | Meaning |
+| --- | --- |
+| `asOf` | Vanguard's own as-at date, carried verbatim. **The oldest input on the record**, and allowed to govern the freshness claim (§2.10). |
+| `dataRows` / `indiaRows` | Every row in the book, and the India slice — 6,339 and 651. |
+| `totalWeightPct` | **95.015%, not 100** — Vanguard excludes cash and futures from weighted exposures, and says so in the workbook's own footnote. |
+| `indiaWeightPct` | 16.173% — a share of the **whole fund**, not of its equity book. |
+| `indiaShareOfMarketValuePct` | 17.023% — the other denominator, kept separately rather than reconciled (§2.5). |
+| `holdings[]` | The India rows. |
+
+### `holdings[]`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `ticker` | string \| null | Vanguard's **house code**, stored verbatim. Not an NSE symbol, and its codes collide with other listings — Vanguard's `SOTL` is Sterlite Technologies while NSE's `SOTL` is Savita Oil. Nothing resolves on it alone. |
+| `name` | string \| null | `null` where Vanguard published a Bloomberg stub instead of a name. |
+| `publishedName` | string | What Vanguard actually printed, kept so a row can say why it has no name. |
+| `nameKind` | `"published"` \| `"placeholder"` | 6 of 651 rows are placeholders. |
+| `weightPct` | number | Vanguard's own percent of the whole fund. **Not comparable with any MSCI weight** (§3.5). |
+| `weightPctPublished` | string | Vanguard's own string, because the parsed number cannot show it was already rounded. |
+| `weightRoundedToZero` | boolean | **§2.20 in the source.** Genus Prime Infra is published as `0.00%` on a live $1,771.94 position; the screen renders a below-precision marker, never a zero. |
+| `marketValueCad` | number | CANADIAN dollars. |
+| `quantity` | number | Shares. |
+
+### `companies[].ftse` in `companies.json`
+
+Present on the 638 companies the join placed; `null` otherwise. **A null means FTSE does not hold
+the company when the book loaded, and UNKNOWN when it did not** — told apart by the top-level
+`ftse.available`, never by the null itself (§2.4).
+
+Beyond the holding's own fields it carries `join`, because Vanguard publishes no ISIN and the match
+is therefore **our inference, not a fact the workbook stated**:
+
+| `join` field | Meaning |
+| --- | --- |
+| `method` | `name`, `name+symbol`, `name-over-colliding-symbol`, `symbol-over-name`, `symbol-confirmed-by-price`. |
+| `priceRatio` | Implied price ÷ our own close on `basisDate`. This is what proves the join. |
+| `priceCheck` | `passed` \| `failed` \| `unavailable`. A **symbol-only** match with anything but `passed` is refused; a name match, being unique-or-nothing, may stand where no close exists. |
+| `basisDate`, `tolerancePct` | The date compared against, and the band it had to clear. |
+
+Measured on the committed book: **638 of 651 resolved, 99.4% of the India weight, zero ISIN
+collisions**. The 13 unresolved keep their weight and each states a reason — including
+`Gujarat Energy Ltd`, whose only name match the price gate **rejected** at a ratio of 0.548.
+`verify-data` 57 proves the book moves no verdict; 58 proves the join and the currency; `verify-ui`
+58 proves the column shows a weight where held and a dash — never a zero — where not.
+
+---
+
 ## `public/data/nse-freefloat.json`
 
 Free-float market capitalisation for the NSE-listed universe reachable from a server.

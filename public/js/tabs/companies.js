@@ -491,6 +491,50 @@ function asmCell(company) {
 }
 
 /**
+ * The FTSE cell: Vanguard's own weight in its FTSE Emerging Markets book.
+ *
+ * THREE STATES, TOLD APART EXACTLY AS EVERY OTHER FEED'S ARE (§2.3/§2.4):
+ *   held        Vanguard's published percent, with its as-of and join on the title
+ *   not held    a faint dash saying FTSE does not hold it — ONLY when the book loaded
+ *   unknown     a faint dash saying the book did not load, so we could not check
+ *
+ * ⚠ THIS WEIGHT IS NOT COMPARABLE WITH ANY MSCI WEIGHT ON THIS ROW (§3.5). It is
+ * a percent of a different fund tracking a different index, and there is no
+ * arithmetic that relates the two. Nothing here sums, ranks or diffs across them.
+ *
+ * ⚠ AND VANGUARD ROUNDS SOME REAL POSITIONS TO NOTHING. It publishes "0.00%" for
+ * Genus Prime Infra on a live position — §2.20 arriving in the source rather than
+ * in our formatter. Printing that as "0.000%" would say NOT HELD, which is the
+ * one thing it must not say, so such a row renders as a below-precision marker
+ * and carries the market value that survived the rounding.
+ */
+function ftseCell(company) {
+  const holding = company.ftse;
+  const meta = data.ftse();
+  if (!holding) {
+    return meta?.available
+      ? `<span class="text-slate-300" title="Not held by the FTSE Emerging Markets book — checked against Vanguard's published holdings${meta.asOf ? ` as at ${escapeHtml(meta.asOf)}` : ''}. FTSE runs its own index, so this says nothing about MSCI inclusion.">${EM_DASH}</span>`
+      : `<span class="text-slate-300" title="FTSE holding unknown — the Vanguard book did not load, so this could not be checked. It is not a statement that FTSE does not hold the company.">${EM_DASH}</span>`;
+  }
+  const title =
+    `${holding.weightPctPublished ?? pct(holding.weightPct, 4)} of the ${holding.fundShortName} fund `
+    + `(Vanguard's own published figure, as at ${holding.asOf}). `
+    + 'A percent of a DIFFERENT fund tracking a DIFFERENT index — not comparable with the MSCI weights '
+    + 'on this row, and it moves no verdict here. '
+    + `Position ${inr(holding.marketValueCad)} ${holding.currency}. `
+    + `Matched to this company by ${holding.join.method.replace(/-/g, ' ')}`
+    + (holding.join.priceRatio != null
+      ? `, confirmed against our own ${holding.join.basisDate} close (implied price ${(holding.join.priceRatio * 100).toFixed(1)}% of it).`
+      : ', with no price available to confirm it.');
+
+  // Vanguard already rounded this to nothing. Say so rather than printing a zero.
+  const body = holding.weightRoundedToZero
+    ? '<span title="Vanguard published this as 0.00% — already rounded to nothing before it reached us. The position is real; the market value is the figure that survives.">&lt;0.01%</span>'
+    : escapeHtml(pct(holding.weightPct, 3));
+  return `<span class="whitespace-nowrap" title="${escapeHtml(title)}">${body}</span>`;
+}
+
+/**
  * The market-cap filter: a min–max range the reader types, in ₹ crore.
  *
  * It was five fixed bands in a dropdown until 31 Aug 2026. The bands covered
@@ -588,6 +632,10 @@ function buildStats(scopeRows) {
   // an outage never renders as "0 under ASM" (§2.4).
   const asmMeta = data.asm();
   const asmInView = scopeRows.filter((c) => c.asm).length;
+  // The FTSE book, on the same terms: derived from the rows in view, and shown
+  // only when the book loaded so an outage never reads as "0 held by FTSE".
+  const ftseMeta = data.ftse();
+  const ftseInView = scopeRows.filter((c) => c.ftse).length;
   // How the desk's rule actually landed on the rows in view. Derived from the
   // records, never typed — a hand-written count goes stale on the next refresh.
   const switchedInView = scopeRows.filter((c) => c.floatChoice?.rule === 'nse-preferred-on-material-gap').length;
@@ -633,7 +681,8 @@ function buildStats(scopeRows) {
       extra:
         cardRow('Held by a fund', num(cov.held)) +
         cardRow('Candidates, not held', num(cov.notHeld)) +
-        (asmMeta?.available ? cardRow('Under NSE ASM', num(asmInView)) : ''),
+        (asmMeta?.available ? cardRow('Under NSE ASM', num(asmInView)) : '') +
+        (ftseMeta?.available ? cardRow('In the FTSE book', num(ftseInView)) : ''),
       help: {
         title: 'What "in view" counts',
         body:
@@ -1502,6 +1551,69 @@ function provenanceSectionHtml(company) {
  * under ASM" as a CHECKED negative, or "status unavailable" when the feed did
  * not load — never a silent blank that a reader could take for "clear".
  */
+/**
+ * The FTSE section — a second opinion, and everything a reader needs to see that
+ * it is one.
+ *
+ * It states the fund, Vanguard's own weight and as-of, the position in the
+ * currency it is actually struck in, and HOW this row was matched to this
+ * company — because Vanguard publishes no ISIN and the join is therefore an
+ * inference this project made, not a fact the workbook stated (§3.9, §2.1's
+ * tier-2 rule). The price confirmation is shown as a figure rather than as a
+ * tick, so a reader can see how strong the evidence actually is.
+ */
+function ftseSectionHtml(company) {
+  const holding = company.ftse;
+  const meta = data.ftse();
+  if (!holding) {
+    const why = meta?.available
+      ? `The FTSE Emerging Markets book does not hold this company${meta.asOf ? ` as at ${escapeHtml(meta.asOf)}` : ''}. That is a checked negative, not a gap.`
+      : 'The Vanguard FTSE book did not load, so whether FTSE holds this company is UNKNOWN — not a statement that it does not.';
+    return `<p class="text-xs leading-relaxed text-slate-500">${why} FTSE runs its own index with its own `
+      + 'constituents, size rules and review calendar, so either way it bears on no verdict here.</p>';
+  }
+  const ratio = holding.join.priceRatio;
+  return (
+    '<div class="rounded-xl bg-teal-50 p-3 ring-1 ring-teal-200">'
+    + `<div class="mb-2 flex items-center gap-2">${fundChip('ftse-em', holding.fundShortName)}`
+    + '<span class="text-xs font-semibold text-teal-900">Held in the FTSE book — a second opinion</span></div>'
+    + '<dl>'
+    + drillRow('Fund', escapeHtml(meta?.fundName ?? holding.fundShortName))
+    + drillRow('Weight', escapeHtml(holding.weightPctPublished ?? pct(holding.weightPct, 4)), {
+      title: "Vanguard's own published percent OF THE WHOLE FUND — not of its equity book, and not "
+        + 'comparable with any MSCI weight on this row (§3.5).',
+    })
+    + (holding.weightRoundedToZero
+      ? drillRow('⚠ rounded by Vanguard', 'published as 0.00% on a real position — the market value below is the figure that survived', {
+        title: 'A weight rounded to nothing reads as "not held", which is the one thing it must not say.',
+      })
+      : '')
+    + drillRow('Position', `${escapeHtml(inr(holding.marketValueCad))} ${escapeHtml(holding.currency)}`, {
+      title: 'The book is struck in CANADIAN dollars. The workbook prints a bare "$" and never says so; '
+        + 'this was established by comparing implied prices against our own closes, not assumed.',
+    })
+    + drillRow('Shares', escapeHtml(num(holding.quantity)))
+    + drillRow('As at', escapeHtml(holding.asOf), { title: "Vanguard's own as-at date, carried unchanged. It is the oldest input on this record." })
+    + drillRow('Matched by', escapeHtml(holding.join.method.replace(/-/g, ' ')), {
+      title: 'Vanguard publishes no ISIN, so this row was matched by name and/or its house ticker — '
+        + 'and its house tickers collide with other listings, so a match is never asserted on one alone.',
+    })
+    + drillRow('Price confirmation',
+      ratio != null
+        ? `implied price is ${escapeHtml((ratio * 100).toFixed(1))}% of our ${escapeHtml(holding.join.basisDate)} close`
+        : '<span class="text-slate-400">no close available on that date to check against</span>',
+      { title: "Market value / shares gives a share price Vanguard never states. Converted at that day's "
+        + 'rate it must equal the close this project already holds for the company — a figure from a '
+        + 'different source, for a date the workbook fixed. That is what proves the join.' })
+    + '</dl>'
+    + '<p class="mt-2 text-[11px] leading-relaxed text-slate-600">'
+    + 'FTSE and MSCI are different index families, with different constituents, size rules and review '
+    + 'calendars. This holding is shown because a manager wants to see both books on one row — it feeds '
+    + 'no verdict, no segment and no flow estimate on this screen.</p>'
+    + '</div>'
+  );
+}
+
 function asmSectionHtml(company) {
   const asm = company.asm;
   const meta = data.asm();
@@ -1566,6 +1678,7 @@ function openCompanyDrill(key, { onClose } = {}) {
       drillSection('Surveillance — NSE ASM', asmSectionHtml(company)) +
       drillSection('Free float', floatSectionHtml(company)) +
       drillSection('Index participation', fundsSectionHtml(company)) +
+      drillSection('FTSE — a second opinion', ftseSectionHtml(company)) +
       drillSection('Against its segment — since the last rebalance', rebaseSectionHtml(company)) +
       drillSection("Against its segment — across MSCI's two price windows", relativeSectionHtml(company)) +
       drillSection('Weight drift — no trade required', driftSectionHtml(company)) +
@@ -2164,23 +2277,52 @@ export function renderCompanies(host, { onStatusChange } = {}) {
         };
       }),
       {
+        // Labelled by fund, like every other weight here, because a weight that
+        // does not name its fund is meaningless (§3.5). "FTSE" is on the face of
+        // it so the different index family is never in doubt.
+        label: 'FTSE EM wt %',
+        align: 'right',
+        html: true,
+        // null is NOT HELD BY FTSE, and must never become 0 — same rule as the
+        // MSCI weight columns above. Missing sorts to its own group at the end.
+        sortValue: (row) => row.ftse?.weightPct ?? null,
+        get: (row) => ftseCell(row),
+      },
+      {
         label: 'Funds',
         align: 'left',
         html: true,
         sortable: true,
-        sortValue: (row) => FUND_ORDER.filter((id) => row.funds?.[id]).length,
+        sortValue: (row) => FUND_ORDER.filter((id) => row.funds?.[id]).length + (row.ftse ? 1 : 0),
         get: (row) => {
           const chips = FUND_ORDER.filter((id) => row.funds?.[id]).map((id) =>
             fundChip(id, data.fundCoverage(id)?.shortName ?? id, {
               title: `Held by the ${data.fundCoverage(id)?.shortName ?? id} fund`,
             }),
           );
+          // FTSE rides in the same column because the reader's question is "who
+          // holds this", but in its own colour and never counted among "the
+          // three funds": it tracks a different index and moves no verdict here.
+          if (row.ftse) {
+            chips.push(fundChip('ftse-em', row.ftse.fundShortName ?? 'FTSE EM', {
+              title: `Held by the ${row.ftse.fundShortName} book (Vanguard, as at ${row.ftse.asOf}). `
+                + 'FTSE runs its own index with its own constituents and review calendar, so this does '
+                + 'not bear on the MSCI verdict on this row.',
+            }));
+          }
           // Inline flow, not `flex` — a squeezed flex box wraps to a second line
           // and drops a fund chip with nothing to say it did. Losing a chip is
           // losing the fact that a fund holds the company.
+          // "candidate" is an MSCI statement, so it is decided by the MSCI funds
+          // ALONE and still shown when FTSE holds the company — otherwise an FTSE
+          // chip would quietly answer a question about MSCI inclusion.
+          const heldByMsci = FUND_ORDER.some((id) => row.funds?.[id]);
+          const candidate = heldByMsci
+            ? ''
+            : '<span class="text-[11px] text-slate-400" title="Not held by any of the three MSCI funds — a candidate, not a position. An FTSE chip beside this does not change that: FTSE is a different index.">candidate</span>';
           return chips.length
-            ? `<span class="whitespace-nowrap">${chips.join(' ')}</span>`
-            : '<span class="text-[11px] text-slate-400" title="Not held by any of the three funds — a candidate, not a position">candidate</span>';
+            ? `<span class="whitespace-nowrap">${chips.join(' ')}${candidate ? ` ${candidate}` : ''}</span>`
+            : candidate;
         },
       },
       {
@@ -2371,6 +2513,22 @@ export function renderCompanies(host, { onStatusChange } = {}) {
             { label: 'ASM category', value: (r) => r.asm?.category ?? '' },
             { label: 'ASM description (NSE)', value: (r) => r.asm?.survDesc ?? '' },
             { label: 'ASM effective date (NSE)', value: (r) => r.asm?.asmDate ?? '' },
+            // FTSE. Every label names the fund and the index, because a weight
+            // that loses its fund on the way into a spreadsheet is a weight
+            // somebody will compare with the MSCI columns beside it (§3.5, §2.7).
+            {
+              label: 'FTSE status (Vanguard book)',
+              value: (r) => (r.ftse ? 'held by the FTSE EM book' : (data.ftse()?.available ? 'not held by the FTSE EM book' : 'unknown — FTSE book unavailable')),
+            },
+            { label: 'FTSE EM weight % of that fund (Vanguard, published)', value: (r) => r.ftse?.weightPctPublished ?? '' },
+            { label: 'FTSE EM position (CAD)', value: (r) => r.ftse?.marketValueCad ?? '' },
+            { label: 'FTSE EM shares', value: (r) => r.ftse?.quantity ?? '' },
+            { label: 'FTSE holdings as at (Vanguard)', value: (r) => r.ftse?.asOf ?? '' },
+            { label: 'FTSE join method (ours — Vanguard publishes no ISIN)', value: (r) => r.ftse?.join?.method ?? '' },
+            {
+              label: 'FTSE join price confirmation (implied % of our close)',
+              value: (r) => (r.ftse?.join?.priceRatio != null ? (r.ftse.join.priceRatio * 100).toFixed(1) : ''),
+            },
             ...FUND_ORDER.map((id) => ({
               label: `${data.fundCoverage(id)?.shortName ?? id} weight drift pp (price only, no trade required)`,
               value: (r) => r.passiveDrift?.[id]?.driftPp ?? '',
