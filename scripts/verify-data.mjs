@@ -3223,6 +3223,136 @@ async function main() {
     },
   }, ctx);
 
+  await suite.check({
+    id: 57,
+    what: 'the FTSE book is a SECOND OPINION — it reaches no MSCI segment, verdict or flow',
+    clone: deepClone,
+    run: (c) => {
+      const meta = c.companiesFile.ftse;
+      ok(meta?.available === true, 'the record carries the FTSE book and says so', JSON.stringify(meta?.available));
+
+      // 1. It must not be reachable as a fund. `funds` is what segmentOf and
+      //    assess read; an FTSE entry there would silently make a FTSE-only
+      //    holding look like an MSCI constituent and move real verdicts. This is
+      //    the mistake a future author makes by "adding FTSE as a fourth fund".
+      const MSCI_FUNDS = new Set(['eem', 'smin', 'eems']);
+      const leaked = [];
+      const heldWrong = [];
+      for (const company of c.companies) {
+        for (const id of Object.keys(company.funds ?? {})) {
+          if (!MSCI_FUNDS.has(id)) leaked.push(`${company.name}: funds.${id}`);
+        }
+        // `held` is an MSCI statement. A company only FTSE holds is still a
+        // candidate, and the screen says so.
+        const heldByMsci = [...MSCI_FUNDS].some((id) => company.funds?.[id]);
+        if (Boolean(company.held) !== heldByMsci) heldWrong.push(`${company.name}: held=${company.held} but MSCI-held=${heldByMsci}`);
+      }
+      empty(leaked, 'no company carries an FTSE holding inside `funds`, where the MSCI model would read it', (x) => x);
+      empty(heldWrong, '`held` still means held by an MSCI fund, not by any fund', (x) => x);
+
+      // 2. Sweep it. Stronger than reading the code: no value the FTSE book
+      //    could take — including its absence — may move the verdict multiset.
+      const before = {};
+      for (const company of c.companies) before[company.assessment.verdict] = (before[company.assessment.verdict] ?? 0) + 1;
+      const keyOf = (x) => x.isin ?? `bse:${x.bseScripCode}`;
+      const context = {
+        boundary: observedBoundary(c.companies, segmentOf),
+        ranks: rankByFreeFloat(c.companies, keyOf),
+        quarantined: new Set(c.companies.filter((x) => x.shareCountQuarantine).map(keyOf)),
+        keyOf,
+        segmentReturns: c.companiesFile.benchmarks?.adjustment?.segmentReturnsInrPct ?? null,
+        sizeCutoffs: observedSizeCutoffs(c.companies, (x) => x.segment),
+      };
+      const moved = [];
+      const sweeps = [
+        ['stripped', () => null],
+        ['zeroed', (f) => (f ? { ...f, weightPct: 0, marketValueCad: 0 } : null)],
+        ['inflated', (f) => (f ? { ...f, weightPct: 99, marketValueCad: 9e12 } : null)],
+        ['held by FTSE everywhere', () => ({ fundId: 'ftse-em', weightPct: 5, marketValueCad: 1e9, asOf: '2026-07-31', join: { method: 'name' } })],
+      ];
+      for (const [label, mutate] of sweeps) {
+        const after = {};
+        for (const company of c.companies) {
+          const verdict = assess({ ...company, ftse: mutate(company.ftse) }, context).verdict;
+          after[verdict] = (after[verdict] ?? 0) + 1;
+        }
+        for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+          if ((before[key] ?? 0) !== (after[key] ?? 0)) moved.push(`${label}: ${key} ${before[key] ?? 0} -> ${after[key] ?? 0}`);
+        }
+      }
+      empty(moved, 'no verdict moves however the FTSE book is rewritten, including when it is removed', (x) => x);
+
+      const withFtse = c.companies.filter((x) => x.ftse).length;
+      return `${withFtse} of ${c.companies.length} companies in the FTSE book · swept ${sweeps.length} ways · verdict multiset unchanged`;
+    },
+    sabotage: (c) => {
+      // The realistic mistake: treat FTSE as a fourth MSCI fund. It changes what
+      // `held` means and puts a foreign index's weights where segmentOf and
+      // assess will read them.
+      for (const company of c.companies) {
+        if (!company.ftse) continue;
+        company.funds = { ...(company.funds ?? {}), 'ftse-em': { weightPct: company.ftse.weightPct } };
+        company.held = true;
+      }
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 58,
+    what: 'every FTSE row is PROVED by a price, not asserted — and the book is in the currency we think',
+    clone: deepClone,
+    run: (c) => {
+      const meta = c.companiesFile.ftse;
+      const rows = c.companies.filter((x) => x.ftse);
+
+      // Vanguard publishes no ISIN, so every join here is OUR inference and must
+      // carry how it was made (§2.1 — a derived figure states its derivation).
+      const noMethod = rows.filter((x) => !x.ftse.join?.method);
+      empty(noMethod, 'every FTSE holding records how it was matched', (x) => x.name);
+
+      // A house ticker is not evidence: Vanguard's SOTL is Sterlite while NSE's
+      // SOTL is Savita Oil, a different listed company. A symbol-based match
+      // therefore may not stand without a passing price check.
+      // Only the methods where the SYMBOL IS THE SOLE BASIS need it. Where the
+      // name agrees with the symbol, or beat it, the name is doing the work and
+      // a missing close is a gap in our price history, not a weak join.
+      const SYMBOL_ONLY = new Set(['symbol-confirmed-by-price', 'symbol-over-name']);
+      const unproved = rows.filter((x) => SYMBOL_ONLY.has(x.ftse.join.method) && x.ftse.join.priceCheck !== 'passed');
+      empty(unproved, 'no match rests on a Vanguard house ticker alone — each is confirmed by price',
+        (x) => `${x.name}: ${x.ftse.join.method} with price check ${x.ftse.join.priceCheck}`);
+
+      // Nothing may be believed against the evidence either.
+      const contradicted = rows.filter((x) => x.ftse.join.priceCheck === 'failed');
+      empty(contradicted, 'no holding is kept whose implied price contradicts our own close', (x) => x.name);
+
+      // ⚠ THE CURRENCY. The workbook prints a bare "$" and is struck in CAD; read
+      // as USD every rupee figure would be ~40% too large. The median implied /
+      // actual price ratio must sit at 1, and a USD file would land near 1.4.
+      const check = meta.currencyCheck;
+      ok(check && Number.isFinite(check.medianPriceRatio),
+        'the record carries the measured currency check', JSON.stringify(check ?? null));
+      ok(check.compared >= 50, 'the currency was established on enough rows to mean something', `${check.compared} rows`);
+      const offBy = Math.abs(check.medianPriceRatio - 1) * 100;
+      ok(offBy <= check.tolerancePct,
+        `the median implied/actual price ratio sits at 1 — the book really is ${meta.currency}`,
+        `median ${check.medianPriceRatio} is ${offBy.toFixed(1)}% off`);
+
+      // Counts with denominators, and an unresolved row that says why (§2.5, §2.4).
+      equal(meta.resolved + meta.unresolved.length, meta.indiaRows,
+        'resolved plus unresolved equals every India row in the book — none silently dropped');
+      const silent = meta.unresolved.filter((u) => !u.reason);
+      empty(silent, 'every unmatched FTSE holding states why it could not be placed', (u) => u.publishedName ?? u.ticker);
+
+      return `${rows.length} joined of ${meta.indiaRows} · median price ratio ${check.medianPriceRatio.toFixed(4)} `
+        + `across ${check.compared} rows · ${meta.unresolved.length} unresolved, all with reasons`;
+    },
+    sabotage: (c) => {
+      // Believe a house ticker on its own — the Sterlite/Savita mistake.
+      const victim = c.companies.find((x) => x.ftse);
+      victim.ftse.join = { ...victim.ftse.join, method: 'symbol-confirmed-by-price', priceCheck: 'failed' };
+    },
+  }, ctx);
+
   process.exit(suite.report([
     `Sources scanned: ${ctx.sources.length} .js/.mjs files under ${SCAN_ROOTS.join(', ')}`,
     `Record under test: ${ctx.companies.length} companies, built ${ctx.companiesFile.builtAt}`,

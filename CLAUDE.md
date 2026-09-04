@@ -1414,6 +1414,90 @@ block was a real comparison — so exactly the checks that fail on fresh data pa
 was green through the entire outage. A red daily refresh for two consecutive trading days is the only
 signal that a pipeline has stopped, and it is worth alerting on for that reason.
 
+### 2.35 FTSE is a SECOND OPINION, and it is wired so it cannot become an input
+
+The desk asked for FTSE's India book beside MSCI's, on the same rows and columns. It is there —
+Vanguard's FTSE Emerging Markets All Cap book, 651 India holdings, 16.173% of the fund — and it
+**feeds nothing**.
+
+That is not fastidiousness. Every verdict here is MSCI's question: MSCI's published geometry (§2.25)
+applied to cutoffs derived from the number of India names **the MSCI funds** show MSCI holding
+(§2.33). FTSE runs a different index, with different constituents, different size rules and a
+different review calendar. A FTSE holding folded into that arithmetic would move real verdicts on
+the strength of an index the model is not forecasting.
+
+So the wiring is deliberate and checkable:
+
+- the book lands in each company's own **`ftse`** field, and in **`funds`** never — `funds` is what
+  `segmentOf` and `assess` read;
+- **`held` still means held by an MSCI fund.** A company only FTSE holds is still a candidate, and
+  the screen still says `candidate` beside its FTSE chip;
+- `verify-data` 57 **sweeps** the book four ways — stripped, zeroed, inflated, and forced onto every
+  company — and asserts the verdict multiset does not move at any of them. Its sabotage is the
+  mistake a future author actually makes: adding FTSE to `funds` as a fourth fund.
+
+**Nothing sums or ranks across the two.** A FTSE weight is a percent of a different fund, so §3.5
+applies to it exactly as it applies between the MSCI funds: there is no arithmetic relating them,
+and every weight on screen, in the drill and in the export names its own fund.
+
+> ### ⚠ THE MONEY COLUMN IS CANADIAN DOLLARS AND THE WORKBOOK NEVER SAYS SO
+>
+> Every figure in Vanguard's export is printed with a bare `$`. The fund is Vanguard **Canada's**
+> product — the US one is named "FTSE Emerging Markets ETF", without "All Cap" — and its book is
+> struck in CAD. Read as USD, every rupee figure derived from it is **40.65% too large**: §3.8's
+> crore-for-rupee error in a different currency, and just as invisible.
+>
+> It was not inferred from the fund's name. It was **measured**, by taking each holding's implied
+> share price (`market value / shares`), converting it, and comparing against the close this project
+> already holds for that company on that day:
+>
+> | read as | median ratio | inside ±1% |
+> | --- | --- | --- |
+> | USD | 1.4065 (p1 1.4011, p99 1.4125) | **0 of 568** |
+> | CAD | 1.0031 (p1 0.9992, p99 1.0073) | **566 of 568** |
+>
+> 568 unrelated companies agreeing on one constant is what a currency error looks like, and the
+> constant was USD/CAD. `assertCurrency` re-runs that comparison on **every build** and refuses to
+> write, so a future workbook struck in USD fails loudly instead of inflating the book by two-fifths.
+> The rate is `CADINR=X`, fetched alongside `USDINR=X` so it inherits the timezone and duplicate-bar
+> guards a currency pair actually trips (§3.8.2) — and it is **never** derived from the workbook
+> itself, which would make the check read its threshold from the value under test (§3.8).
+
+> ### ⚠ VANGUARD PUBLISHES NO ISIN, SO THE PRICE IS THE ARBITER
+>
+> The workbook offers a house ticker and a name, and both lie in their own way. The ticker is not an
+> NSE symbol — `HDFCB` for HDFCBANK, `INFO` for INFY, `MM` for M&M — and worse, **Vanguard's codes
+> collide with real listings belonging to other companies**. Its `SOTL` is Sterlite Technologies;
+> `SOTL` on NSE is **Savita Oil Technologies**, a different listed company that a symbol-keyed
+> resolver matches perfectly happily. The name is usually right, sometimes truncated
+> (`Shaily Engineering Plastics Lt`), and sometimes absent entirely, replaced by a Bloomberg stub
+> (`New Issuer: BB Company ID:183206`) on 6 of the 651 rows.
+>
+> So nothing resolves on a proposal alone. `market value / shares` is a share price the workbook
+> never states and cannot fake; converted at the holdings-date rate it must equal our own close for
+> that company on that day — a figure from BSE, fetched by another script, for a date the workbook
+> fixed rather than we did. On the Sterlite collision the name reads **1.0047** and the ticker
+> **0.9299**, so the gate picks the right company on evidence rather than on a rule about which field
+> to trust. A symbol-only match without a passing price check is **refused**; a name match, being
+> unique-or-nothing, may stand where no close exists. `verify-data` 58 proves both.
+>
+> Measured: **638 of 651 resolved, 99.4% of the India weight**, zero ISIN collisions. The 13 left
+> over keep their weight and each states its reason (§2.3) — including `Gujarat Energy Ltd`, whose
+> only name match the price gate **rejected** at a ratio of 0.548.
+
+**And the book is the oldest input on the record, which is allowed to govern.** Vanguard publishes
+monthly, so it is struck weeks before the iShares workbooks and adding it moves the headline
+freshness claim *backwards*. That is the right direction: §2.10's rule is that the oldest input
+governs, and the failure it guards is claiming more currency than the record has. A feed exempted
+from that claim is how an overclaim creeps back in, one carve-out at a time. Every FTSE cell carries
+its own as-of, and the sources modal lists each feed separately, so nothing is hidden by being
+conservative.
+
+**One row of it is §2.20 arriving in somebody else's data.** Vanguard publishes Genus Prime Infra at
+`0.00%` on a live position of $1,771.94. Printing that as `0.000%` would say *not held*, which is the
+one thing it must never say — so the cell renders a below-precision marker and the market value
+carries the figure that survived the rounding.
+
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
 ### 3.1 The iShares `.xls` files are not `.xls` files
@@ -1424,6 +1508,13 @@ They are **SpreadsheetML 2003** — plain UTF-8 XML with CRLF line endings, open
 
 `scripts/lib/spreadsheetml.mjs` is the only place in the repo that knows the format. Do not add a
 parsing library; do not open them as binary.
+
+**And the Vanguard FTSE workbook is the opposite case — a REAL `.xlsx`.** It is OOXML: a ZIP of XML
+parts where a cell usually holds an index into a shared-string table rather than its own text.
+`scripts/lib/xlsx.mjs` reads that one, with no dependency (Node's `zlib` inflates it). **The two
+readers are not interchangeable and neither can read the other's files.** Pick by the actual format,
+never by the extension — the iShares files are named `.xls` and are not, and that is the whole point
+of this section.
 
 **The sparse-cell trap.** A `<Cell>` may carry `ss:Index="7"`, meaning it jumps to column 7 — the
 columns before it are absent from the XML entirely. A reader that pushes cells in document order
@@ -1930,11 +2021,15 @@ scripts/
   lib/bse.mjs                      BSE client + the ₹-crore string parser
   lib/resolve.mjs                  ticker → ISIN → NSE symbol + BSE scrip code
   lib/bhavcopy.mjs                 EOD CSV parse + shape and continuity tripwires
+  lib/xlsx.mjs                     OOXML .xlsx reader (ZIP + XML), zero dependencies
+  lib/yahoo.mjs                    one Yahoo daily-close reader, shared by both FX fetchers
+  lib/ftse-resolve.mjs             FTSE holdings → ISIN, arbitrated by an implied price; pure
   lib/munshot.mjs                  Munshot batch client + rawQuote parser, pure
   lib/recompute.mjs                free-float recompute, passive drift, flow primitives
   import-universe.mjs              Screener seed → public/data/universe.json
   fetch-fund-benchmarks.mjs        SMIN/EEMS/EEM + USDINR → public/data/fund-benchmarks.json
   import-ishares.mjs               3 workbooks → public/data/msci-funds.json
+  import-ftse.mjs                  Vanguard FTSE EM workbook → public/data/ftse-funds.json
   scrape-nse-freefloat.mjs         NSE pre-open → public/data/nse-freefloat.json
   scrape-nse-asm.mjs               NSE ASM report → public/data/nse-asm.json
   fetch-bse-master.mjs             BSE scrip master → public/data/bse-scrip-master.json
@@ -1951,13 +2046,14 @@ scripts/
                                    -> public/data/predictions-<review>.json
   build-rebalance.mjs              frozen forecast vs the outcome
                                    -> public/data/rebalance-<review>.json
-  verify-data.mjs                  56 data assertions; no browser, no network
-  verify-ui.mjs                    38 interface assertions; the served site
+  verify-data.mjs                  58 data assertions; no browser, no network
+  verify-ui.mjs                    39 interface assertions; the served site
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
   fixtures/ishares-{eem,smin,eems}.xls    the committed input workbooks
   fixtures/screener-universe.csv          the desk's >₹2,000 Cr seed list
+  fixtures/vanguard-ftse-em-allcap.xlsx   the FTSE EM holdings book (struck in CAD)
   fixtures/bhavcopy-spa-shell.html       BSE's SPA shell, served with HTTP 200
   fixtures/bhavcopy-sample-2026081{8,9}.csv  two real days, for continuity
   fixtures/munshot-rawquote-reliance.txt     one captured detail quote
@@ -1969,6 +2065,8 @@ public/
   data/universe.json               generated — the desk's tracked universe seed
   data/fund-benchmarks.json        generated — daily fund closes + FX, for the band adjustment
   data/msci-funds.json             generated — do not hand-edit
+  data/ftse-funds.json             generated — the FTSE second opinion; do not hand-edit
+  data/ftse-fx.json                generated — INR per CAD, for the FTSE book
   data/nse-freefloat.json          generated — do not hand-edit
   data/nse-asm.json                generated — NSE Additional Surveillance Measure list; do not hand-edit
   data/bse-scrip-master.json       generated — do not hand-edit
@@ -2024,6 +2122,7 @@ Refresh order — later scripts read what earlier ones write:
 
 ```bash
 node scripts/import-ishares.mjs        # workbooks; no network
+node scripts/import-ftse.mjs           # the Vanguard FTSE EM workbook; no network
 node scripts/import-universe.mjs       # the desk's >Rs2,000 Cr seed list; no network
 node scripts/fetch-bse-master.mjs      # 1 request, ~1.7 MB
 node scripts/fetch-nse-universe.mjs    # 2 requests, the ISIN bridge
@@ -2031,6 +2130,7 @@ node scripts/scrape-nse-freefloat.mjs  # 4 requests, ~250 symbols - THROTTLES, s
 node scripts/scrape-nse-asm.mjs        # 1 request, the NSE ASM list - THROTTLES like every NSE feed
 node scripts/scrape-bse-freefloat.mjs  # ~3,600 requests, ~12 min at concurrency 8
 node scripts/fetch-fund-benchmarks.mjs # 5 requests, 2y of daily closes + USDINR
+node scripts/fetch-ftse-fx.mjs         # 1 request, INR per CAD for the FTSE book
 node scripts/fetch-bhavcopy.mjs        # 1 request, the whole market's closes
 node scripts/fetch-quote-stats.mjs     # monthly ADV/splits; --concurrency 1 --gap-ms 1200
 node scripts/reconcile-shares.mjs      # share-count outliers -> quarantine list
@@ -2046,9 +2146,9 @@ node scripts/verify-data.mjs           # the data assertions; run before committ
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 56 assertions; no browser, no network
+node scripts/verify-data.mjs           # 58 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 38 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 39 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 

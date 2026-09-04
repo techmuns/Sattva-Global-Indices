@@ -54,7 +54,7 @@ npx wrangler dev                      # serves the same site plus POST /api/quot
 Two suites, 42 assertions, both exit non-zero on any failure.
 
 ```bash
-node scripts/verify-data.mjs                                      # 21 checks, no browser, no network
+node scripts/verify-data.mjs                                      # 58 checks, no browser, no network
 node scripts/verify-ui.mjs                                        # 21 checks vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs `npx wrangler dev`
 node scripts/verify-data.mjs --prove                              # break each check; it must go red
@@ -93,6 +93,7 @@ Full monthly order — later scripts read what earlier ones write:
 
 ```bash
 node scripts/import-ishares.mjs        # 3 workbooks, no network
+node scripts/import-ftse.mjs           # the Vanguard FTSE EM workbook; no network
 node scripts/fetch-bse-master.mjs      # 1 request, ~1.7 MB
 node scripts/fetch-nse-universe.mjs    # 2 requests, the ISIN bridge
 node scripts/scrape-nse-freefloat.mjs  # 3 requests, 261 symbols
