@@ -8,6 +8,7 @@
 import { $, $$, el, empty, escapeHtml, onIdle } from '../core/dom.js';
 import { getColumnPrefs, setColumnPrefs } from '../core/state.js';
 import { avatarFor } from './visual.js';
+import { count } from '../core/format.js';
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Focus management
@@ -613,6 +614,26 @@ export function scoreTable(config) {
         });
         continue;
       }
+      if (filter.multi) {
+        // A multi filter's value is an ARRAY of option values, and an empty
+        // array is not a filter — it is the absence of one. `[]` must therefore
+        // behave exactly like "Any", never like "none of them", which would
+        // empty the table and read as a finding about the companies (§2.4).
+        const chosen = Array.isArray(value) ? value : [value];
+        const options = chosen
+          .map((v) => filter.options.find((o) => o.value === v))
+          .filter(Boolean);
+        if (!options.length) continue;
+        // OR across the chosen options: ticking two verdicts asks for either,
+        // which is the only reading that makes sense — a row carries one
+        // verdict, so AND would always be empty.
+        resolved.push({
+          filter,
+          options,
+          match: (row) => options.some((o) => (o.match ? o.match(row) : false)),
+        });
+        continue;
+      }
       const option = filter.options.find((o) => o.value === value);
       if (!option) continue;
       resolved.push({ filter, option, match: option.match ?? null });
@@ -631,6 +652,13 @@ export function scoreTable(config) {
   function filterSummary() {
     return activeFilters()
       .map((entry) => {
+        if (entry.filter.multi) {
+          // Named, not counted alone: a sheet that said "3 selected" would not
+          // let a reader reconstruct which three (§2.7).
+          const names = entry.options.map((o) => o.pickedLabel ?? o.label).join(', ');
+          return `${entry.filter.label}: ${names} `
+            + `(${entry.options.length} of ${entry.filter.options.length} selected)`;
+        }
         if (entry.filter.kind !== 'range') {
           return entry.filter.describe
             ? entry.filter.describe(entry.option)
@@ -835,21 +863,147 @@ export function scoreTable(config) {
     );
   }
 
+
+  /** The values currently ticked on a multi filter, always an array. */
+  function chosenOf(filter) {
+    const value = view.filters[filter.id];
+    return Array.isArray(value) ? value : (value ? [value] : []);
+  }
+
+  /**
+   * The rows of a multi filter's panel.
+   *
+   * ⚠ A TICKED OPTION IS ALWAYS RENDERED, EVEN WHEN IT DOES NOT MATCH THE QUERY.
+   *
+   * The company picker holds 1,265 options and its list is narrowed by typing.
+   * Rendering only the matches would hide what the reader has already chosen the
+   * moment they typed something else — and a filter you cannot see is one you
+   * cannot undo. Ticked options are therefore pinned to the top, whatever the
+   * query says.
+   *
+   * ⚠ AND THE LIST IS CAPPED WITH ITS DENOMINATOR STATED (§2.5). Painting 1,265
+   * labels on every keystroke is slow, but a list silently truncated to 200
+   * reads as "these are the companies", so the count says how many matched and
+   * how many are shown.
+   */
+  const MULTI_RENDER_CAP = 200;
+
+  function multiListHtml(filter, query) {
+    const chosen = chosenOf(filter);
+    const chosenSet = new Set(chosen);
+    const q = (query ?? '').trim().toLowerCase();
+    const matches = q
+      ? filter.options.filter((o) => (o.search ?? o.label).toLowerCase().includes(q))
+      : filter.options;
+    const pinned = filter.options.filter((o) => chosenSet.has(o.value));
+    const rest = matches.filter((o) => !chosenSet.has(o.value));
+    const shown = [...pinned, ...rest.slice(0, MULTI_RENDER_CAP)];
+
+    const row = (option) => {
+      const on = chosenSet.has(option.value);
+      return (
+        '<label class="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50">' +
+        `<input type="checkbox" data-multi-option value="${escapeHtml(option.value)}"${on ? ' checked' : ''} ` +
+        'class="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">' +
+        `<span class="min-w-0 flex-1">${escapeHtml(option.label)}` +
+        (option.sub ? `<span class="block truncate text-[10px] text-slate-400">${escapeHtml(option.sub)}</span>` : '') +
+        '</span></label>'
+      );
+    };
+
+    if (!shown.length) {
+      // Nothing MATCHED is a different sentence from nothing EXISTS, and the
+      // reader typed the thing that produced it, so quote it back.
+      return '<p class="px-2 py-3 text-[11px] leading-relaxed text-slate-500" data-multi-empty>'
+        + `Nothing in this list matches ${q ? `“${escapeHtml(query)}”` : 'the current text'}. `
+        + `All ${count(filter.options.length)} remain selectable — clear the box to see them.</p>`;
+    }
+    const hidden = rest.length - Math.min(rest.length, MULTI_RENDER_CAP);
+    return shown.map(row).join('')
+      + (hidden > 0
+        ? `<p class="px-2 pt-1.5 text-[10px] text-slate-400" data-multi-more>Showing ${count(shown.length)} of `
+          + `${count(matches.length)} matches — keep typing to narrow the rest.</p>`
+        : '');
+  }
+
+  /** The words on a multi filter's trigger: what is in force, never a bare number. */
+  function multiTriggerLabel(filter) {
+    const chosen = chosenOf(filter);
+    if (!chosen.length) return filter.allLabel ?? `All ${filter.label.toLowerCase()}`;
+    if (chosen.length === 1) {
+      const option = filter.options.find((o) => o.value === chosen[0]);
+      return option ? (option.pickedLabel ?? option.label) : filter.allLabel;
+    }
+    return `${count(chosen.length)} of ${count(filter.options.length)} selected`;
+  }
+
+  function multiPanelHtml(filter) {
+    return (
+      `<div data-multi-panel hidden role="group" aria-label="${escapeHtml(filter.label)} options" ` +
+      'class="absolute left-0 z-30 mt-1 w-72 rounded-xl bg-white p-1.5 shadow-lg ring-1 ring-slate-200">' +
+        (filter.panelSearch
+          ? '<input data-multi-search type="search" autocomplete="off" spellcheck="false" ' +
+            `placeholder="${escapeHtml(filter.panelSearch)}" aria-label="${escapeHtml(filter.panelSearch)}" ` +
+            'class="mb-1 w-full rounded-lg border-0 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-800 ' +
+            'ring-1 ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">'
+          : '') +
+        `<div data-multi-list class="max-h-64 overflow-y-auto">${multiListHtml(filter, '')}</div>` +
+        '<div class="mt-1 flex items-center justify-between border-t border-slate-100 px-2 pt-1.5">' +
+          `<span data-multi-count class="text-[10px] tabular-nums text-slate-400"></span>` +
+          '<button type="button" data-multi-clear class="rounded text-[10px] font-semibold text-indigo-600 ' +
+          'hover:text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">Clear</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function multiControlHtml(filter) {
+    return (
+      '<label class="flex items-center gap-2 text-[11px] font-semibold text-slate-500">' +
+        `<span class="whitespace-nowrap">${escapeHtml(filter.label)}</span>` +
+        `<span class="relative" data-multi="${escapeHtml(filter.id)}">` +
+          '<button type="button" data-multi-toggle aria-haspopup="true" aria-expanded="false" ' +
+          `${filter.note ? `title="${escapeHtml(filter.note)}" ` : ''}` +
+          'class="inline-flex items-center gap-1.5 rounded-xl border-0 bg-white py-2 pl-2.5 pr-2 text-xs ' +
+          'font-medium text-slate-800 shadow-sm ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">' +
+          `<span data-multi-label>${escapeHtml(multiTriggerLabel(filter))}</span>` +
+          '<svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
+          '<path d="m5 8 5 5 5-5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+          multiPanelHtml(filter) +
+        '</span></label>'
+    );
+  }
+
   function toolbarHtml() {
     const parts = [];
+    const picker = filters.find((f) => f.multi && f.anchor === 'search');
     if (searchable) {
       parts.push(
-        '<div class="relative min-w-[200px] flex-1 sm:max-w-xs">' +
+        '<div class="relative min-w-[200px] flex-1 sm:max-w-xs"' +
+          (picker ? ` data-multi="${escapeHtml(picker.id)}"` : '') + '>' +
           '<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true">' +
           '<svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4" stroke-linecap="round"/></svg></span>' +
           `<input data-search type="search" value="${escapeHtml(view.q)}" placeholder="${escapeHtml(searchPlaceholder)}" aria-label="${escapeHtml(searchPlaceholder)}" ` +
-          'class="w-full rounded-xl border-0 bg-white py-2 pl-9 pr-3 text-sm shadow-sm ring-1 ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"></div>',
+          (picker ? 'data-multi-toggle role="combobox" aria-expanded="false" aria-haspopup="listbox" autocomplete="off" ' : '') +
+          'class="w-full rounded-xl border-0 bg-white py-2 pl-9 pr-3 text-sm shadow-sm ring-1 ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">' +
+          // The picker's own panel hangs off the search box, so typing narrows
+          // the list a reader ticks from — which is what "make the search box a
+          // dropdown" means. The input keeps its own job as well: text still
+          // filters the table, and the two are ANDed.
+          (picker ? multiPanelHtml(picker) : '') +
+          '</div>',
       );
     }
 
     for (const filter of filters) {
       if (filter.kind === 'range') {
         parts.push(rangeControlHtml(filter));
+        continue;
+      }
+      if (filter.multi) {
+        // The picker anchored to the search box renders THERE, not here — see
+        // the search block above.
+        if (filter.anchor !== 'search') parts.push(multiControlHtml(filter));
         continue;
       }
       const options = [
@@ -883,6 +1037,19 @@ export function scoreTable(config) {
           : '') +
         '</div>',
     );
+
+    // WHAT IS PINNED IS SHOWN, not left inside a closed dropdown — for every
+    // multi filter, not just the picker. A trigger reading "5 of 8 selected" is
+    // a count without its members, and a filter a reader cannot see is one they
+    // cannot undo. The chips name them, on their own row so they never break
+    // the toolbar's layout.
+    for (const filter of filters) {
+      if (!filter.multi) continue;
+      parts.push(
+        `<div data-multi-chips="${escapeHtml(filter.id)}" hidden ` +
+        'class="flex w-full flex-wrap items-center gap-1.5"></div>',
+      );
+    }
 
     const notes = filters.filter((f) => f.note).map((f) => f.note);
     return (
@@ -1870,6 +2037,167 @@ export function scoreTable(config) {
         }, 120);
       });
     }
+
+    /* ── multi-select filters ────────────────────────────────────────────────
+     *
+     * One mechanism for two controls: the Verdict filter, whose options are a
+     * short fixed vocabulary, and the company picker, whose 1,265 options hang
+     * off the search box so typing narrows the list you tick from.
+     *
+     * ⚠ TICKING SOMETHING CLEARS THE TEXT, and that is deliberate. The typed
+     * query and the ticked set are BOTH filters and both apply, so leaving
+     * "hdfc" in the box after ticking ICICI would show nothing at all — a true
+     * answer to a question nobody asked. The text has done its job once the
+     * company is pinned, so it gets out of the way. The chips below the box
+     * then show what is in force, because a filter a reader cannot see is one
+     * they cannot undo.
+     */
+    const multiFilters = filters.filter((f) => f.multi);
+
+    function chipsHtml(filter) {
+      const chosen = chosenOf(filter);
+      if (!chosen.length) return '';
+      const label = (value) => {
+        const option = filter.options.find((o) => o.value === value);
+        return option ? (option.pickedLabel ?? option.label) : value;
+      };
+      return (
+        `<span class="text-[11px] font-semibold text-slate-500">${escapeHtml(filter.label)}:</span>` +
+        chosen.map((value) =>
+          '<span class="inline-flex items-center gap-1 rounded-lg bg-indigo-50 py-0.5 pl-2 pr-1 text-[11px] font-medium text-indigo-800 ring-1 ring-indigo-200">' +
+          `${escapeHtml(label(value))}` +
+          `<button type="button" data-multi-remove="${escapeHtml(value)}" aria-label="${escapeHtml(`Remove ${label(value)}`)}" ` +
+          'class="rounded text-indigo-400 transition hover:text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">' +
+          '<svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
+          '<path d="m5 5 10 10M15 5 5 15" stroke-linecap="round"/></svg></button></span>').join('') +
+        '<button type="button" data-multi-clear class="rounded text-[11px] font-semibold text-indigo-600 ' +
+        'hover:text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">Clear all</button>'
+      );
+    }
+
+    /** Repaint a multi filter's own chrome — never the table. */
+    function syncMulti(filter) {
+      const wrap = $(`[data-multi="${filter.id}"]`, root);
+      if (!wrap) return;
+      const chosen = chosenOf(filter);
+      const label = $('[data-multi-label]', wrap);
+      if (label) label.textContent = multiTriggerLabel(filter);
+      const countEl = $('[data-multi-count]', wrap);
+      if (countEl) {
+        countEl.textContent = `${count(chosen.length)} of ${count(filter.options.length)} selected`;
+      }
+      const chips = $(`[data-multi-chips="${filter.id}"]`, root);
+      if (chips) {
+        chips.innerHTML = chipsHtml(filter);
+        chips.hidden = chosen.length === 0;
+      }
+    }
+
+    function multiQuery(filter, wrap) {
+      const inner = $('[data-multi-search]', wrap);
+      if (inner) return inner.value;
+      return filter.anchor === 'search' && search ? search.value : '';
+    }
+
+    function redrawList(filter, wrap) {
+      const list = $('[data-multi-list]', wrap);
+      if (list) list.innerHTML = multiListHtml(filter, multiQuery(filter, wrap));
+    }
+
+    function openMulti(wrap, open) {
+      const panel = $('[data-multi-panel]', wrap);
+      if (!panel) return;
+      panel.hidden = !open;
+      const toggle = $('[data-multi-toggle]', wrap);
+      if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function closeAllMulti(except) {
+      for (const filter of multiFilters) {
+        const wrap = $(`[data-multi="${filter.id}"]`, root);
+        if (wrap && wrap !== except) openMulti(wrap, false);
+      }
+    }
+
+    function applyMulti(filter, chosen) {
+      view.filters[filter.id] = chosen;
+      syncMulti(filter);
+      config.onViewChange?.(view);
+      repaint({ resetScroll: true });
+    }
+
+    for (const filter of multiFilters) {
+      const wrap = $(`[data-multi="${filter.id}"]`, root);
+      if (!wrap) continue;
+      syncMulti(filter);
+
+      // The search box doubles as this picker's trigger, so focusing or typing
+      // in it opens the list.
+      if (filter.anchor === 'search' && search) {
+        search.addEventListener('focus', () => { closeAllMulti(wrap); openMulti(wrap, true); });
+        search.addEventListener('input', () => { openMulti(wrap, true); redrawList(filter, wrap); });
+      }
+
+      wrap.addEventListener('click', (event) => {
+        const toggle = event.target.closest('[data-multi-toggle]');
+        if (toggle && toggle.tagName === 'BUTTON') {
+          const open = $('[data-multi-panel]', wrap)?.hidden;
+          closeAllMulti(wrap);
+          openMulti(wrap, open);
+          if (open) redrawList(filter, wrap);
+          return;
+        }
+        if (event.target.closest('[data-multi-clear]')) {
+          applyMulti(filter, []);
+          redrawList(filter, wrap);
+        }
+      });
+
+      wrap.addEventListener('input', (event) => {
+        if (event.target.closest('[data-multi-search]')) redrawList(filter, wrap);
+      });
+
+      wrap.addEventListener('change', (event) => {
+        const box = event.target.closest('[data-multi-option]');
+        if (!box) return;
+        const chosen = chosenOf(filter).filter((v) => v !== box.value);
+        if (box.checked) chosen.push(box.value);
+        // See the header note: the text has done its job, so it stops competing
+        // with the pin it just produced.
+        if (box.checked && filter.anchor === 'search' && search && search.value) {
+          search.value = '';
+          view.q = '';
+        }
+        // ⚠ THE LIST IS NOT REDRAWN HERE, AND THAT IS THE POINT. Ticked options
+        // are pinned to the top of the panel, so re-rendering on every tick
+        // would reorder the list under the reader's cursor — the next click
+        // lands on a different company from the one they aimed at. The checkbox
+        // already shows its own new state; the pinning is for the next query.
+        applyMulti(filter, chosen);
+      });
+    }
+
+    // Chips live outside the wrap, so their removal is handled on the root.
+    root.addEventListener('click', (event) => {
+      const remove = event.target.closest('[data-multi-remove]');
+      const clearAll = event.target.closest('[data-multi-chips] [data-multi-clear]');
+      const host = (remove ?? clearAll)?.closest('[data-multi-chips]');
+      if (!host) return;
+      const filter = multiFilters.find((f) => f.id === host.dataset.multiChips);
+      if (!filter) return;
+      const chosen = remove ? chosenOf(filter).filter((v) => v !== remove.dataset.multiRemove) : [];
+      applyMulti(filter, chosen);
+      const wrap = $(`[data-multi="${filter.id}"]`, root);
+      if (wrap) redrawList(filter, wrap);
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!root.contains(event.target)) { closeAllMulti(); return; }
+      if (!event.target.closest('[data-multi]')) closeAllMulti();
+    });
+    root.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeAllMulti();
+    });
 
     const toolbar = $('[data-toolbar]', root);
 

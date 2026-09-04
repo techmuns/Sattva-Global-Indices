@@ -1498,6 +1498,51 @@ conservative.
 one thing it must never say — so the cell renders a below-precision marker and the market value
 carries the figure that survived the rounding.
 
+### 2.36 A filter that picks NOTHING means everything, and one you cannot see is one you cannot undo
+
+The Verdict filter takes several verdicts at once, and the search box doubles as a
+company picker that pins a basket of specific companies. Both are multi-select, both
+run through one mechanism in `ui/screener.js`, and both carry the same three rules.
+
+**An empty pick is ALL, never NONE.** `view.filters[id]` for a multi filter is an
+array, and `[]` must behave exactly like "Any" — it is the *absence* of a filter, not
+a filter matching nothing. Get that backwards and the table empties, which reads as a
+finding about the companies rather than as a control nobody has touched (§2.4).
+`verify-ui` 59 asserts it in both directions: clearing every tick restores the whole
+record, on the verdict filter and on the picker.
+
+**Several picks read as EITHER, not BOTH.** A row carries one verdict, so ANDing two
+would always be empty — a true answer to a question nobody asked. The check asserts the
+union exactly: ticking two verdicts matches `a + b` rows, not zero and not `a`.
+
+**What is pinned is shown.** A trigger reading "5 of 8 selected" is a count without its
+members, so every multi filter renders its picks as named chips below the toolbar, each
+with its own remove button. The same names travel into `filterSummary()` and so into
+row 1 of any export (§2.7) — with their denominator, `(2 of 8 selected)`.
+
+> ### ⚠ THE TYPED TEXT AND THE PINNED BASKET ARE BOTH FILTERS, SO ONE GETS OUT OF THE WAY
+>
+> The search box still filters the table on what you type — that did not change, and
+> `?q=` still works. The picker hangs off the same box, so typing narrows the list you
+> tick from. Both are ANDed, which means leaving `hdfc` in the box after pinning ICICI
+> would show **nothing at all**: a correct answer to a question nobody asked.
+>
+> So ticking a company **clears the text**. The text has done its job once the company
+> is pinned, and the chips below the box then carry the state. That is the whole rule —
+> no mode switch, nothing invisible, and the two filters can never fight.
+
+> ### ⚠ A TICKED OPTION IS RENDERED WHATEVER THE QUERY SAYS
+>
+> The picker holds 1,265 options and narrows them by typing, so the list is capped at
+> 200 with its denominator stated. Two things fall out of that and both are load-bearing:
+>
+> - **Ticked options are pinned to the top and always rendered**, even when the current
+>   query does not match them. Otherwise typing something else hides what you already
+>   chose, and a filter you cannot see is one you cannot undo.
+> - **The list is NOT redrawn while you tick.** Pinning reorders it, so redrawing on
+>   every change moves the rows under the cursor and the next click lands on a different
+>   company from the one aimed at. It is redrawn when the *query* changes, never on a tick.
+
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
 ### 3.1 The iShares `.xls` files are not `.xls` files
@@ -2048,7 +2093,7 @@ scripts/
   build-rebalance.mjs              frozen forecast vs the outcome
                                    -> public/data/rebalance-<review>.json
   verify-data.mjs                  60 data assertions; no browser, no network
-  verify-ui.mjs                    39 interface assertions; the served site
+  verify-ui.mjs                    40 interface assertions; the served site
   check-nse-asm.mjs                what moved on NSE's ASM list, and the freshness guarantee
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
@@ -2152,7 +2197,7 @@ node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
 node scripts/verify-data.mjs           # 60 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 39 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 40 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 
