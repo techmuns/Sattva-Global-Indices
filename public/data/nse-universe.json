@@ -1,7 +1,7 @@
 {
   "source": "niftyindices.com index constituent CSVs",
   "note": "The authoritative NSE symbol <-> ISIN mapping for this project. BSE scrip_id is never used as a substitute, however often the two agree.",
-  "capturedAt": "2026-08-29T10:51:33.324Z",
+  "capturedAt": "2026-09-04T17:41:26.992Z",
   "sources": [
     {
       "key": "nifty500",
@@ -3511,7 +3511,7 @@
       "isin": "INE560A01023",
       "name": "India Glycols Ltd.",
       "industry": "Fast Moving Consumer Goods",
-      "series": "EQ",
+      "series": "BE",
       "sources": [
         "niftytotalmarket"
       ]
