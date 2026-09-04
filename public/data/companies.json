@@ -1,7 +1,7 @@
 {
   "source": "iShares holdings + NSE pre-open free float + BSE free float + niftyindices ISIN map",
   "note": "floatFactor is dimensionless and price-independent. NSE wins wherever it publishes a reading because MSCI follows NSE; BSE fills gaps only. The two are never averaged, and where both exist both are kept so the disagreement stays inspectable. Every monetary field is RUPEES. A null in funds{} means NOT HELD by that fund — it is not a zero weight.",
-  "builtAt": "2026-09-03T19:40:38.508Z",
+  "builtAt": "2026-09-04T02:02:49.377Z",
   "holdingsAsOfByFund": {
     "eem": "2026-08-31",
     "smin": "2026-08-31",
@@ -306,7 +306,7 @@
         "detail": "A benchmark whose basket is mostly not India cannot be differenced against an Indian company: the answer would be a currency and country move, not an outperformance."
       }
     },
-    "priceHistoryCapturedAt": "2026-09-03T19:40:31.963Z",
+    "priceHistoryCapturedAt": "2026-09-03T20:49:57.929Z",
     "actionsCapturedAt": "2026-09-03T19:39:54.842Z"
   },
   "sinceRebalance": {
@@ -457,7 +457,7 @@
     },
     "doesNotMoveVerdict": "This reading is evidence beside a verdict and never an input to one. A verdict turns on a rank by free-float market cap, and free float is float factor x shares x price — so today's rank already contains this reading's price move. Letting it move the verdict would count the same evidence twice.",
     "noTradeImplied": "A rising weight forces no trade. An index fund holds each member in proportion to its weight, so a price move changes both by the same proportion. Only a review forces a trade, which is why this carries a direction and never a rupee figure.",
-    "priceHistoryCapturedAt": "2026-09-03T19:40:31.963Z",
+    "priceHistoryCapturedAt": "2026-09-03T20:49:57.929Z",
     "actionsCapturedAt": "2026-09-03T19:39:54.842Z"
   },
   "prices": {
