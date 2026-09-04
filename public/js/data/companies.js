@@ -12,7 +12,7 @@
  */
 
 import { parseFeedDate } from '../core/format.js';
-import { FTSE_BOOK } from '../config/thresholds.mjs';
+import { ASM_REFRESH, FTSE_BOOK } from '../config/thresholds.mjs';
 
 let payload = null;
 let byIsinIndex = null;
@@ -319,8 +319,13 @@ export function feedRegistry(asOf = {}) {
       // throttles a datacentre IP unpredictably (§3.7). Past about a fortnight a
       // surveillance stage on screen may name a stock that has since moved off
       // the list — a stale flag is worth surfacing.
-      cadence: 'attempted every trading day, guaranteed weekly',
-      staleAfterDays: 12,
+      //
+      // Both of these come from ASM_REFRESH so the age at which this strip calls
+      // the feed stale is the same number the fortnightly job fails at. Typed
+      // here, the two could drift and the screen would say "stale" while every
+      // workflow still reported success.
+      cadence: ASM_REFRESH.cadenceLabel,
+      staleAfterDays: ASM_REFRESH.staleAfterDays,
     },
     {
       id: 'ftse',
