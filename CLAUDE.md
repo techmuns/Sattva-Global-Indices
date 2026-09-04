@@ -1930,6 +1930,7 @@ scripts/
   lib/bse.mjs                      BSE client + the ₹-crore string parser
   lib/resolve.mjs                  ticker → ISIN → NSE symbol + BSE scrip code
   lib/bhavcopy.mjs                 EOD CSV parse + shape and continuity tripwires
+  lib/asm-diff.mjs                 ASM snapshot diff, keyed on ISIN; pure, writes nothing
   lib/munshot.mjs                  Munshot batch client + rawQuote parser, pure
   lib/recompute.mjs                free-float recompute, passive drift, flow primitives
   import-universe.mjs              Screener seed → public/data/universe.json
@@ -1951,8 +1952,9 @@ scripts/
                                    -> public/data/predictions-<review>.json
   build-rebalance.mjs              frozen forecast vs the outcome
                                    -> public/data/rebalance-<review>.json
-  verify-data.mjs                  56 data assertions; no browser, no network
+  verify-data.mjs                  58 data assertions; no browser, no network
   verify-ui.mjs                    38 interface assertions; the served site
+  check-nse-asm.mjs                what moved on NSE's ASM list, and the freshness guarantee
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
   probe-chunk-size.mjs             largest safe upstream batch; reports only
@@ -2007,6 +2009,8 @@ wrangler.jsonc                     Worker config; npx-only, no node_modules here
 .github/workflows/
   daily-refresh.yml                weekdays 20:00 IST — EVERY source → verify → commit
   weekly-nse-crosscheck.yml        Saturdays 09:30 IST — NSE with 3 patient retries
+  asm-refresh.yml                  1st & 16th 09:30 IST — the ASM list, what MOVED on it,
+                                   and the only job that FAILS when it goes stale
   monthly-float.yml                1st of month — Munshot ADV/splits only
   verify.yml                       every push — both suites, both modes
 ```
@@ -2046,7 +2050,7 @@ node scripts/verify-data.mjs           # the data assertions; run before committ
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 56 assertions; no browser, no network
+node scripts/verify-data.mjs           # 58 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
 node scripts/verify-ui.mjs             # 38 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev

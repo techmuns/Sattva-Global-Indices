@@ -201,7 +201,7 @@ report is the complete list in one call (no pagination).
 | **Upstream source** | `https://www.nseindia.com/api/reportASM` |
 | **Transport** | **curl, not `fetch`** — the same Akamai fingerprinting that blocks `fetch` on the pre-open endpoint applies here (§3.7). |
 | **Tier** | 1 — NSE's own figures, carried through unchanged. |
-| **Cadence** | Attempted every trading day, allowed to fail; guaranteed weekly. |
+| **Cadence** | Attempted every trading day and again on Saturdays — **both soft**, because NSE throttles a datacentre IP and an ASM refusal must not stop the float pipeline. **Guaranteed fortnightly** by `.github/workflows/asm-refresh.yml` (1st and 16th), which is the only job that fails when the list goes stale. |
 | **Failure mode** | A blocked read goes to `failed[]`; the last good snapshot is kept, never overwritten with an outage. Exits non-zero on a total, partial, or halving read unless `--allow-shrink`. |
 
 ### Top level
@@ -236,6 +236,31 @@ surveillance** — a checked negative. A company whose stage cannot be establish
 feed did not load is **unknown**. The `companies.json` top-level `asm.available` flag is the only
 thing that tells those two apart, and every surface consults it before rendering a `null` as "clear"
 (§2.4).
+
+### Keeping it fresh, and saying what moved
+
+Until 3 Sep 2026 this row read "guaranteed weekly" and **nothing enforced it**: the daily and weekly
+ASM steps are both `continue-on-error`, so the feed could freeze for a month with every workflow
+still green. `asm-refresh.yml` is that guarantee, and it is deliberately narrow:
+
+- It **fails on staleness, not on a throttle.** A refused scrape falls through to a freshness test
+  against the committed `capturedAt`; the job fails only when the list is older than
+  `ASM_REFRESH.staleAfterDays` (12 days). Hard-failing on any refusal would cry wolf, because the
+  daily job may have read the list successfully yesterday — and a guard waived every fortnight is a
+  guard nobody reads.
+- The window is checked against **`capturedAt`, never `asOf`**. `asOf` is NSE's effective date, and
+  NSE can leave a list effective for weeks; it would call a month-old read fresh.
+- A `capturedAt` in the **future** fails too. That is a clock or a write fault, not freshness.
+- **A run that could not look never reports "nothing changed"** (§2.4). The change report runs only
+  when the scrape actually succeeded; against an unchanged file a diff would print zero changes,
+  which is true about the file and a lie about NSE.
+
+`scripts/check-nse-asm.mjs` produces both halves and writes nothing. The diff itself is
+`scripts/lib/asm-diff.mjs`, pure and **keyed on ISIN** — §2.32 measured a ticker-keyed diff turning
+one respelled symbol into a fabricated entry *and* exit, so a symbol change on a stable ISIN is
+reported as a **respelling** and never counted as an ASM event. `verify-data` 59 proves that, with a
+positive control so a differ that found nothing could not pass it; `verify-data` 60 proves the
+workflow's cron and the interface's staleness marker come from the one `ASM_REFRESH` block.
 
 ---
 

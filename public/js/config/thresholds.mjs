@@ -632,3 +632,51 @@ export const ASM_FLOW_CONSTRAINT = {
     "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI "
     + 'publishes no ASM carve-out from rebalancing.',
 };
+
+/**
+ * How often NSE's surveillance list must be re-read, and when that becomes an
+ * alarm rather than a note.
+ *
+ * ⚠ THIS IS THE FIRST ENFORCED GUARANTEE THE ASM FEED HAS HAD.
+ *
+ * ASM is attempted every trading day by `daily-refresh.yml` and again by
+ * `weekly-nse-crosscheck.yml`, and BOTH of those steps are `continue-on-error`
+ * — deliberately, because NSE's edge refuses a datacentre IP unpredictably
+ * (§3.7) and an ASM throttle must not take down the float pipeline behind it.
+ * The consequence is that nothing failed when the list went stale: the feed
+ * could quietly freeze for a month and every run would still be green, while
+ * the screen kept showing surveillance stages that had moved on.
+ *
+ * `asm-refresh.yml` is the backstop that closes it, and these are its numbers.
+ *
+ * `staleAfterDays` is ONE value with TWO readers, which is the point of it
+ * living here: the dashboard's freshness strip marks the ASM feed stale at this
+ * age, and the fortnightly job fails at the same age. A guarantee looser than
+ * the staleness marker it is supposed to defend would let the screen tell a
+ * reader the data is stale while every job still reported success.
+ */
+export const ASM_REFRESH = {
+  // Past about a fortnight a surveillance stage on screen may name a stock that
+  // has since come off NSE's list. 12 days keeps the marker inside that window
+  // while leaving room for a long weekend of throttling.
+  staleAfterDays: 12,
+
+  // ⚠ Cron cannot express "every 15 days" and must not be written as though it
+  // can. `0 4 1,16 * *` fires on the 1st and the 16th, which is a 15-day gap
+  // from the 1st to the 16th and a 13-to-16-day gap from the 16th to the next
+  // 1st. Fortnightly is what it is; "every 15 days" is what it is near.
+  cron: '0 4 1,16 * *',
+  scheduleNote:
+    'The 1st and 16th of each month at 04:00 UTC (09:30 IST) — the desk asked for roughly every 15 '
+    + 'days, and this is the closest a cron schedule gets: exactly 15 days from the 1st to the 16th, '
+    + '13 to 16 days from the 16th to the next 1st.',
+
+  // The label the freshness strip shows. It says "guaranteed fortnightly"
+  // because a job now fails when it is not; before this it said "guaranteed
+  // weekly" and nothing enforced that at all.
+  cadenceLabel: 'attempted every trading day, guaranteed fortnightly',
+
+  attribution:
+    "the desk's operational assumption. NSE publishes no refresh cadence for the ASM report and no "
+    + 'undertaking about how often the list changes; this is how often we have chosen to look.',
+};
