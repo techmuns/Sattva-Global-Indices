@@ -1,7 +1,7 @@
 {
   "source": "NSE pre-open market API — nseindia.com/api/market-data-pre-open",
   "note": "Free-float market cap as published by NSE. NOT computed from promoter holding. Struck at the pre-open indicative equilibrium price (09:00–09:08 IST), not at the close.",
-  "capturedAt": "2026-09-04T17:41:31.620Z",
+  "capturedAt": "2026-09-05T08:07:48.527Z",
   "sessionTimestamp": "04-Sep-2026 09:07:52",
   "keysRead": [
     {
@@ -919,10 +919,10 @@
     },
     {
       "symbol": "ETERNAL",
-      "freeFloatMcapInr": 2341581972067.16,
+      "freeFloatMcapInr": 2345186624117.76,
       "iep": 325.3,
       "previousClose": 324.8,
-      "impliedFreeFloatShares": 7198223093,
+      "impliedFreeFloatShares": 7209304101,
       "sourceKey": "NIFTY",
       "sessionTimestamp": "04-Sep-2026 09:07:52",
       "carriedForward": false

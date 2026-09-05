@@ -1,7 +1,7 @@
 {
   "source": "iShares holdings + NSE pre-open free float + BSE free float + niftyindices ISIN map",
   "note": "floatFactor is dimensionless and price-independent. NSE wins wherever it publishes a reading because MSCI follows NSE; BSE fills gaps only. The two are never averaged, and where both exist both are kept so the disagreement stays inspectable. Every monetary field is RUPEES. A null in funds{} means NOT HELD by that fund — it is not a zero weight.",
-  "builtAt": "2026-09-04T17:59:36.715Z",
+  "builtAt": "2026-09-05T08:08:09.375Z",
   "holdingsAsOfByFund": {
     "eem": "2026-08-31",
     "smin": "2026-08-31",
@@ -16,7 +16,7 @@
     "quoteStatsCapturedAt": "2026-08-19T14:10:29.769Z",
     "benchmarksAsOf": "2026-09-04",
     "bseScripMasterCapturedAt": "2026-09-04T17:41:25.865Z",
-    "nseUniverseCapturedAt": "2026-09-04T17:41:26.992Z",
+    "nseUniverseCapturedAt": "2026-09-05T08:07:04.111Z",
     "asmAsOf": "04-Sep-2026"
   },
   "thresholds": {
@@ -633,7 +633,7 @@
     "publisher": "National Stock Exchange of India",
     "endpoint": "https://www.nseindia.com/api/reportASM",
     "note": "NSE's published surveillance stage, carried through unchanged (tier 1) and joined to the universe by ISIN. dhan.co/nse-asm-list mirrors this same NSE feed. A company not on the list is NOT under ASM; a null stage when the feed is unavailable means we could not check.",
-    "capturedAt": "2026-09-04T17:41:31.980Z",
+    "capturedAt": "2026-09-05T08:08:09.033Z",
     "asOf": "04-Sep-2026",
     "totalFlagged": 233,
     "flaggedInUniverse": 99,
@@ -6386,13 +6386,13 @@
       "floatChoice": {
         "rule": "bse-primary",
         "chose": "bse",
-        "gapPct": -0.454,
+        "gapPct": -0.301,
         "thresholdPct": 2,
-        "why": "both exchanges publish and they differ by 0.454%, within the desk's 2% switch point, so BSE stands"
+        "why": "both exchanges publish and they differ by 0.301%, within the desk's 2% switch point, so BSE stands"
       },
-      "floatFactorNse": 0.745903,
+      "floatFactorNse": 0.747051,
       "floatFactorBse": 0.749304,
-      "floatGapPct": -0.454,
+      "floatGapPct": -0.301,
       "freeFloatMcapInr": 2335627998945,
       "freeFloatBasis": "floatFactor × sharesOutstanding × price",
       "freeFloatMcapAtCaptureInr": 2335627998943,

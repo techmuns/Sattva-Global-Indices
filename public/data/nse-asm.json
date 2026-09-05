@@ -1,7 +1,7 @@
 {
   "source": "NSE Additional Surveillance Measure (ASM) report — nseindia.com/api/reportASM",
   "note": "NSE's published list of securities under Additional Surveillance Measure (ASM), with the surveillance stage for each, carried through unchanged (tier 1). Joined to the universe by ISIN. dhan.co/nse-asm-list mirrors this same NSE feed.",
-  "capturedAt": "2026-09-04T17:41:31.980Z",
+  "capturedAt": "2026-09-05T08:08:09.033Z",
   "asOf": "04-Sep-2026",
   "endpoint": "https://www.nseindia.com/api/reportASM",
   "totalFlagged": 233,
