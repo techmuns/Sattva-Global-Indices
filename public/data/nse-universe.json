@@ -1,7 +1,7 @@
 {
   "source": "niftyindices.com index constituent CSVs",
   "note": "The authoritative NSE symbol <-> ISIN mapping for this project. BSE scrip_id is never used as a substitute, however often the two agree.",
-  "capturedAt": "2026-09-05T08:07:04.111Z",
+  "capturedAt": "2026-09-08T17:59:08.950Z",
   "sources": [
     {
       "key": "nifty500",
@@ -3098,9 +3098,9 @@
     {
       "symbol": "HEG",
       "isin": "INE545A01024",
-      "name": "H.E.G. Ltd.",
+      "name": "HEG Ltd.",
       "industry": "Capital Goods",
-      "series": "EQ",
+      "series": "BE",
       "sources": [
         "nifty500",
         "niftytotalmarket"
@@ -3153,7 +3153,7 @@
       "isin": "INE548A01028",
       "name": "HFCL Ltd.",
       "industry": "Telecommunication",
-      "series": "EQ",
+      "series": "BE",
       "sources": [
         "nifty500",
         "niftytotalmarket"
@@ -8016,6 +8016,20 @@
     }
   ],
   "placeholders": [
+    {
+      "symbol": "DUMMYHEG",
+      "isin": "DUM545A01024",
+      "name": "Dummy HEG Ltd.",
+      "source": "nifty500",
+      "reason": "NSE demerger placeholder — not a traded security"
+    },
+    {
+      "symbol": "DUMMYHEG",
+      "isin": "DUM545A01024",
+      "name": "Dummy HEG Ltd.",
+      "source": "niftytotalmarket",
+      "reason": "NSE demerger placeholder — not a traded security"
+    },
     {
       "symbol": "DUMMYINXGN",
       "isin": "DUM510W01014",
