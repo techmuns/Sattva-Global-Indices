@@ -742,3 +742,171 @@ export const FTSE_BOOK = {
     "Vanguard's own published holdings for its FTSE Emerging Markets fund, carried through unchanged. "
     + 'FTSE Russell publishes the index; this is a fund that tracks it, not the index itself.',
 };
+
+/**
+ * ---------------------------------------------------------------------------
+ * THE CUTOFF IS AN ESTIMATE, AND THE SCREEN HAS TO SAY SO
+ * ---------------------------------------------------------------------------
+ * The desk put it plainly: *"whether the cut off will be 3,000 or 3,500 or
+ * 4,000 Cr, nobody knows… we cannot be 100% right in this forecast."*
+ *
+ * Every verdict this model produces turns on two rupee numbers — the IMI cutoff
+ * and the Standard cutoff — and until now each rendered as a single figure. It
+ * is derived, it is labelled derived, and it is still a POINT. A point implies a
+ * precision the derivation does not have, and a reader comparing a company at
+ * ₹9,300 Cr against a cutoff at ₹9,485 Cr reads "just below" when the honest
+ * answer is "inside the width of the bar itself".
+ *
+ * ⚠ THIS IS NOT A PROBABILITY, AND ADDING ONE HERE WOULD BREAK §2.13.
+ *
+ * §2.13 refuses a probability because a probability needs a base rate and a base
+ * rate needs history — dated holdings files across many reviews, which this repo
+ * does not have. One scored review (§2.32) is not that history and nothing below
+ * changes it. What IS available is a set of concrete, individually defensible
+ * alternative cutoffs, each measured from something we hold or something MSCI
+ * published. So the product of this block is a SCENARIO COUNT with its
+ * denominator — "this verdict holds at 6 of 6 cutoffs we can defend" — never a
+ * percentage, and never a number that could be mistaken for one.
+ *
+ * ⚠ AND IT IS AN ENVELOPE, NOT A CONFIDENCE INTERVAL.
+ *
+ * The band is the min and max across the named scenarios. It is not ±1σ, it
+ * carries no distributional claim, and nothing may render it as one. Three
+ * measured components go into it and each is one-sided or two-sided for its own
+ * reason, stated below.
+ */
+export const CUTOFF_UNCERTAINTY = {
+  enabled: true,
+
+  /**
+   * COMPONENT 1 — the day MSCI priced on, which it does not disclose.
+   *
+   * The price cutoff is any one of the last 10 business days of the month before
+   * the review month (GIMI p. 49, §2.25). Re-derive the cutoff on each of those
+   * ten days and it moves, because the companies at rank N move. This is
+   * §2.12.2's finding applied to the bar instead of to a company: the same
+   * undisclosed choice, the same ten candidates, measured the same way.
+   *
+   * TWO-SIDED, because MSCI's day could have been any of the ten and we have no
+   * reason to prefer one end.
+   *
+   * The multipliers are MEASURED at build time from the most recent completed
+   * window in price-history.json — never typed here, which is why this block
+   * holds a rule and not a number.
+   */
+  priceDay: {
+    key: 'price-day',
+    label: 'the day MSCI priced on',
+    sided: 'both',
+    source: 'MSCI GIMI Methodology, August 2026, p. 49',
+    basis:
+      'The cutoff re-derived on each of the ten business days MSCI could have struck its market caps '
+      + 'on. MSCI does not publish which one it used.',
+  },
+
+  /**
+   * COMPONENT 2 — our constituent count under-states MSCI's membership.
+   *
+   * The cutoff is the Nth company by full market cap, N being the number of
+   * India names the three iShares funds show MSCI holding (§2.33). Those funds
+   * SAMPLE rather than replicate, so N is too small and the Nth company is too
+   * big. That is not a suspicion: `model.sizeCutoffReference` measures our IMI
+   * cutoff at roughly 1.4x the top of MSCI's own published EM IMI Global Minimum
+   * Size Range (pp. 24, 26).
+   *
+   * ONE-SIDED AND DOWNWARD, and that asymmetry is the finding rather than a
+   * convenience. Sampling can only omit constituents, never invent them, so the
+   * true N is at least ours and the true cutoff is at most ours.
+   *
+   * The scenario is the N at which our cutoff reaches the TOP of MSCI's
+   * published range — the smallest correction consistent with the published
+   * number. Walking all the way to the range's floor would be a much larger
+   * band with much less behind it: MSCI's range spans all of emerging markets
+   * and a large market sits above its middle, so the floor is not a bar India
+   * has any reason to sit at.
+   *
+   * ⚠ WHERE OUR CUTOFF IS ALREADY INSIDE THE PUBLISHED RANGE THIS FIRES NOTHING,
+   * and that is a result, not a gap. On the record of 8 Sep 2026 the Standard
+   * cutoff sits inside MSCI's published EM Standard range and the IMI cutoff
+   * does not — so the correction applies to one and not the other, and the
+   * screen says which.
+   */
+  constituentCount: {
+    key: 'constituent-count',
+    label: 'how many names MSCI really holds',
+    sided: 'down',
+    source: 'MSCI GIMI Methodology, August 2026, pp. 24, 26',
+    basis:
+      "The count comes from three funds that sample the index rather than replicate it, so it is a "
+      + "floor on MSCI's real membership and the cutoff derived from it is a ceiling on MSCI's real "
+      + 'cutoff. The scenario is the count at which our cutoff reaches the top of the Global Minimum '
+      + 'Size Range MSCI publishes.',
+  },
+
+  /**
+   * COMPONENT 3 — the bar itself moves between reviews.
+   *
+   * A verdict is a forecast about the NEXT review, whose cutoff will be struck in
+   * the last ten business days of the month before it. Today's cutoff is a point
+   * forecast of a bar that has not been set yet, and between now and then it will
+   * move with the market — which is exactly §2.24's argument for floating the
+   * desk's bands, arriving on the cutoff instead.
+   *
+   * TWO-SIDED, because one observation gives a magnitude and not a direction.
+   *
+   * ⚠ MEASURED ONCE. n = 1. The record holds two MSCI price windows, so there is
+   * exactly one review-to-review move to measure, and the surface that shows it
+   * says n=1 in the same breath. A second window arrives with every quarter and
+   * this gets better on its own; until then it is the weakest of the three and
+   * it is labelled as such rather than averaged into invisibility.
+   */
+  reviewDrift: {
+    key: 'review-drift',
+    label: 'how far the bar moved last quarter',
+    sided: 'both',
+    source: 'measured — public/data/price-history.json, the two captured MSCI price windows',
+    basis:
+      'The cutoff at the previous review\'s price window against the cutoff at the most recent one. '
+      + 'The next review\'s bar has not been struck; this is how far the last one travelled in a '
+      + 'quarter.',
+  },
+
+  /**
+   * A company whose size sits inside the band cannot be called against the bar
+   * at all, whatever the point estimate says. This is the ratio used to describe
+   * that on screen — it is DERIVED from the band, not a threshold of its own, and
+   * it exists here only so one module owns the vocabulary.
+   */
+  vocabulary: {
+    firm: {
+      key: 'firm',
+      label: 'holds across the band',
+      detail: 'The same verdict comes out at every cutoff we can defend.',
+    },
+    marginal: {
+      key: 'marginal',
+      label: 'depends on where the cutoff lands',
+      detail:
+        'The verdict changes somewhere inside the band. The point estimate is shown because it is '
+        + 'the best single answer; it is not the only defensible one.',
+    },
+    unmeasured: {
+      key: 'unmeasured',
+      label: 'not measurable',
+      detail:
+        'This verdict does not turn on the size cutoff — the inputs behind it were missing or '
+        + 'quarantined — so moving the cutoff cannot change it.',
+    },
+  },
+
+  attribution:
+    "the desk's rule for assembling the band. Each COMPONENT is measured, from our own price history "
+    + "or from a range MSCI publishes; which components enter the band, and that the band is their "
+    + 'envelope rather than a confidence interval, is our choice and not MSCI\'s methodology.',
+
+  disclosure:
+    'MSCI derives its size cutoffs at each review from a universe we cannot see, and does not publish '
+    + 'them in advance. Every cutoff on this screen is our estimate of one. The band is the spread '
+    + 'across the alternative cutoffs we can defend, and the count beside a verdict says how many of '
+    + 'them produce it — it is a count of scenarios, not a probability.',
+};

@@ -13,6 +13,7 @@
 
 import { parseFeedDate } from '../core/format.js';
 import { ASM_REFRESH, FTSE_BOOK } from '../config/thresholds.mjs';
+import * as ftseStore from './ftse-store.js';
 
 let payload = null;
 let byIsinIndex = null;
@@ -23,12 +24,48 @@ export const keyOf = (company) => company.isin ?? `bse:${company.bseScripCode}`;
 
 export const FUND_IDS = ['eem', 'smin', 'eems'];
 
+/**
+ * Where the FTSE book on screen came from, and what the shared store said.
+ *
+ * Four states, and they are four different facts (§2.4): the committed artefact,
+ * a book the Worker is sharing with everyone, a book in this browser only, and
+ * a shared store that could not be reached at all. Collapsing any pair of them
+ * would let a reader act on one book while believing another.
+ */
+let ftseOrigin = { origin: 'committed', state: 'unknown', detail: null };
+export const ftseOriginState = () => ftseOrigin;
+
+/**
+ * Record where the book now in force came from.
+ *
+ * ⚠ APPLYING A BOOK AND RECORDING WHERE IT CAME FROM ARE TWO STEPS, because the
+ * answer is not known when the first one happens: an upload is applied
+ * immediately and only then offered to the shared store, so it is `local` until
+ * the Worker says otherwise. Leaving it at whatever `load()` set would make the
+ * sources modal describe the committed book while the screen showed an uploaded
+ * one — the exact confusion §2.1 exists to prevent.
+ */
+export function setFtseOrigin(origin, state = ftseOrigin.state, detail = null) {
+  ftseOrigin = { origin, state, detail };
+}
+
 export async function load() {
   if (payload) return payload;
   if (loadPromise) return loadPromise;
 
   loadPromise = (async () => {
-    const response = await fetch('data/companies.json', { cache: 'no-cache' });
+    // ⚠ THE SHARED FTSE BOOK IS ASKED FOR IN PARALLEL, NOT AFTER.
+    //
+    // The desk can upload Vanguard's quarterly workbook through the dashboard,
+    // and a book stored by the Worker belongs to every reader. Fetching it after
+    // companies.json would paint the committed FTSE weights first and swap them
+    // a moment later — a visible flicker on columns whose whole point is that
+    // the reader can tell which book they are looking at. In parallel it costs
+    // nothing: the request is small and the static floor answers it immediately.
+    const [response, published] = await Promise.all([
+      fetch('data/companies.json', { cache: 'no-cache' }),
+      ftseStore.fetchPublished().catch(() => ({ state: 'unreachable', book: null })),
+    ]);
     if (!response.ok) {
       throw new Error(`companies.json responded ${response.status} ${response.statusText}`);
     }
@@ -37,6 +74,7 @@ export async function load() {
       throw new Error('companies.json carried no companies array');
     }
     payload = json;
+    ftseOrigin = { origin: 'committed', state: published.state, detail: published.detail ?? null };
     byIsinIndex = new Map();
     for (const company of json.companies) {
       const key = keyOf(company);
@@ -47,6 +85,19 @@ export async function load() {
         console.error(`[companies] duplicate key ${key}; the build should have refused this`);
       }
       byIsinIndex.set(key, company);
+    }
+
+    // An uploaded book displaces the committed one only when it is NEWER, and
+    // the swap is recorded rather than silent — every surface that shows an FTSE
+    // figure names which book it came from (§2.1).
+    const chosen = ftseStore.chooseUpload({
+      committedAsOf: json.ftse?.asOf ?? null,
+      published: published.book,
+      local: ftseStore.readLocal(),
+    });
+    if (chosen) {
+      applyFtseBook(chosen.entry.book, chosen.entry.join);
+      ftseOrigin = { origin: chosen.origin, state: published.state, detail: published.detail ?? null };
     }
     return payload;
   })();
@@ -100,6 +151,46 @@ export const asm = () => requireLoaded().asm ?? null;
 export const ftse = () => requireLoaded().ftse ?? null;
 
 /**
+ * Replace the FTSE book with one the desk uploaded.
+ *
+ * ⚠ IT WRITES TO `company.ftse` AND TO NOTHING ELSE.
+ *
+ * §2.35 is the whole reason this is safe to do in the browser at all: the FTSE
+ * book lands in each company's own `ftse` field and in `funds` NEVER, because
+ * `funds` is what `segmentOf` and `assess` read. So swapping the book cannot
+ * move a segment, a cutoff, a verdict or a flow — it changes the FTSE columns
+ * and nothing else, exactly as re-importing the workbook does. verify-data 57
+ * proves that property against the model; this function is the place a future
+ * author would most plausibly break it, so it touches one field.
+ *
+ * ⚠ AND A COMPANY THE NEW BOOK DOES NOT HOLD IS SET TO `null`, not left alone.
+ * Carrying the old book's row forward would blend two quarters into one screen —
+ * some companies on July's weights, some on October's — with nothing saying so.
+ * A stale row is worse than an absent one because it looks current.
+ *
+ * @param {object} book    the payload readFtseBook produced
+ * @param {{meta: object, byIsin: Map}} joined  what joinFtseBook returned
+ * @returns {{rowsChanged: number, cleared: number}}
+ */
+export function applyFtseBook(book, joined) {
+  const record = requireLoaded();
+  let rowsChanged = 0;
+  let cleared = 0;
+  for (const company of record.companies) {
+    const next = company.isin ? (joined.byIsin.get(company.isin) ?? null) : null;
+    if (next) rowsChanged += 1;
+    else if (company.ftse) cleared += 1;
+    company.ftse = next;
+  }
+  record.ftse = joined.meta;
+  // The freshness surface walks `asOf` key by key, and the FTSE book is usually
+  // the OLDEST input on the record — §2.10's rule is that the oldest governs, so
+  // a newer book must move that claim forward rather than leave it behind.
+  if (record.asOf && book.funds?.[0]?.asOf) record.asOf.ftseHoldings = book.funds[0].asOf;
+  return { rowsChanged, cleared };
+}
+
+/**
  * How each fund's own basket has moved, and the band adjustment derived from it.
  *
  * `null` when fund-benchmarks.json was not built — the bands then stand raw and
@@ -114,6 +205,25 @@ export const benchmarks = () => requireLoaded().benchmarks ?? null;
  * absence rather than some readings and some silence.
  */
 export const relativeWindow = () => requireLoaded().relativePerformance ?? null;
+
+/**
+ * The measured components behind the size cutoff's own band.
+ *
+ * ⚠ THE COMPONENTS RIDE ON THE RECORD; THE SCENARIOS DO NOT.
+ *
+ * Each component is a pair of dimensionless multipliers measured at build time
+ * from the two MSCI price windows and from a range MSCI publishes — none of
+ * which a live quote can move, and two of which need the 2 MB of price history
+ * the browser never downloads. The rupee cutoffs they scale DO move with every
+ * tick, so the scenarios and the band are rebuilt in the browser from these,
+ * never read back off the file. `model.cutoffUncertainty.scenarios` is on the
+ * record so a reader of the JSON sees the same envelope, and so verify-data can
+ * compare the two rather than trusting either.
+ *
+ * Null when the measurement was switched off or produced nothing — in which case
+ * every surface says the band is unmeasured rather than showing a bare point.
+ */
+export const cutoffUncertainty = () => requireLoaded().model?.cutoffUncertainty ?? null;
 
 /**
  * The rebalance-date baselines: which one is in force by default, every one the

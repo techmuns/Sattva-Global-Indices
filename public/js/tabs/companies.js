@@ -29,6 +29,7 @@ import { estimateFlows } from '../model/flows.js';
 import { nextReview, reviewCutoffs, closedReviews } from '../model/calendar.js';
 import { gimiCutoffs, assessGimi, reviewWindow, METHODOLOGIES } from '../model/gimi.js';
 import { trendSignal, flowPressure, WINDOW_STATES, REBASE_STATES } from '../model/relative.js';
+import { cutoffScenarios, cutoffBand, assessAcrossScenarios, CUTOFF_UNCERTAINTY } from '../model/cutoff-uncertainty.js';
 
 const FUND_ORDER = ['eem', 'smin', 'eems'];
 
@@ -192,6 +193,15 @@ export function rebuildModel() {
   // stored historical reading against the LIVE rank cutoff — and the cutoff
   // moves when a live price moves. The reading itself does not: it is a window
   // that closed on 31 July and no quote can change it.
+  // ⚠ THE SCENARIOS ARE REBUILT FROM THE LIVE CUTOFF, for the same reason the
+  // cutoff itself is. The measured COMPONENTS are dimensionless multipliers read
+  // off the record — they need 2 MB of price history to measure and a live quote
+  // cannot move them — but the rupee cutoffs they scale move with every tick.
+  // Carrying the build's scenarios over would show a band that no longer
+  // straddles the bar on screen.
+  const scenarios = cutoffScenarios(sizeCutoffs, data.cutoffUncertainty());
+  const cutoffSensitivity = new Map();
+
   const trendSignals = new Map();
   // Flow pressure is computed here for the same reason: the reading is a closed
   // historical window that no quote can move, but whether it is NOTABLE depends
@@ -231,11 +241,18 @@ export function rebuildModel() {
     // is built for the drill's cross-model block and prices nothing: a flow
     // estimate carries a rupee figure, and one derived from a verdict the screen
     // does not show would be a number nobody could trace back to a row.
+    // The same rules engine replayed at every defensible cutoff. `assessment` is
+    // handed in so the shipped verdict is not computed twice — a sixth of the
+    // cost of this block, for an answer the line above already produced.
+    cutoffSensitivity.set(key, scenarios.length > 1
+      ? assessAcrossScenarios(company, context, scenarios, assess, assessment)
+      : null);
     flows.set(key, estimateFlows(company, assessment, flowContext));
   }
 
   modelState = {
     boundary, sizeCutoffs, ranks, floatTotals, assessments, gimiAssessments, flows, trendSignals, pressures,
+    scenarios, cutoffBand: cutoffBand(scenarios), cutoffSensitivity,
     baseline, cutoffs, window, builtAt: new Date(),
   };
   return modelState;
@@ -342,6 +359,34 @@ export function assessmentFor(company, methodology = state.METHODOLOGY) {
   return modelState?.assessments.get(key) ?? company.assessment ?? null;
 }
 
+/**
+ * How this verdict fares when the cutoff is moved to each place we can defend.
+ *
+ * Falls back to the stored EOD record before the first build, exactly as
+ * `assessmentFor` does — and for the same reason: the screen must be able to
+ * render a row before the model has been built once.
+ *
+ * ⚠ `has()`, NOT `?? company.cutoffSensitivity`. The model stores an explicit
+ * `null` for a company when the LIVE band collapsed to a single cutoff and there
+ * is nothing to vary — and `null ?? stored` hands back the stored record, so the
+ * screen would keep showing yesterday's "holds at 5 of 6" against a band that no
+ * longer exists. Same distinction as `readingFor`: absent means not built yet,
+ * `null` means built and not measurable, and they are not one answer.
+ *
+ * This was caught by `--prove`: collapsing the band left every chip on screen.
+ */
+export function cutoffSensitivityFor(company) {
+  const key = data.keyOf(company);
+  if (modelState?.cutoffSensitivity.has(key)) return modelState.cutoffSensitivity.get(key);
+  return company.cutoffSensitivity ?? null;
+}
+
+/** The cutoff band in force — rebuilt from the LIVE cutoff, like the cutoff itself. */
+export const modelCutoffBand = () => modelState?.cutoffBand ?? null;
+
+/** Every cutoff the band is drawn from, the point estimate first. */
+export const modelCutoffScenarios = () => modelState?.scenarios ?? [];
+
 /** The trend signal for a company, against the boundary as it currently stands. */
 export const trendFor = (company) => modelState?.trendSignals.get(data.keyOf(company)) ?? null;
 
@@ -399,6 +444,36 @@ function verdictPill(verdict, { title } = {}) {
     `<span class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${VERDICT_TONE[meta.tone]}"`
     + ` title="${escapeHtml(title ?? `${meta.detail} ${DISCLOSURE}`)}">${escapeHtml(meta.label)}</span>`
   );
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The cutoff is an estimate, and the screen has to say so
+ * ────────────────────────────────────────────────────────────────────────────
+ * The desk's objection, verbatim: "whether the cut off will be 3,000 or 3,500
+ * or 4,000 Cr, that nobody knows… we cannot be 100% right in this forecast."
+ *
+ * ⚠ A DASHED OUTLINE, AND NOT A NUMBER. Every other chip on this row is solid
+ * and directional — emerald up, rose down. This one is about how well we know
+ * the bar, not about which way anything is going, so it borrows neither tone.
+ * The dash is the whole point: it reads as "not solid" without competing with
+ * the verdict it qualifies.
+ *
+ * ⚠ AND IT NEVER RENDERS A FRACTION. "3/6" beside a verdict is one glance away
+ * from being read as 50%, which is exactly the probability §2.13 refuses to
+ * print. The word is the chip; the count lives in its own column with the word
+ * "of" spelled out.
+ */
+function marginalChip(sensitivity) {
+  if (sensitivity?.state !== 'marginal') return '';
+  const alternatives = sensitivity.alternatives
+    .map((a) => `${VERDICTS[a.verdict]?.label ?? a.verdict} at ${a.count} of ${sensitivity.scenarios}`)
+    .join('; ');
+  const title = `This verdict changes if the size cutoff lands elsewhere in the band. It holds at `
+    + `${sensitivity.agreeing} of the ${sensitivity.scenarios} cutoffs we can defend; the others give `
+    + `${alternatives}. MSCI does not publish its cutoff in advance — this is a count of scenarios, `
+    + 'not a probability.';
+  return '<span class="ml-1 inline-flex items-center rounded border border-dashed border-slate-400 bg-white px-1 py-px '
+    + `text-[10px] font-medium text-slate-600" title="${escapeHtml(title)}">marginal</span>`;
 }
 
 /** The chip that says which exchange priced this row, and how fresh it is. */
@@ -997,6 +1072,166 @@ function fundsSectionHtml(company) {
  * obvious reading of a rising weight is the wrong one.
  */
 /**
+ * The band under one rule's threshold, where that threshold is a multiple of a
+ * size cutoff we estimated.
+ *
+ * ⚠ RATIO-DERIVED, NOT RE-MEASURED. Every bar in the rules table is
+ * `MSCI ratio x our cutoff`, so the bar's band is the cutoff's band scaled by
+ * the same ratio — recovered here from the rule's own threshold rather than by
+ * re-deriving which ratio applied. A second copy of the ratio table would drift
+ * from `barsFrom()` and the drift would show as a plausible band on the wrong
+ * bar.
+ *
+ * ⚠ AND IT FIRES ONLY ON RUPEE RULES DRAWN FROM A CUTOFF. MSCI's 0.15 FIF floor
+ * is a published constant with no estimate in it, and the desk's bands carry
+ * their own floated-band row directly beneath. Putting a cutoff band on either
+ * would attach our uncertainty to somebody else's number.
+ */
+const CUTOFF_DERIVED_RULES = new Set([
+  'entry-cutoff', 'entry-buffer', 'entry-free-float', 'exit-size-buffer', 'exit-free-float',
+  'migration-up-buffer', 'migration-down-buffer',
+]);
+
+function cutoffBandRowHtml(rule) {
+  if (!CUTOFF_DERIVED_RULES.has(rule.key) || rule.unit !== 'inr') return '';
+  if (!Number.isFinite(rule.threshold) || rule.threshold <= 0) return '';
+  const which = /migration/.test(rule.key) ? 'standard' : 'imi';
+  const side = modelCutoffBand()?.[which];
+  if (!side || !Number.isFinite(side.lowInr) || !(side.pointInr > 0)) return '';
+  const low = rule.threshold * (side.lowInr / side.pointInr);
+  const high = rule.threshold * (side.highInr / side.pointInr);
+  const inside = Number.isFinite(rule.input) && rule.input >= low && rule.input <= high;
+  return (
+    '<tr class="border-t border-slate-50"><td colspan="5" class="px-2 pb-1.5 text-[10px] leading-relaxed '
+    + `${inside ? 'text-amber-800' : 'text-slate-400'}">`
+    + `This bar is ${escapeHtml(which === 'standard' ? 'the Standard' : 'the IMI')} cutoff, which MSCI `
+    + 'does not publish in advance and we estimate. Across the cutoffs we can defend it runs '
+    + `<span class="tabular-nums font-semibold">₹${escapeHtml(cr(low))}–₹${escapeHtml(cr(high))} Cr</span>`
+    + (inside ? ' — and this company sits inside that width, so it cannot be called against this bar either way.' : '.')
+    + '</td></tr>'
+  );
+}
+
+/**
+ * The size cutoff is our estimate of a number MSCI has not published, and this
+ * is where a reader finds out how much that costs them on THIS row.
+ *
+ * ⚠ NOT A PROBABILITY, AND THE WORDING IS LOAD-BEARING. §2.13 refuses a
+ * probability because a probability needs a base rate and a base rate needs
+ * history this repo does not have. What is counted here is SCENARIOS — concrete
+ * alternative cutoffs, each defensible on its own — and every count is printed
+ * with "of" and its denominator so it cannot be read as a rate.
+ */
+function cutoffSensitivityHtml(company, assessment) {
+  const sensitivity = cutoffSensitivityFor(company);
+  const band = modelCutoffBand();
+  const scenarios = modelCutoffScenarios();
+  if (!sensitivity || scenarios.length < 2) return '';
+
+  const which = sensitivity.cutoff;
+  const side = which ? band?.[which] : null;
+
+  let html =
+    '<h4 class="mt-4 mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">'
+    + 'How much does this turn on where the cutoff lands?</h4>';
+
+  if (sensitivity.state === 'unmeasured') {
+    return `${html}<p class="rounded-xl bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">`
+      + `<strong>${escapeHtml(CUTOFF_UNCERTAINTY.vocabulary.unmeasured.label)}.</strong> `
+      + `${escapeHtml(sensitivity.reason)} Moving the size cutoff cannot change this row.</p>`;
+  }
+
+  const marginal = sensitivity.state === 'marginal';
+  html +=
+    `<div class="rounded-xl p-3 ${marginal ? 'bg-amber-50 ring-1 ring-amber-200' : 'bg-slate-50 ring-1 ring-slate-100'}">`
+    + `<p class="text-[11px] leading-relaxed ${marginal ? 'text-amber-900' : 'text-slate-700'}">`
+    + `<strong>This verdict holds at ${sensitivity.agreeing} of the ${sensitivity.scenarios} cutoffs `
+    + 'we can defend.</strong> ';
+  if (marginal) {
+    html += `Elsewhere in the band it reads ${escapeHtml(sensitivity.alternatives
+      .map((a) => `${VERDICTS[a.verdict]?.label ?? a.verdict} (at ${a.count} of ${sensitivity.scenarios})`)
+      .join(' or '))}. `;
+  } else {
+    html += 'It does not change anywhere inside the band. ';
+  }
+  html += '<span class="opacity-75">That is a count of scenarios, not a probability — MSCI derives its '
+    + 'cutoff at each review from a universe we cannot see and does not publish it in advance.</span></p>';
+
+  // The bar's own width against the company's own size. THE BAR, not the cutoff:
+  // most rules compare against a multiple of it (2/3 out, 1.5x in), so testing
+  // against the raw cutoff would answer a question no rule asked.
+  if (sensitivity.bar) {
+    const b = sensitivity.bar;
+    html +=
+      `<p class="mt-2 text-[11px] leading-relaxed ${marginal ? 'text-amber-900' : 'text-slate-600'}">`
+      + `${escapeHtml(b.label)}: <strong class="tabular-nums">₹${escapeHtml(cr(b.inputInr))} Cr</strong> `
+      + `against a bar of <strong class="tabular-nums">₹${escapeHtml(cr(b.thresholdInr))} Cr</strong>, `
+      + `which is itself only known to <span class="tabular-nums">₹${escapeHtml(cr(b.lowInr))}–`
+      + `₹${escapeHtml(cr(b.highInr))} Cr</span>. `
+      + (sensitivity.insideBand
+        ? '<strong>The company sits inside the width of the bar</strong> — it cannot be called against '
+          + 'it either way.'
+        : 'The company sits outside that width.')
+      + '</p>';
+  }
+  html += '</div>';
+
+  // ---- every cutoff the band is drawn from ----
+  html +=
+    '<div class="mt-2 overflow-hidden rounded-xl ring-1 ring-slate-100">'
+    + '<table class="w-full text-left text-[11px]"><thead class="bg-slate-50"><tr>'
+    + '<th scope="col" class="px-2 py-1.5 font-bold uppercase tracking-wide text-slate-500">Cutoff scenario</th>'
+    + `<th scope="col" class="px-2 py-1.5 text-right font-bold uppercase tracking-wide text-slate-500">${escapeHtml(which === 'standard' ? 'Standard' : 'IMI')} cutoff</th>`
+    + '<th scope="col" class="px-2 py-1.5 font-bold uppercase tracking-wide text-slate-500">Verdict there</th>'
+    + '</tr></thead><tbody>';
+  const verdictAt = new Map();
+  for (const alternative of sensitivity.alternatives) {
+    for (const key of alternative.scenarios) verdictAt.set(key, alternative.verdict);
+  }
+  for (const scenario of scenarios) {
+    // NOT named `inr` — that is the imported rupee formatter, and shadowing it
+    // inside this loop would swap a formatter for a number on the next line.
+    const cutoffInr = which === 'standard' ? scenario.standardInr : scenario.imiInr;
+    const verdict = verdictAt.get(scenario.key) ?? sensitivity.verdict;
+    const differs = verdict !== sensitivity.verdict;
+    html +=
+      `<tr class="border-t border-slate-50${scenario.key === 'shipped' ? ' bg-slate-50/60' : ''}">`
+      + `<td class="px-2 py-1.5 text-slate-700"${scenario.basis ? ` title="${escapeHtml(`${scenario.basis} Source: ${scenario.source}`)}"` : ''}>`
+      + `${escapeHtml(scenario.label)}${scenario.key === 'shipped' ? ' <span class="text-slate-400">— shown on the row</span>' : ''}</td>`
+      // ⚠ A SCENARIO THAT DOES NOT MOVE THIS CUTOFF SAYS SO. The count
+      // correction fires on the IMI cutoff and not on the Standard one, because
+      // the Standard cutoff already sits inside MSCI's published range — a
+      // corroboration, not a gap (§2.37). Rendering it as a bare repeat of the
+      // point estimate makes it look like a broken row instead of a result.
+      + `<td class="px-2 py-1.5 text-right tabular-nums text-slate-900">`
+      + `${Number.isFinite(cutoffInr) ? `₹${escapeHtml(cr(cutoffInr))} Cr` : EM_DASH}`
+      + (scenario.key !== 'shipped' && cutoffInr === scenarios[0][which === 'standard' ? 'standardInr' : 'imiInr']
+        ? '<span class="ml-1 text-[10px] font-normal text-slate-400" title="This component was measured and '
+          + 'came out flat for this cutoff — it is a result, not a gap.">unmoved</span>'
+        : '')
+      + '</td>'
+      + `<td class="px-2 py-1.5 ${differs ? 'font-semibold text-amber-800' : 'text-slate-600'}">${escapeHtml(VERDICTS[verdict]?.label ?? verdict)}</td>`
+      + '</tr>';
+  }
+  html += '</tbody></table></div>';
+
+  if (side && Number.isFinite(side.widthPct)) {
+    html +=
+      '<p class="mt-2 text-[10px] leading-relaxed text-slate-500">'
+      // ⚠ `pct`, NOT `pp`. The width is the band expressed as a share OF the
+      // point estimate — a ratio — and `pp` would print it signed and call it
+      // percentage points, which is a different unit for a different quantity
+      // (the same class of error as rendering MSCI's 0.15 FIF floor in rupees).
+      + `The band spans <span class="tabular-nums">₹${escapeHtml(cr(side.lowInr))}–₹${escapeHtml(cr(side.highInr))} Cr</span>, `
+      + `<span class="tabular-nums">${escapeHtml(pct(side.widthPct, 1))}</span> of the point estimate. `
+      + escapeHtml(CUTOFF_UNCERTAINTY.attribution.charAt(0).toUpperCase() + CUTOFF_UNCERTAINTY.attribution.slice(1))
+      + ' Each scenario moves one component on its own, so the band is the widest single move rather '
+      + 'than a compounding of all three — a floor on the uncertainty, not a ceiling.</p>';
+  }
+  return html;
+}
+
+/**
  * The Assessment section — the verdict, then the whole derivation.
  *
  * The rules table is the point. A verdict with no visible working is an opinion
@@ -1128,6 +1363,15 @@ function assessmentSectionHtml(company) {
       if (rule.note) {
         html += `<tr class="border-t border-slate-50"><td colspan="5" class="px-2 pb-1.5 text-[10px] leading-relaxed text-slate-400">${escapeHtml(rule.note)}</td></tr>`;
       }
+      // ⚠ THE THRESHOLD CELL ABOVE IS A POINT, AND THE THRESHOLD IS NOT.
+      //
+      // This is where the desk's objection actually bites. Every bar in this
+      // table is a fixed MSCI ratio times a cutoff WE estimated, and rendering
+      // "₹6,323 Cr" in a column headed Threshold invites a reader to compare
+      // their company against it to the rupee. The band is stated on the same
+      // line as the number it qualifies, in the reader's sight line — not in a
+      // footnote and not one click away (§2.1).
+      html += cutoffBandRowHtml(rule);
       // A floated threshold must never render as a bare number: the reader has
       // to see the desk's raw band, the segment move that shifted it, and where
       // the bar actually landed. Otherwise a tier-3 adjustment reads as a fact.
@@ -1159,6 +1403,21 @@ function assessmentSectionHtml(company) {
         + 'the desk\'s own adjustment against an ETF proxy, not MSCI\'s arithmetic.</span></p>';
     }
   }
+
+  // ---- HOW MUCH DOES THIS TURN ON WHERE THE CUTOFF LANDS? ----------------
+  //
+  // The one block on this panel that is about our own confidence rather than
+  // about the company. Everything above states a number and its provenance;
+  // this states how far the answer moves when the least certain input in the
+  // whole model — a bar MSCI will not publish until after it has used it — is
+  // moved to each of the other places it could defensibly be.
+  //
+  // ⚠ EVERY SCENARIO IS NAMED AND PRICED. A band with no scenarios behind it is
+  // a tier-3 figure wearing a tier-1 face: the reader would have to take the
+  // width on trust. Each row here is a cutoff, the component that moved it, and
+  // the verdict that comes out — so the width is reconstructible from what is on
+  // screen (§2.1).
+  html += cutoffSensitivityHtml(company, assessment);
 
   // ---- the flows ----
   const { flows, notSampled, shape, asmConstraint } = flowsFor(company);
@@ -2119,8 +2378,17 @@ export function renderCompanies(host, { onStatusChange } = {}) {
           // these columns are measured from the rebalance date, and the two
           // disagree about the SIGN for 27.8% of companies. The trend signal
           // keeps its own section in the drill, beside the window it belongs to.
+          // ⚠ THE CUTOFF MARKER GOES ON EVERY MARGINAL ROW, INCLUDING THE ONES
+          // THAT ALSO CARRY A FLOW CHIP. They say different things — one is
+          // about how well we know the bar, the other about which way the
+          // company is moving against its segment — and dropping either because
+          // the other fired would hide the caveat on precisely the rows that
+          // have two reasons to be read carefully. Measured on the committed
+          // record: 151 of 1,280 rows are marginal, so it stays a marker a
+          // reader still notices (§2.12.4's fire-rate argument).
+          const marginal = marginalChip(cutoffSensitivityFor(row));
           const pressure = pressureFor(row);
-          if (!pressure || !pressure.notable) return pill;
+          if (!pressure || !pressure.notable) return `${pill}${marginal}`;
           // ⚠ THE COLOUR IS THE DIRECTION, and it matches the Δ column exactly:
           // emerald where the company is gaining on its segment, rose where it
           // is losing. Any other mapping would put two different meanings on the
@@ -2134,7 +2402,7 @@ export function renderCompanies(host, { onStatusChange } = {}) {
           const tone = pressure.key === 'positive'
             ? 'bg-emerald-50 text-emerald-800 ring-emerald-200'
             : 'bg-rose-50 text-rose-800 ring-rose-200';
-          return `${pill}<span class="ml-1 inline-flex items-center rounded px-1 py-px text-[10px] font-medium ring-1 ${tone}" `
+          return `${pill}${marginal}<span class="ml-1 inline-flex items-center rounded px-1 py-px text-[10px] font-medium ring-1 ${tone}" `
             + `title="${escapeHtml(`${pressure.label} — ${pressure.notableReason} ${pressure.detail} ${pressure.implication} This does not change the verdict.`)}">`
             + `${escapeHtml(pressure.key === 'positive' ? 'flow ↑' : 'flow ↓')}</span>`;
         },
@@ -2171,6 +2439,50 @@ export function renderCompanies(host, { onStatusChange } = {}) {
       // lives in the drill panel, where the rules table states each threshold
       // and its value beside the comparison, and in the CSV export, which now
       // carries the threshold value next to the percentage.
+      /**
+       * How many of the defensible cutoffs produce the verdict on this row.
+       *
+       * ⚠ IT SORTS THE FRAGILE ROWS TO THE TOP, and that is the useful order:
+       * a desk reading this column wants the rows where the answer is contested,
+       * not the 1,043 where it is not. Ascending on the agreeing count does
+       * that; the label says "of 6" so the number can never be read alone.
+       *
+       * ⚠ AND `unmeasured` SORTS TO ITS OWN GROUP, never as zero. A verdict the
+       * cutoff cannot move — the FIF floor decided it, or an input was missing —
+       * is not a verdict that survives none of the scenarios. Sorting it as 0
+       * would put 86 rows above every genuinely fragile one (§2.3).
+       */
+      {
+        label: 'Holds at',
+        align: 'right',
+        html: true,
+        sortValue: (row) => cutoffSensitivityFor(row)?.agreeing ?? null,
+        defaultDir: 'asc',
+        get: (row) => {
+          const sensitivity = cutoffSensitivityFor(row);
+          if (!sensitivity) return missing('the cutoff band has not been measured on this record');
+          if (sensitivity.state === 'unmeasured') {
+            return missing(`${CUTOFF_UNCERTAINTY.vocabulary.unmeasured.label} — ${sensitivity.reason}`);
+          }
+          const marginal = sensitivity.state === 'marginal';
+          const alternatives = sensitivity.alternatives
+            .map((a) => `${VERDICTS[a.verdict]?.label ?? a.verdict} at ${a.count} of ${sensitivity.scenarios}`)
+            .join('; ');
+          const title =
+            `${VERDICTS[sensitivity.verdict]?.label ?? sensitivity.verdict} holds at ${sensitivity.agreeing} `
+            + `of the ${sensitivity.scenarios} size cutoffs this model can defend`
+            + (marginal ? `; elsewhere in the band it reads ${alternatives}.` : ', and does not change anywhere in the band.')
+            + ' A count of scenarios, not a probability — MSCI does not publish its cutoff in advance.';
+          // Inline flow, one span, no flex wrapper — see the Free float column
+          // on why an atomic inline box gets cut instead of ellipsised (§2.29).
+          return (
+            `<span class="whitespace-nowrap" title="${escapeHtml(title)}">`
+            + `<span class="${marginal ? 'font-semibold text-amber-800' : 'text-slate-700'}">`
+            + `${escapeHtml(num(sensitivity.agreeing))}</span>`
+            + `<span class="text-slate-400"> of ${escapeHtml(num(sensitivity.scenarios))}</span></span>`
+          );
+        },
+      },
       {
         label: 'Free float (₹ Cr)',
         align: 'right',
@@ -2499,10 +2811,28 @@ export function renderCompanies(host, { onStatusChange } = {}) {
           // in it. Two exports of the same universe can now disagree on every
           // verdict column, and a sheet that does not name its methodology is a
           // sheet nobody can reconcile against another (CLAUDE.md §2.7).
-          scopeLabel:
-            `${visibleRows.length} of ${cov.companies} companies in the record · model: `
-            + `${METHODOLOGIES[state.METHODOLOGY].label} (${METHODOLOGIES[state.METHODOLOGY].short}) — `
-            + `${METHODOLOGIES[state.METHODOLOGY].attribution}`,
+          scopeLabel: (() => {
+            const band = modelCutoffBand();
+            // ⚠ THE BAND GOES IN ROW 1, NOT ONLY IN A COLUMN. Every verdict in
+            // the sheet was decided against these two rupee figures, and a
+            // reader who opens the file in a week will compare their own numbers
+            // against them. A sheet that names the model but not the width of
+            // the bar it used is a sheet that reads as more precise than the
+            // screen it came from (§2.7).
+            const width = band?.imi?.lowInr != null
+              ? ` · size cutoffs are OUR estimate of a figure MSCI does not publish in advance: IMI `
+                + `₹${Math.round(toCrore(band.imi.pointInr)).toLocaleString('en-IN')} Cr `
+                + `(band ₹${Math.round(toCrore(band.imi.lowInr)).toLocaleString('en-IN')}–`
+                + `₹${Math.round(toCrore(band.imi.highInr)).toLocaleString('en-IN')} Cr), Standard `
+                + `₹${Math.round(toCrore(band.standard.pointInr)).toLocaleString('en-IN')} Cr `
+                + `(band ₹${Math.round(toCrore(band.standard.lowInr)).toLocaleString('en-IN')}–`
+                + `₹${Math.round(toCrore(band.standard.highInr)).toLocaleString('en-IN')} Cr) `
+                + `across ${band.scenarioCount} scenarios — ${CUTOFF_UNCERTAINTY.attribution}`
+              : ' · the size-cutoff band has not been measured on this record';
+            return `${visibleRows.length} of ${cov.companies} companies in the record · model: `
+              + `${METHODOLOGIES[state.METHODOLOGY].label} (${METHODOLOGIES[state.METHODOLOGY].short}) — `
+              + `${METHODOLOGIES[state.METHODOLOGY].attribution}${width}`;
+          })(),
           // WHAT THE FILTERS ACTUALLY DID, in words. This used to serialise the
           // view as `band=mcap-30k-70k`, which names an internal id, carries no
           // unit and cannot be read by anyone who did not see the screen — and
@@ -2594,6 +2924,47 @@ export function renderCompanies(host, { onStatusChange } = {}) {
               return rule ? (THRESHOLD_SOURCE[rule.thresholdSource]?.label ?? rule.thresholdSource) : '';
             } },
             { label: 'Rules fired', value: (r) => (assessmentFor(r)?.rulesFired ?? []).map((x) => `${x.label}: ${x.result}`).join(' | ') },
+            // ⚠ THE THRESHOLD COLUMNS ABOVE ARE POINTS AND THE THRESHOLD IS NOT.
+            //
+            // A spreadsheet is where a bar looks most like a fact: no chrome, no
+            // title attributes, one number in a cell headed "Threshold value".
+            // The size cutoff behind almost every one of them is our estimate of
+            // something MSCI publishes only after it has used it, so the band and
+            // the scenario count travel with the number, exactly as the source
+            // does (§2.7).
+            //
+            // Every count is written with the word "of" and its denominator, and
+            // the header says "not a probability" — a bare 3 in a column headed
+            // "confidence" is the one thing this must never become (§2.13).
+            { label: 'Verdict holds at N of the defensible cutoffs (a scenario count, NOT a probability)',
+              value: (r) => {
+                const sensitivity = cutoffSensitivityFor(r);
+                if (!sensitivity) return '';
+                if (sensitivity.state === 'unmeasured') return `not measurable — ${sensitivity.reason}`;
+                return `${sensitivity.agreeing} of ${sensitivity.scenarios}`;
+              } },
+            { label: 'Verdict changes inside the cutoff band', value: (r) => {
+              const sensitivity = cutoffSensitivityFor(r);
+              if (!sensitivity) return '';
+              if (sensitivity.state === 'unmeasured') return 'no — this verdict does not turn on the size cutoff';
+              return sensitivity.state === 'marginal' ? 'yes' : 'no';
+            } },
+            { label: 'Verdict elsewhere in the cutoff band', value: (r) => (cutoffSensitivityFor(r)?.alternatives ?? [])
+              .map((a) => `${VERDICTS[a.verdict]?.label ?? a.verdict} at ${a.count} of ${cutoffSensitivityFor(r).scenarios}`)
+              .join('; ') },
+            { label: 'Bar it was judged against, low end (INR Cr)', value: (r) => {
+              const bar = cutoffSensitivityFor(r)?.bar;
+              return bar ? Math.round(toCrore(bar.lowInr)) : '';
+            } },
+            { label: 'Bar it was judged against, high end (INR Cr)', value: (r) => {
+              const bar = cutoffSensitivityFor(r)?.bar;
+              return bar ? Math.round(toCrore(bar.highInr)) : '';
+            } },
+            { label: 'Company sits inside the width of that bar', value: (r) => {
+              const sensitivity = cutoffSensitivityFor(r);
+              return sensitivity?.insideBand === null || sensitivity?.insideBand === undefined
+                ? '' : (sensitivity.insideBand ? 'yes' : 'no');
+            } },
             // 2.7: the reading is useless in a sheet without its window, its
             // benchmark, its span and its reason for being absent. Every one of
             // those is a column, because a workbook leaves with no chrome.
@@ -2857,6 +3228,12 @@ export function renderCompanies(host, { onStatusChange } = {}) {
     rebuild: build,
     table: () => table,
     openCompany: (key) => openCompanyDrill(key),
+    // The cutoff band as the SCREEN currently holds it — rebuilt from the live
+    // cutoff on every tick, so the harness reads what the rows were judged
+    // against rather than what the record was built with.
+    modelCutoffBand,
+    modelCutoffScenarios,
+    cutoffSensitivityFor,
     // The assessment in force, so the harness reads the SAME function the table
     // renders from rather than recomputing and possibly agreeing by accident.
     assessmentFor,

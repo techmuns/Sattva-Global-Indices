@@ -74,6 +74,7 @@ import {
 import { observedBoundary, observedSizeCutoffs, rankByFreeFloat } from '../public/js/model/thresholds.js';
 import { segmentOf, assertDisjoint, segmentFloatTotals } from '../public/js/model/segments.js';
 import { assess, verdictFromRules, barsFrom, VERDICTS, DISCLOSURE } from '../public/js/model/assess.js';
+import { cutoffScenarios, cutoffBand, assessAcrossScenarios } from '../public/js/model/cutoff-uncertainty.js';
 import { estimateFlows } from '../public/js/model/flows.js';
 import { nextReview, previousReview, reviewCutoffs, chooseBaseline } from '../public/js/model/calendar.js';
 import * as MSCI from '../public/js/config/msci-methodology.mjs';
@@ -81,9 +82,10 @@ import { seriesToMap, summarise, rateOn, FUND_BENCHMARKS } from '../public/js/mo
 import { assessRelative, assessSinceRebalance, WINDOW_STATES, REBASE_STATES } from '../public/js/model/relative.js';
 import {
   SEGMENT_BAND_ADJUSTMENT, RELATIVE_PERFORMANCE, REBALANCE_BASELINE,
-  AUGUST_2026_CALIBRATION, DESK_BAND_ROLE, FTSE_JOIN,
+  AUGUST_2026_CALIBRATION, DESK_BAND_ROLE, FTSE_JOIN, CUTOFF_UNCERTAINTY,
 } from '../public/js/config/thresholds.mjs';
-import { buildFtseIndex, resolveFtseHoldings, assertCurrency } from './lib/ftse-resolve.mjs';
+import { chooseFtseBasis, joinFtseBook } from '../public/js/model/ftse-book.js';
+import { measureCutoffUncertainty } from './lib/cutoff-measure.mjs';
 import { renderTable, num, round, CheckList } from './lib/report.mjs';
 import {
   SCRAPE_UNIVERSE_MIN_FULL_MCAP_INR,
@@ -617,149 +619,51 @@ function main() {
   // USD every rupee figure here would be 40.65% too large. `assertCurrency`
   // re-measures that on every build rather than trusting the fund's name.
   let ftseMeta = null;
-  const ftseByIsin = new Map();
+  let ftseByIsin = new Map();
   if (ftseData) {
     const fund = ftseData.funds[0];
 
-    // The FX rate for the holdings date. Both halves of a converted figure must
-    // come from the same date (§3.8.2), so an exact hit is used where there is
-    // one and any walk-back is recorded rather than absorbed.
-    const cadSeries = ftseFx?.series ?? [];
-    const exactFx = cadSeries.find((p) => p.date === fund.asOf) ?? null;
-    const walkedFx = exactFx ?? [...cadSeries].reverse().find((p) => p.date <= fund.asOf) ?? null;
-    const cadInr = walkedFx?.close ?? null;
-
-    // The price basis: our own closes on the workbook's own date where we have
-    // them. A basis struck days away is still useful — a wrong company is out by
-    // multiples, not by a few sessions — but it is a weaker test and says so.
+    // ⚠ THE BASIS AND THE JOIN ARE THE SHARED ONES, not a copy that lives here.
+    // The dashboard's upload panel joins an uploaded book with these exact
+    // functions, so a book that reaches the screen through the page is placed by
+    // the rules that produced the committed one. Two implementations would both
+    // produce rows, and the rows would differ.
     const dates = priceHistory?.dates ?? [];
-    const exactAt = dates.indexOf(fund.asOf);
-    let basisDate = exactAt >= 0 ? fund.asOf : null;
-    let gapSessions = 0;
-    if (basisDate === null && dates.length) {
-      const target = Date.parse(fund.asOf);
-      let best = null;
-      dates.forEach((d, i) => {
-        const gap = Math.abs(Date.parse(d) - target);
-        if (best === null || gap < best.gap) best = { d, i, gap };
-      });
-      // How far off the record we had to reach, counted in sessions we hold.
-      const wouldBe = dates.findIndex((d) => d > fund.asOf);
-      gapSessions = Math.abs((wouldBe < 0 ? dates.length : wouldBe) - best.i);
-      if (gapSessions <= FTSE_JOIN.maxBasisGapSessions) basisDate = best.d;
-    }
-    const basisAt = basisDate ? dates.indexOf(basisDate) : -1;
-    const closeByIsin = new Map();
-    if (basisAt >= 0) {
-      for (const scrip of Object.values(priceHistory.scrips ?? {})) {
-        if (scrip.isin && scrip.closes?.[basisAt] != null) closeByIsin.set(scrip.isin, scrip.closes[basisAt]);
-      }
-    }
-    const exactBasis = basisDate === fund.asOf;
-    const basis = {
-      date: basisDate,
-      exact: exactBasis,
-      closeByIsin,
-      cadInr,
-      tolerancePct: exactBasis ? FTSE_JOIN.joinTolerancePct : FTSE_JOIN.approximateTolerancePct,
-    };
+    const basis = chooseFtseBasis(fund, {
+      dates,
+      cadSeries: ftseFx?.series ?? [],
+      config: FTSE_JOIN,
+      closeByIsinOn: (date) => {
+        const at = dates.indexOf(date);
+        const map = new Map();
+        if (at < 0) return map;
+        for (const scrip of Object.values(priceHistory.scrips ?? {})) {
+          if (scrip.isin && scrip.closes?.[at] != null) map.set(scrip.isin, scrip.closes[at]);
+        }
+        return map;
+      },
+    });
 
-    const { results, methods, collisions } = resolveFtseHoldings(fund.holdings, buildFtseIndex(out), basis);
+    const joined = joinFtseBook(ftseData, out, basis, FTSE_JOIN);
 
     // Two rows resolving to one company means one of them is the wrong company,
     // and both look well-formed downstream. Same rule as the MSCI resolver.
-    checks.assert(collisions.length === 0,
+    checks.assert(joined.collisions.length === 0,
       'no two FTSE holdings resolve to the same company',
-      collisions.map((c) => `${c.isin}: ${c.names.join(' / ')}`).join('; ') || 'none');
+      joined.collisions.map((c) => `${c.isin}: ${c.names.join(' / ')}`).join('; ') || 'none');
 
-    const currency = assertCurrency(results, { tolerancePct: FTSE_JOIN.currencyTolerancePct });
-    checks.assert(currency.ok,
+    checks.assert(joined.currency.ok,
       `the FTSE book is struck in ${fund.currency} — implied prices agree with our own closes`,
-      currency.ok
-        ? `median ratio ${currency.median.toFixed(4)} across ${num(currency.compared)} rows`
-        : currency.reason);
-    if (!currency.ok) {
-      process.stderr.write(`\n${currency.reason}\n\n`);
+      joined.currency.ok
+        ? `median ratio ${joined.currency.median.toFixed(4)} across ${num(joined.currency.compared)} rows`
+        : joined.currency.reason);
+    if (!joined.currency.ok) {
+      process.stderr.write(`\n${joined.currency.reason}\n\n`);
       process.exit(1);
     }
 
-    for (const r of results) {
-      if (!r.isin || ftseByIsin.has(r.isin)) continue;
-      ftseByIsin.set(r.isin, {
-        fundId: fund.id,
-        fundShortName: fund.shortName,
-        indexFamily: fund.indexFamily,
-        ticker: r.holding.ticker,
-        publishedName: r.holding.publishedName,
-        // Vanguard's own percent OF THE WHOLE FUND. Not comparable with any MSCI
-        // weight on this record — different fund, different denominator (§3.5).
-        weightPct: r.holding.weightPct,
-        weightPctPublished: r.holding.weightPctPublished,
-        // Vanguard already rounded this one to nothing before we saw it; the
-        // market value is the figure that survives (§2.20).
-        weightRoundedToZero: r.holding.weightRoundedToZero,
-        marketValueCad: r.holding.marketValueCad,
-        quantity: r.holding.quantity,
-        sector: r.holding.sector,
-        asOf: fund.asOf,
-        currency: fund.currency,
-        join: {
-          method: r.method,
-          priceRatio: r.priceCheck?.ratio ?? null,
-          priceCheck: r.priceCheck?.status ?? 'unavailable',
-          basisDate: r.priceCheck?.date ?? null,
-          tolerancePct: r.priceCheck?.tolerancePct ?? null,
-        },
-      });
-    }
-
-    const unresolvedRows = results.filter((r) => !r.isin);
-    ftseMeta = {
-      available: true,
-      fundId: fund.id,
-      fundName: fund.name,
-      shortName: fund.shortName,
-      indexFamily: fund.indexFamily,
-      currency: fund.currency,
-      asOf: fund.asOf,
-      downloadedOn: fund.downloadedOn,
-      note: ftseData.note,
-      // Every count with its denominator (§2.5).
-      indiaRows: fund.indiaRows,
-      resolved: results.length - unresolvedRows.length,
-      indiaWeightPct: fund.indiaWeightPct,
-      resolvedWeightPct: results.filter((r) => r.isin).reduce((a, r) => a + (r.holding.weightPct ?? 0), 0),
-      weightsExcludeCashAndFutures: fund.weightsExcludeCashAndFutures,
-      totalWeightPct: fund.totalWeightPct,
-      indiaMarketValueCad: fund.indiaMarketValueCad,
-      totalMarketValueCad: fund.totalMarketValueCad,
-      methods,
-      currencyCheck: {
-        medianPriceRatio: currency.median,
-        compared: currency.compared,
-        tolerancePct: FTSE_JOIN.currencyTolerancePct,
-        establishedBy: ftseData.currency.establishedBy,
-      },
-      priceBasis: {
-        date: basisDate,
-        exact: exactBasis,
-        gapSessions,
-        cadInr,
-        fxDate: walkedFx?.date ?? null,
-        fxWalkedBack: Boolean(walkedFx && !exactFx),
-        tolerancePct: basis.tolerancePct,
-      },
-      // Kept and named, never dropped: a holding we could not place is a gap in
-      // our join, not an absence from the fund (§2.3, §2.4).
-      unresolved: unresolvedRows.map((r) => ({
-        ticker: r.holding.ticker,
-        publishedName: r.holding.publishedName,
-        nameKind: r.holding.nameKind,
-        weightPct: r.holding.weightPct,
-        marketValueCad: r.holding.marketValueCad,
-        reason: r.reason,
-      })),
-    };
+    ftseByIsin = joined.byIsin;
+    ftseMeta = joined.meta;
   }
 
   for (const company of out) {
@@ -1195,8 +1099,42 @@ function main() {
     };
   }
 
+  // ---- how uncertain is the bar itself? ----------------------------------
+  //
+  // The desk's objection, verbatim: "whether the cut off will be 3,000 or 3,500
+  // or 4,000 Cr, that nobody knows... we cannot be 100% right in this forecast."
+  // Both cutoffs above are single rupee figures and every verdict turns on them.
+  // A point implies a precision the derivation does not have.
+  //
+  // Three components are measured here — the ten days MSCI could have priced on
+  // and does not disclose, our constituent count against the size range MSCI
+  // publishes, and how far the bar moved between the last two reviews. What goes
+  // on the record is dimensionless multipliers, so the browser can rebuild the
+  // same scenarios against a LIVE cutoff without the 2 MB of price history.
+  //
+  // ⚠ NOT A PROBABILITY. §2.13 is unchanged: what a reader gets is a count of
+  // scenarios with its denominator, never a percentage.
+  const cutoffUncertainty = CUTOFF_UNCERTAINTY.enabled
+    ? measureCutoffUncertainty({
+      config: CUTOFF_UNCERTAINTY,
+      companies: out,
+      priceHistory,
+      corporateActions,
+      latestDate: prices.tradeDate,
+      segmentOf,
+      sizeCutoffs,
+      reference: MSCI.GLOBAL_MIN_SIZE_REFERENCE,
+      fxRate: benchmarks?.fx?.series?.length
+        ? benchmarks.fx.series[benchmarks.fx.series.length - 1].close
+        : null,
+    })
+    : null;
+  const scenarios = cutoffScenarios(sizeCutoffs, cutoffUncertainty);
+  const band = cutoffBand(scenarios);
+
   const assessContext = { boundary, ranks, quarantined, keyOf: keyOfCompany, segmentReturns, sizeCutoffs };
   const flowContext = { flowPrimitives: flowPrimitivesByFund, segmentFloatTotals: floatTotals };
+  const stabilityCounts = {};
 
   const verdictCounts = {};
   const replayFailures = [];
@@ -1232,6 +1170,16 @@ function main() {
       disclosure: DISCLOSURE,
       basis: 'end-of-day price; the interface re-assesses against a live price when one is in force',
     };
+    // Does this verdict survive the cutoff being somewhere else in the band?
+    // The SAME rules engine is replayed at each scenario — a parallel
+    // implementation "just for the sensitivity" would drift from the model it
+    // claims to measure, and the drift would be invisible.
+    company.cutoffSensitivity = scenarios.length > 1
+      ? assessAcrossScenarios(company, assessContext, scenarios, assess, assessment)
+      : null;
+    if (company.cutoffSensitivity) {
+      stabilityCounts[company.cutoffSensitivity.state] = (stabilityCounts[company.cutoffSensitivity.state] ?? 0) + 1;
+    }
     company.flowEstimate = flows.length || notSampled.length
       ? { shape, flows, notSampled, asmConstraint: asmConstraint ?? null }
       : null;
@@ -1921,6 +1869,19 @@ function main() {
       // reconstruct a verdict without re-deriving anything.
       sizeCutoffs,
       sizeBars: barsFrom(sizeCutoffs),
+      // The band around those two numbers, and how many verdicts survive it.
+      // `scenarios` and `band` are DERIVED here and also derivable in the browser
+      // from `components` alone — they ride on the record so a reader of the file
+      // sees the same envelope the screen shows, and verify-data can compare the
+      // two rather than taking either on trust.
+      cutoffUncertainty: cutoffUncertainty
+        ? {
+          ...cutoffUncertainty,
+          scenarios: scenarios.map(({ cutoffs, ...rest }) => rest),
+          band,
+          stabilityCounts,
+        }
+        : null,
       /**
        * ⚠ OUR IMI CUTOFF SITS ABOVE MSCI'S OWN PUBLISHED MINIMUM-SIZE RANGE,
        * AND THAT IS A LIMITATION, NOT A CORROBORATION.

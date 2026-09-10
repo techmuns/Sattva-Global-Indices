@@ -60,7 +60,7 @@ function viewNav(active, onNavigate) {
  * nothing to switch. There is no global search box either: search belongs to
  * the table it filters, where the reader can see what it does to the row count.
  */
-export function mountShell(container, { route = 'companies', onNavigate } = {}) {
+export function mountShell(container, { route = 'companies', onNavigate, onUploadFtse } = {}) {
   const status = headerStatus();
 
   const brand = el('div', { class: 'flex items-center gap-3' }, [
@@ -78,8 +78,34 @@ export function mountShell(container, { route = 'companies', onNavigate } = {}) 
   const navSlot = el('div', { 'data-view-nav-slot': '' }, [viewNav(route, onNavigate)]);
 
   const statusSlot = el('div', { 'data-status-slot': '' }, [
-    statusControl({ ...status, onClick: () => openSourcesModal() }),
+    statusControl({ ...status, onClick: () => openSourcesModal({ onUploadFtse }) }),
   ]);
+
+  /**
+   * ⚠ THIS IS AN ACTION, NOT A TOGGLE, WHICH IS WHY §2.27 DOES NOT FORBID IT.
+   *
+   * Two controls have been removed from this header — the scope toggle and the
+   * model toggle — and the argument both times was that a screen asking a reader
+   * to CHOOSE before it will answer has made its own subject optional. This
+   * asks nothing and gates nothing: the screen answers identically whether it is
+   * ever pressed.
+   *
+   * It is here rather than only in the sources modal because the desk asked for
+   * a button on the dashboard, and a control two clicks behind a pill labelled
+   * with a date is not one. The FTSE feed row in the sources modal opens the
+   * same panel, for anyone who arrives at it from the provenance side instead.
+   */
+  const uploadSlot = onUploadFtse
+    ? el('button', {
+      type: 'button',
+      class: 'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold '
+        + 'text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900',
+      'data-upload-ftse': '',
+      title: "Drop in Vanguard's quarterly FTSE holdings workbook. It is read, checked and joined by the "
+        + 'same code that produced the book already on screen, and nothing is applied until you say so.',
+      onclick: () => onUploadFtse(),
+    }, ['↑ FTSE book'])
+    : null;
 
   const header = el(
     'header',
@@ -87,7 +113,7 @@ export function mountShell(container, { route = 'companies', onNavigate } = {}) 
     [
       el('div', { class: 'mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-6 gap-y-3 px-6 py-3' }, [
         brand,
-        el('div', { class: 'ml-auto flex flex-wrap items-center gap-3' }, [navSlot, statusSlot]),
+        el('div', { class: 'ml-auto flex flex-wrap items-center gap-3' }, [navSlot, uploadSlot, statusSlot]),
       ]),
     ],
   );
@@ -112,7 +138,7 @@ export function mountShell(container, { route = 'companies', onNavigate } = {}) 
     /** Re-render the pill in place. Called on every tick, because the claim it
      *  makes — live or last close — depends on whether a byte arrived. */
     setStatus(next) {
-      statusSlot.replaceChildren(statusControl({ ...next, onClick: () => openSourcesModal() }));
+      statusSlot.replaceChildren(statusControl({ ...next, onClick: () => openSourcesModal({ onUploadFtse }) }));
     },
     /** Repaint the nav so the active view follows the route, whether the change
      *  came from the nav, the address bar or the back button. */

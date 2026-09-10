@@ -554,13 +554,144 @@ function hashSymbols(symbols) {
   return hash.toString(16);
 }
 
+/* ── the FTSE book the desk uploads ───────────────────────────────────────
+ *
+ * The second reason this Worker exists, and it is a different reason from the
+ * first. `/api/quotes` hides a token; this holds a file so that a book one
+ * person uploads reaches everyone, without a commit and without a deploy.
+ *
+ * ⚠ THE BINDING IS OPTIONAL AND ITS ABSENCE IS NAMED. There is no KV namespace
+ * in wrangler.jsonc by default, because inventing an id would break `wrangler
+ * deploy` for anyone who has not created one. With no binding this route answers
+ * 501 and says exactly what to configure; the dashboard then keeps an uploaded
+ * book in the uploader's own browser and says THAT, in those words. What it must
+ * never do is fail in a way that reads as "nothing has been uploaded" (§2.4).
+ *
+ * ⚠ AND THE STORE VALIDATES WHAT IT IS GIVEN. Anything that can PUT here can
+ * change the FTSE weights every reader sees, so a payload that is not a holdings
+ * book is refused at the door rather than stored and discovered later by a
+ * dashboard that renders it. This is a shape check, not an authorisation check:
+ * whoever can reach this Worker can write to it, exactly as whoever can reach
+ * the dashboard can read it.
+ */
+const FTSE_KEY = 'ftse-book';
+/**
+ * The committed book is ~295 KB and the join roughly doubles the payload, so a
+ * real upload lands near 600 KB. 4 MB is several times that and still a bound —
+ * an unbounded PUT into a store every reader loads is not a size question, it is
+ * a way to make the dashboard unopenable.
+ */
+const FTSE_MAX_BYTES = 4 * 1024 * 1024;
+
+const ftseNotConfigured = (request) => jsonResponse(
+  {
+    ok: false,
+    error:
+      'This Worker has no FTSE_BOOK KV namespace bound, so an uploaded book cannot be shared. '
+      + 'Create one (`npx wrangler kv namespace create FTSE_BOOK`) and add its id to wrangler.jsonc '
+      + 'under `kv_namespaces`. Until then an upload applies to the uploader\'s browser only.',
+    configure: 'wrangler.jsonc → kv_namespaces → binding "FTSE_BOOK"',
+  },
+  { status: 501, maxAge: 0, request },
+);
+
+/** What must be true of a body before it is allowed to become everyone's book. */
+function ftseShapeError(book) {
+  if (!book || typeof book !== 'object') return 'the body carried no book';
+  const fund = Array.isArray(book.funds) ? book.funds[0] : null;
+  if (!fund) return 'the book has no funds[0]';
+  if (!Array.isArray(fund.holdings) || fund.holdings.length === 0) return 'the book has no holdings';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fund.asOf ?? '')) return 'the book has no holdings date (funds[0].asOf)';
+  if (fund.currency !== 'CAD') {
+    return `the book is marked ${JSON.stringify(fund.currency)} — Vanguard's export is struck in CAD, `
+      + 'and a book in another currency would inflate every rupee figure derived from it';
+  }
+  if (!Number.isFinite(fund.indiaWeightPct) || fund.indiaWeightPct <= 0) return 'the book has no India weight';
+  return null;
+}
+
+async function handleFtse(request, env) {
+  const store = env?.FTSE_BOOK;
+
+  if (request.method === 'GET') {
+    if (!store) return ftseNotConfigured(request);
+    const stored = await store.get(FTSE_KEY, 'json');
+    if (!stored) {
+      return jsonResponse(
+        { ok: true, book: null, detail: 'the shared store is configured and empty — nothing has been uploaded yet' },
+        { maxAge: 0, request },
+      );
+    }
+    // ⚠ THE JOIN COMES BACK WITH THE BOOK. The dashboard stores what a person
+    // actually reviewed — which company each row was matched to, and which close
+    // arbitrated it — because re-deriving the join on every page load would
+    // either cost every visitor 1.5 MB of price history or silently fall back to
+    // a weaker basis and resolve differently from the version that was approved.
+    return jsonResponse(
+      { ok: true, book: stored.book, join: stored.join ?? null, uploadedAt: stored.uploadedAt ?? null, detail: stored.detail ?? null },
+      { maxAge: 0, request },
+    );
+  }
+
+  if (request.method === 'PUT') {
+    if (!store) return ftseNotConfigured(request);
+    const raw = await request.text();
+    if (raw.length > FTSE_MAX_BYTES) {
+      return jsonResponse(
+        { ok: false, error: `the book is ${raw.length} bytes, past the ${FTSE_MAX_BYTES}-byte limit this route accepts` },
+        { status: 413, maxAge: 0, request },
+      );
+    }
+    let body;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      return jsonResponse({ ok: false, error: 'the body was not JSON' }, { status: 400, maxAge: 0, request });
+    }
+    const shapeError = ftseShapeError(body?.book);
+    if (shapeError) {
+      return jsonResponse({ ok: false, error: `refused: ${shapeError}` }, { status: 400, maxAge: 0, request });
+    }
+    if (!body?.join?.meta || !Array.isArray(body?.join?.byIsin)) {
+      return jsonResponse(
+        { ok: false, error: 'refused: the book arrived without the join that was reviewed with it' },
+        { status: 400, maxAge: 0, request },
+      );
+    }
+    const uploadedAt = new Date().toISOString();
+    await store.put(FTSE_KEY, JSON.stringify({ book: body.book, join: body.join, uploadedAt }));
+    return jsonResponse(
+      {
+        ok: true,
+        uploadedAt,
+        detail: `stored — ${body.book.funds[0].holdings.length} India holdings as at ${body.book.funds[0].asOf}`,
+      },
+      { maxAge: 0, request },
+    );
+  }
+
+  return jsonResponse({ ok: false, error: `${request.method} is not allowed here` }, { status: 405, maxAge: 0, request });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === '/api/quotes') return handleQuotes(request, env, ctx);
+    if (url.pathname === '/api/ftse') {
+      if (request.method === 'OPTIONS') return preflight();
+      return handleFtse(request, env);
+    }
     if (url.pathname === '/api/health') {
       return jsonResponse(
-        { ok: true, tokenConfigured: Boolean(env?.MUNS_TOKEN), chunkSize: CHUNK_SIZE, cacheTtlSeconds: CACHE_TTL_SECONDS },
+        {
+          ok: true,
+          tokenConfigured: Boolean(env?.MUNS_TOKEN),
+          // Reported so the dashboard's upload panel can say what is and is not
+          // configured before somebody spends a workbook finding out.
+          ftseStoreConfigured: Boolean(env?.FTSE_BOOK),
+          chunkSize: CHUNK_SIZE,
+          cacheTtlSeconds: CACHE_TTL_SECONDS,
+        },
         { maxAge: 0, request },
       );
     }

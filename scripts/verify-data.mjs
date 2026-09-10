@@ -43,6 +43,10 @@ import { relativeOf, windowMean, WINDOW_STATES, REBASE_STATES, adjustmentBetween
 import { RELATIVE_PERFORMANCE, REBALANCE_BASELINE } from '../public/js/config/thresholds.mjs';
 import { ASM_REFRESH } from '../public/js/config/thresholds.mjs';
 import { diffAsmSnapshots } from './lib/asm-diff.mjs';
+import { cutoffScenarios, cutoffBand, assessAcrossScenarios } from '../public/js/model/cutoff-uncertainty.js';
+import { CUTOFF_UNCERTAINTY, FTSE_JOIN } from '../public/js/config/thresholds.mjs';
+import { readFtseBook, assertBookShape } from '../public/js/model/ftse-book.js';
+import { inflateRawSync } from 'node:zlib';
 import { closedReviews, chooseBaseline } from '../public/js/model/calendar.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -159,7 +163,7 @@ function loadContext() {
     rebalance: readJson('public/data/rebalance-2026-08.json'),
     sources: loadSources(),
     // Injected so a check can be broken by swapping the thing it verifies.
-    fn: { assertBhavcopyShape, assertContinuity, continuityRecord, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count, parseRange, withinRange, chooseBaseline, diffAsmSnapshots },
+    fn: { assertBhavcopyShape, assertContinuity, continuityRecord, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count, parseRange, withinRange, chooseBaseline, diffAsmSnapshots, cutoffScenarios, cutoffBand, assessAcrossScenarios, readFtseBook, assertBookShape },
     asmRefresh: structuredClone(ASM_REFRESH),
     fixtures: {
       spaShell: readText('scripts/fixtures/bhavcopy-spa-shell.html'),
@@ -167,7 +171,11 @@ function loadContext() {
       bhavPrev: readText('scripts/fixtures/bhavcopy-sample-20260818.csv'),
       rawQuote: readText('scripts/fixtures/munshot-rawquote-reliance.txt'),
       asmWorkflow: readText('.github/workflows/asm-refresh.yml'),
+      // The workbook itself, so the shared reader can be run against the
+      // artefact it produced and the two compared byte for byte.
+      ftseWorkbook: readFileSync(join(ROOT, 'scripts/fixtures/vanguard-ftse-em-allcap.xlsx')),
     },
+    ftseFunds: readJson('public/data/ftse-funds.json'),
   };
 }
 
@@ -187,6 +195,7 @@ const clone = (ctx) => ({
   sources: ctx.sources.map((s) => ({ ...s })),
   fn: { ...ctx.fn },
   fixtures: { ...ctx.fixtures },
+  ftseFunds: structuredClone(ctx.ftseFunds),
 });
 const deepClone = (ctx) => { const c = clone(ctx); c.companies = c.companiesFile.companies; return c; };
 
@@ -3338,6 +3347,311 @@ async function main() {
       // screen would keep claiming a fortnightly guarantee the runner stopped
       // keeping.
       c.fixtures.asmWorkflow = c.fixtures.asmWorkflow.replace(/-\s*cron:\s*'[^']+'/, "- cron: '0 4 1 1 *'");
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 61,
+    what: 'the size cutoff carries a MEASURED band, and every component that did not fire says why',
+    clone: deepClone,
+    run: (c) => {
+      const u = c.companiesFile.model.cutoffUncertainty;
+      ok(u, 'the record carries the cutoff band', 'model.cutoffUncertainty is absent');
+
+      // ---- nothing here may be a typed number ----------------------------
+      // A hand-set band is the exact failure this feature exists to remove —
+      // false precision — with an extra layer of authority on top. So every
+      // component either MEASURED something, or says in words that it did not.
+      const silent = u.components.filter((k) => !k.applies && !k.reason);
+      empty(silent, 'a component that could not be measured states its reason — it is never a silent 1.0', (x) => x.key);
+
+      for (const k of u.components.filter((x) => x.applies)) {
+        for (const side of ['standard', 'imi']) {
+          const bounds = k[side];
+          ok(Number.isFinite(bounds?.low) && Number.isFinite(bounds?.high),
+            `${k.key}/${side} carries finite multipliers`, JSON.stringify(bounds));
+          ok(bounds.low <= 1 && bounds.high >= 1,
+            `${k.key}/${side} straddles the point estimate rather than displacing it`,
+            JSON.stringify(bounds));
+        }
+        ok(k.source, `${k.key} names where its measurement came from`, 'no source');
+        ok(k.basis, `${k.key} says in words what it varies`, 'no basis');
+      }
+
+      // ---- the one-sided component is one-sided, and that is the finding --
+      // Three sampling funds can omit a constituent but cannot invent one, so
+      // our count is a floor and our cutoff is a ceiling. Making this symmetric
+      // would claim MSCI's cutoff might be HIGHER than ours, which nothing
+      // supports.
+      const count = u.components.find((k) => k.key === 'constituent-count');
+      if (count?.applies) {
+        equal(count.imi.high, 1, 'the constituent-count correction never raises the cutoff');
+        equal(count.standard.high, 1, 'nor the Standard one');
+        ok(count.imi.low < 1 || count.standard.low < 1,
+          'and it moves at least one of them down, or it is not a correction at all',
+          JSON.stringify({ imi: count.imi, standard: count.standard }));
+      }
+
+      // ---- the band is the envelope of the scenarios, recomputed ----------
+      // Derived here from the SAME function the browser uses, so a band that
+      // rode on the record without being reproducible would fail.
+      const rebuilt = c.fn.cutoffScenarios(c.companiesFile.model.sizeCutoffs, u);
+      equal(rebuilt.length, u.scenarios.length, 'the scenarios on the record are the ones the model derives');
+      const band = c.fn.cutoffBand(rebuilt);
+      for (const side of ['standard', 'imi']) {
+        const stored = u.band[side];
+        const point = c.companiesFile.model.sizeCutoffs[side].inr;
+        equal(Math.round(band[side].lowInr), Math.round(stored.lowInr), `${side}: the low end recomputes`);
+        equal(Math.round(band[side].highInr), Math.round(stored.highInr), `${side}: the high end recomputes`);
+        equal(Math.round(stored.pointInr), Math.round(point), `${side}: the point estimate IS the shipped cutoff`);
+        ok(stored.lowInr <= point && point <= stored.highInr,
+          `${side}: the shipped cutoff sits inside its own band`,
+          `${stored.lowInr} .. ${point} .. ${stored.highInr}`);
+        ok(stored.widthPct > 0, `${side}: the band has width — a band of zero is a point wearing a band's name`,
+          String(stored.widthPct));
+      }
+
+      // ---- and it is not a probability ------------------------------------
+      // §2.13 refuses one, and the shape of this output is where a future author
+      // would most plausibly reintroduce it: `agreeing / scenarios` is a
+      // fraction, and a fraction is one multiplication from a percentage.
+      const hits = scan(c.sources, [
+        { label: 'a scenario count turned into a rate', re: /agreeing\s*\/\s*[\w.]*scenarios/ },
+        { label: 'a probability derived from the band', re: /\b(cutoffProbability|inclusionProbability|verdictProbability|confidencePct)\b/ },
+      ]);
+      empty(hits, 'no code turns the scenario count into a percentage — §2.13 has not moved', (h) => h);
+
+      const applied = u.components.filter((k) => k.applies).map((k) => k.key);
+      return `${u.scenarios.length} scenarios from ${applied.length} measured component(s): ${applied.join(', ')}`
+        + ` · IMI band ±${u.band.imi.widthPct.toFixed(1)}% of the point, Standard ±${u.band.standard.widthPct.toFixed(1)}%`;
+    },
+    sabotage: (c) => {
+      // The realistic mistake: type the band. It reads as a measurement, it
+      // renders identically, and nothing downstream can tell.
+      const u = c.companiesFile.model.cutoffUncertainty;
+      for (const k of u.components) {
+        if (!k.applies) continue;
+        k.standard = { low: 0.95, high: 1.05 };
+        k.imi = { low: 0.95, high: 1.05 };
+      }
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 62,
+    what: 'a verdict is replayed at every defensible cutoff, and the count is a count — never a rate',
+    clone: deepClone,
+    run: (c) => {
+      const u = c.companiesFile.model.cutoffUncertainty;
+      const scenarios = c.fn.cutoffScenarios(c.companiesFile.model.sizeCutoffs, u);
+      ok(scenarios.length > 1, 'there is more than one cutoff to replay against', String(scenarios.length));
+
+      const states = { firm: 0, marginal: 0, unmeasured: 0, missing: 0 };
+      const broken = [];
+      for (const company of c.companies) {
+        const s = company.cutoffSensitivity;
+        if (!s) { states.missing += 1; continue; }
+        states[s.state] = (states[s.state] ?? 0) + 1;
+        if (s.state === 'unmeasured') {
+          if (!s.reason) broken.push(`${company.name}: unmeasured with no reason`);
+          continue;
+        }
+        if (!(s.agreeing >= 1 && s.agreeing <= s.scenarios)) {
+          broken.push(`${company.name}: ${s.agreeing} of ${s.scenarios}`);
+        }
+        const alt = s.alternatives.reduce((sum, a) => sum + a.count, 0);
+        if (s.agreeing + alt !== s.scenarios) {
+          broken.push(`${company.name}: ${s.agreeing} + ${alt} != ${s.scenarios} — the scenarios do not account for themselves`);
+        }
+        if (s.state === 'firm' && s.alternatives.length) broken.push(`${company.name}: firm but carries alternatives`);
+        if (s.state === 'marginal' && !s.alternatives.length) broken.push(`${company.name}: marginal but names no alternative`);
+      }
+      empty(broken, 'every stability record accounts for all of its own scenarios', (x) => x);
+
+      // ---- THE POSITIVE CONTROL, and it is the point of the whole feature --
+      // A band nothing falls inside is decoration. §3.8.1: a detector that finds
+      // nothing is indistinguishable from a broken one.
+      ok(states.marginal > 0,
+        'the band must actually change some verdicts, or it is a decoration on a point estimate',
+        `${states.marginal} marginal of ${c.companies.length}`);
+      // ---- and the negative control ---------------------------------------
+      // `unmeasured` is a THIRD state and must not be folded into `firm`: a
+      // verdict the cutoff cannot move (the FIF floor decided it, or an input
+      // was missing) has not survived anything.
+      ok(states.unmeasured > 0,
+        'verdicts the cutoff cannot move are kept apart from verdicts that survived it',
+        `${states.unmeasured} unmeasured`);
+
+      // ---- the replay is the REAL rules engine ----------------------------
+      // A parallel implementation "just for the sensitivity" would drift from
+      // the model it claims to measure, and the drift would be invisible.
+      const keyOf = (x) => x.isin ?? `bse:${x.bseScripCode}`;
+      const context = {
+        boundary: observedBoundary(c.companies, segmentOf),
+        ranks: rankByFreeFloat(c.companies, keyOf),
+        quarantined: new Set(c.companies.filter((x) => x.shareCountQuarantine).map(keyOf)),
+        keyOf,
+        segmentReturns: c.companiesFile.benchmarks?.adjustment?.segmentReturnsInrPct ?? null,
+        sizeCutoffs: c.companiesFile.model.sizeCutoffs,
+      };
+      const drift = [];
+      for (const company of c.companies) {
+        if (!company.cutoffSensitivity) continue;
+        const replayed = c.fn.assessAcrossScenarios(company, context, scenarios, assess);
+        if (replayed.state !== company.cutoffSensitivity.state
+          || replayed.agreeing !== company.cutoffSensitivity.agreeing) {
+          drift.push(`${company.name}: record ${company.cutoffSensitivity.state}/${company.cutoffSensitivity.agreeing}`
+            + ` vs replay ${replayed.state}/${replayed.agreeing}`);
+        }
+      }
+      empty(drift, 'the stability on the record reproduces from the rules engine itself', (x) => x);
+
+      // ---- the SHIPPED verdict is the one at the shipped cutoff -----------
+      // The band must qualify the verdict, never quietly replace it.
+      const moved = c.companies.filter((x) => x.cutoffSensitivity && x.cutoffSensitivity.verdict !== x.assessment.verdict);
+      empty(moved, 'the band never changes which verdict the row shows', (x) => x.name);
+
+      equal(states.firm + states.marginal + states.unmeasured + states.missing, c.companies.length,
+        'every company is in exactly one state');
+      return `${states.firm} firm · ${states.marginal} marginal · ${states.unmeasured} not movable by a cutoff`
+        + ` · replayed ${scenarios.length} cutoffs across ${c.companies.length} companies with no drift`;
+    },
+    sabotage: (c) => {
+      // The comfortable answer: everything holds everywhere. It renders as a
+      // clean screen and it is a claim about our own certainty that nothing
+      // measured.
+      c.fn.assessAcrossScenarios = (company, context, scenarios, assessFn) => ({
+        state: 'firm',
+        verdict: assessFn(company, context).verdict,
+        cutoff: 'imi',
+        scenarios: scenarios.length,
+        agreeing: scenarios.length,
+        alternatives: [],
+        insideBand: false,
+        bar: null,
+        reason: 'firm',
+      });
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 63,
+    what: 'the workbook reader the DASHBOARD uses reproduces the committed book exactly',
+    clone: deepClone,
+    run: async (c) => {
+      // The desk can now upload Vanguard's quarterly workbook through the page.
+      // A second parser for the browser would produce rows — plausible rows —
+      // that quietly disagreed with the importer's on the currency, on which
+      // company a house ticker resolved to, and on which rows kept a reason.
+      // The defence is that there is ONE reader; this proves it still reads.
+      const { payload } = await c.fn.readFtseBook(c.fixtures.ftseWorkbook, (b) => inflateRawSync(b), {
+        receivedAs: 'committed fixture',
+      });
+      const committed = c.ftseFunds;
+
+      const a = payload.funds[0];
+      const b = committed.funds[0];
+      equal(a.asOf, b.asOf, 'the holdings date reproduces');
+      equal(a.indiaRows, b.indiaRows, 'the India row count reproduces');
+      equal(a.dataRows, b.dataRows, 'the whole-book row count reproduces');
+      equal(a.indiaWeightPct.toFixed(6), b.indiaWeightPct.toFixed(6), 'the India weight reproduces');
+      equal(a.totalWeightPct.toFixed(6), b.totalWeightPct.toFixed(6), 'the whole-fund weight reproduces');
+      equal(JSON.stringify(a.holdings), JSON.stringify(b.holdings),
+        'every India holding reproduces field for field — a reader that agreed on the totals and '
+        + 'differed on a row would be the invisible kind of wrong');
+
+      // ---- the structural checks, both ways -------------------------------
+      // They are NOT the importer's EXPECTED table (which describes the
+      // committed fixture and must move when a fresh book arrives). These are
+      // what must hold for ANY Vanguard book.
+      const measured = {
+        name: a.name, holdingsAsOf: a.asOf, downloadedOn: a.downloadedOn,
+        dataRows: a.dataRows, indiaRows: a.indiaRows,
+        indiaWeightPct3dp: a.indiaWeightPct.toFixed(3),
+        totalWeightPct3dp: a.totalWeightPct.toFixed(3),
+      };
+      const clean = c.fn.assertBookShape(measured, { previous: null });
+      ok(clean.ok, 'the committed book passes the structural checks', JSON.stringify(clean.checks.filter((x) => !x.ok)));
+
+      // The negative control: a check that cannot fail is not a check (§2.22).
+      const notABook = c.fn.assertBookShape({ ...measured, name: 'Some Other Fund plc', indiaRows: 0 }, { previous: null });
+      ok(!notABook.ok, 'a file that is not this report is refused', 'it passed');
+      // And the shrink guard, which reads the book it REPLACES, never the one
+      // under test (§3.8's guard-reads-its-own-threshold trap).
+      const shrunk = c.fn.assertBookShape({ ...measured, indiaRows: Math.floor(a.indiaRows / 2) },
+        { previous: { indiaRows: a.indiaRows, asOf: a.asOf } });
+      ok(!shrunk.ok, 'a book half the size of the one it replaces is refused', 'it passed');
+      const older = c.fn.assertBookShape({ ...measured, holdingsAsOf: '2020-01-31' },
+        { previous: { indiaRows: a.indiaRows, asOf: a.asOf } });
+      ok(!older.ok, 'a book older than the one it replaces is refused', 'it passed');
+
+      // ---- ONE reader, not two --------------------------------------------
+      const hits = scan(c.sources, [
+        { label: 'a second India-row filter outside the shared reader', re: /Region'\s*\)\s*===\s*'IN'/ },
+        { label: 'a second Bloomberg-stub matcher', re: /New Issuer:.{0,4}BB Company ID/ },
+      ]).filter((h) => !h.startsWith('public/js/model/ftse-book.js:'));
+      empty(hits, 'nothing outside model/ftse-book.js parses this workbook', (h) => h);
+
+      return `${a.indiaRows} India rows reproduced field for field from the workbook · `
+        + `structural checks pass on the real book and refuse a wrong one, a shrunken one and a stale one`;
+    },
+    sabotage: (c) => {
+      // The browser gets its own reader and it is subtly different: one column
+      // read by index. Every count still lands; one field per row is wrong.
+      const real = c.fn.readFtseBook;
+      c.fn.readFtseBook = async (...args) => {
+        const result = await real(...args);
+        for (const h of result.payload.funds[0].holdings) h.sector = h.publishedName;
+        return result;
+      };
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 64,
+    what: 'applying an uploaded FTSE book writes ONE field — it cannot reach a verdict',
+    clone: deepClone,
+    run: (c) => {
+      // §2.35 wires FTSE so it cannot become an input, and check 57 sweeps the
+      // book against the model. This covers the NEW way in: the dashboard's own
+      // apply path, which is the place a future author would most plausibly
+      // "improve" by writing the FTSE weight somewhere the model reads.
+      const registry = c.sources.find((f) => f.path.endsWith('public/js/data/companies.js'));
+      ok(registry, 'the data layer source was scanned', 'missing');
+
+      const body = /export function applyFtseBook\(([\s\S]*?)\n}/.exec(registry.text)?.[1] ?? '';
+      ok(body, 'applyFtseBook is in the data layer', 'not found');
+
+      // Which company fields does it assign to? Anything but `ftse` is a leak.
+      const assigned = [...body.matchAll(/company\.(\w+)\s*=/g)].map((m) => m[1]);
+      equal(JSON.stringify([...new Set(assigned)]), JSON.stringify(['ftse']),
+        'apply writes company.ftse and nothing else — funds, segment, held and assessment are what the '
+        + 'MSCI model reads, and a book that reached any of them would move real verdicts');
+
+      // And a company the new book does not hold must be CLEARED, not left on
+      // the previous quarter's row — a stale row is worse than an absent one
+      // because it looks current.
+      ok(/\?\?\s*null/.test(body) && /company\.ftse = next/.test(body),
+        'a company the new book does not hold is set to null, not left carrying the old book',
+        body.slice(0, 200));
+
+      // The upload panel must not be able to write anywhere else either.
+      const panel = c.sources.find((f) => f.path.endsWith('public/js/ui/ftse-upload.js'));
+      ok(panel, 'the upload panel source was scanned', 'missing');
+      const leaks = [...panel.text.matchAll(/company\.(?!ftse\b)(\w+)\s*=/g)].map((m) => m[0]);
+      empty(leaks, 'the upload panel assigns to no company field at all', (x) => x);
+
+      return 'applyFtseBook assigns company.ftse and nothing else; the panel assigns no company field';
+    },
+    sabotage: (c) => {
+      // The plausible "improvement": make an FTSE-held company count as held so
+      // it stops rendering as a candidate. It moves `held`, which segmentOf and
+      // every downstream denominator read.
+      const registry = c.sources.find((f) => f.path.endsWith('public/js/data/companies.js'));
+      registry.text = registry.text.replace(
+        'company.ftse = next;',
+        'company.ftse = next;\n    if (next) company.held = true;',
+      );
     },
   }, ctx);
 

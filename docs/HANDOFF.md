@@ -14,7 +14,7 @@ you are asked "is this number real?", this is the answer.**
 | --- | --- | --- |
 | **Measured** | Somebody else published it; we carried it through unchanged. | `public/data/msci-funds.json` (iShares weights, quantities, market values, prices), `nse-freefloat.json`, `bse-freefloat.json`, `prices.json` |
 | **Derived** | Arithmetic we performed on measured inputs, with the formula shown beside the number. | `public/js/core/format.js`, `scripts/lib/recompute.mjs` — free-float market cap, day change, weight drift, flow primitives |
-| **Modelled** | An opinion produced by rules we wrote. | `public/js/model/` — segment placement, verdict, flow estimate |
+| **Modelled** | An opinion produced by rules we wrote. | `public/js/model/` — segment placement, verdict, flow estimate, and how much of the verdict rests on a cutoff nobody published (`cutoff-uncertainty.js`) |
 
 A modelled figure never renders as a bare number. It renders as a band with its rules, thresholds
 and threshold *sources* attached. `public/js/model/assess.js` exports `verdictFromRules()`, which
@@ -153,9 +153,11 @@ the reader; a reader that pushes cells in document order is wrong and throws not
 *Symptom*: a company's market cap is 8. Not `NaN`, not an error — the number 8, which sorts, sums and
 ranks perfectly happily. BSE returns money as strings like `"8,71,532.61"`, and `parseFloat` stops at
 the first comma. **`parseFloat` is banned anywhere near a BSE figure**; assertion 5 greps for it.
-Everything goes through `parseGroupedNumber` in `scripts/lib/bse.mjs`, which validates the whole
-string before converting and normalises to rupees at that boundary so exactly one unit exists
-downstream.
+Everything goes through `parseGroupedNumber`, which validates the whole string before converting and
+normalises to rupees at that boundary so exactly one unit exists downstream. It lives in
+`public/js/core/grouped-number.js` and `scripts/lib/bse.mjs` re-exports it — the FTSE upload panel
+parses Vanguard's `$1,234.56` in the browser, and `bse.mjs` imports `node:child_process` for the curl
+transport, so it cannot be loaded in a page at all. There is still exactly one implementation.
 
 **5. BSE serves delisted scrips as though nothing happened.**
 *Symptom*: a perfectly clean-looking float factor for a company that no longer exists. Scrip `500010`

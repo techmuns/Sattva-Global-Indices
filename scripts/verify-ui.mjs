@@ -117,21 +117,30 @@ function isCdnNoise(url) {
  * the same commit passed on a fast runner and failed on a slow one. Classifying
  * it is the fix; widening "acceptable console errors" is not.
  *
+ * ⚠ `/api/ftse` IS THE SAME PROBE FOR A SECOND FEED. The dashboard asks the
+ * Worker for a shared FTSE book on every load, in parallel with companies.json.
+ * On the static floor there is no such route, and `data/ftse-store.js` names
+ * that state `no-worker` and falls back to the committed book — the designed
+ * behaviour, exactly as it is for quotes. Both routes are listed explicitly
+ * rather than the path test being loosened to `/api/*`, so a future route that
+ * fails is a real failure until somebody adds it here on purpose.
+ *
  * Deliberately narrow, so it cannot hide a real fault:
  *   - only when there is NO Worker. Against `wrangler dev` a failing
  *     /api/quotes is a genuine error and still fails assertion 22.
- *   - only this origin and only this exact path.
+ *   - only this origin and only these exact paths.
  *   - only the three statuses the application itself recognises.
  *   - counted and reported in its own bucket, never merged into the CDN count.
  */
 const NO_WORKER_STATUSES = /\b(404|405|501)\b/;
+const NO_WORKER_ROUTES = new Set(['/api/quotes', '/api/ftse']);
 
 function isDesignedNoWorkerProbe(url, text, { base, hasWorker }) {
   if (hasWorker || !url) return false;
   try {
     const parsed = new URL(url);
     if (`${parsed.protocol}//${parsed.host}` !== new URL(base).origin) return false;
-    if (parsed.pathname !== '/api/quotes') return false;
+    if (!NO_WORKER_ROUTES.has(parsed.pathname)) return false;
   } catch { return false; }
   return NO_WORKER_STATUSES.test(text ?? '');
 }
@@ -2723,9 +2732,27 @@ async function main() {
             shown: shown.length,
           };
         };
-        // Any width at all puts the table under explicit widths, which is the
-        // only state where the gap can appear.
-        table.columns.setWidth('Company', 250);
+        // ⚠ THE SCENARIO IS ESTABLISHED HERE, NOT ASSUMED FROM THE COLUMN SET.
+        //
+        // A gap can only appear when the columns already fit inside the box —
+        // if the table is wider than the screen, hiding one leaves it still
+        // wider and there is nothing to close. This check used to rely on the
+        // natural widths happening to fit, which held with thirteen columns and
+        // stopped holding at fourteen: the assertion then read 1,457 against a
+        // 1,424px box and failed on a table that was behaving correctly.
+        //
+        // That is §2.34 — an assertion about what the layout happened to be
+        // rather than about the contract. So the precondition is now built:
+        // every column is pinned narrow enough that the table is definitely
+        // inside the box, whatever columns the screener ships. Setting a width
+        // is also what puts the table under explicit widths, which is the only
+        // state where the gap can appear at all. A drag is deliberately NOT
+        // re-shared, so this leaves the white band the hide must then close.
+        const narrow = Math.max(
+          48,
+          Math.floor((scroller.clientWidth * 0.6) / table.columns.layout().length),
+        );
+        for (const col of table.columns.layout()) table.columns.setWidth(col.label, narrow);
         const before = measure();
         const hiddenWidth = table.columns.widths()['Funds'] ?? 0;
         table.columns.setHidden('Funds', true);
@@ -2748,6 +2775,9 @@ async function main() {
       ok(m.hiddenWidth > 0, 'the column being put away must have had a width, or there is no gap to close',
         `Funds was ${m.hiddenWidth}px`);
       ok(m.before.shown - m.afterHide.shown === 1, 'exactly one column must come off', `${m.before.shown} → ${m.afterHide.shown}`);
+      ok(m.before.sum < m.before.available,
+        'the scenario must actually start with a band of white — otherwise there is no gap to close',
+        `${m.before.sum} of ${m.before.available}px`);
 
       // THE LOAD-BEARING PAIR, and it is a pair on purpose. The first says the
       // gap is closed; the second says it was closed by re-sharing the WIDTHS.
@@ -2773,6 +2803,7 @@ async function main() {
 
       await clearColumnPrefs(c);
       return `${m.hiddenWidth}px of Funds re-shared: the columns went ${m.before.sum} → ${m.afterHide.sum} in a ${m.afterHide.available}px box`
+        + ` (started ${m.before.available - m.before.sum}px short, deliberately)`
         + ` and back to ${m.afterShow.sum} · a stretched ${m.wide.sum}px table stayed ${m.wideAfterHide.sum}px and kept scrolling`
         + (m.styled ? ' · rendered widths agree' : ' · rendered width NOT compared: no Tailwind here, so the table adds border spacing to the sum');
     },
@@ -3736,6 +3767,222 @@ async function main() {
       + " if (e.target.closest && e.target.closest('[data-multi-option]')) e.stopImmediatePropagation();"
       + " }, true)",
     ),
+    restore: restoreByReload,
+  }, ctx);
+
+  await suite.check({
+    id: 60,
+    what: 'the cutoff renders as a BAND with its scenarios, and a marginal verdict says so on the row',
+    run: async (c) => {
+      await c.settle();
+      const m = await c.page.evaluate(async () => {
+        const S = window.__sattva;
+        S.flush();
+        const rows = S.data.all();
+        const marginal = rows.filter((r) => r.cutoffSensitivity?.state === 'marginal');
+        const firm = rows.filter((r) => r.cutoffSensitivity?.state === 'firm');
+        const unmeasured = rows.filter((r) => r.cutoffSensitivity?.state === 'unmeasured');
+
+        // The chip beside the verdict, counted on what is actually painted.
+        const table = document.querySelector('[data-score-table]');
+        const chips = [...table.querySelectorAll('td')]
+          .flatMap((td) => [...td.querySelectorAll('span')])
+          .filter((sp) => sp.textContent.trim() === 'marginal');
+
+        // The "Holds at" column, with its denominator spelled out.
+        const heads = [...table.querySelectorAll('th')].map((th) => th.textContent.trim());
+        const holdsAt = heads.findIndex((h) => h.startsWith('Holds at'));
+        const cellTexts = holdsAt < 0 ? [] : [...table.querySelectorAll('tbody tr')]
+          .slice(0, 60)
+          .map((tr) => (tr.children[holdsAt]?.textContent ?? '').trim())
+          .filter(Boolean);
+
+        // And the drill, on a company we KNOW is marginal.
+        S.view.openCompany(S.data.keyOf(marginal[0]));
+        await new Promise((r) => setTimeout(r, 250));
+        const drill = document.querySelector('[data-panel]')?.innerText ?? '';
+        const scenarioRows = [...(document.querySelector('[data-panel]')?.querySelectorAll('table tr') ?? [])]
+          .map((tr) => tr.textContent)
+          .filter((t) => /cutoff scenario|point estimate|the day MSCI priced on|constituent|bar moved/i.test(t));
+
+        return {
+          total: rows.length,
+          marginal: marginal.length,
+          firm: firm.length,
+          unmeasured: unmeasured.length,
+          chips: chips.length,
+          chipTitle: chips[0]?.getAttribute('title') ?? '',
+          holdsAtPresent: holdsAt >= 0,
+          cellTexts: cellTexts.slice(0, 8),
+          drill,
+          scenarioRows: scenarioRows.length,
+          bandWidth: S.view.modelCutoffBand?.()?.imi?.widthPct ?? null,
+          scenarios: S.view.modelCutoffScenarios?.()?.length ?? 0,
+        };
+      });
+
+      // ---- the band exists and has width ---------------------------------
+      ok(m.scenarios > 1, 'the screen holds more than one defensible cutoff', String(m.scenarios));
+      ok(m.bandWidth > 0, 'the band has width — a band of zero is a point wearing a band\'s name', String(m.bandWidth));
+
+      // ---- the marker fires, and at a rate a reader still notices ---------
+      // §2.12.4's argument: a chip on two rows in three is a chip readers stop
+      // seeing. This asserts it fires AND that it is selective.
+      ok(m.marginal > 0, 'some verdict on this record is cutoff-dependent, or there is nothing to mark',
+        `${m.marginal} of ${m.total}`);
+      ok(m.marginal < m.total / 2, 'and the marker is selective rather than on most rows',
+        `${m.marginal} of ${m.total}`);
+      ok(m.chips > 0, 'the marker reaches the painted rows, not just the record', String(m.chips));
+
+      // ---- ⚠ AND IT NEVER READS AS A PROBABILITY --------------------------
+      // §2.13 refuses to print one. "3/6" beside a verdict is one glance from
+      // being read as 50%, so the chip is a WORD and every count is written
+      // with "of" and its denominator.
+      ok(!/\d\s*\/\s*\d/.test(m.chipTitle) && !/%/.test(m.chipTitle),
+        'the marker\'s explanation carries no fraction and no percentage', m.chipTitle.slice(0, 160));
+      ok(/not a probability/i.test(m.chipTitle),
+        'and it says in words that this is not a probability', m.chipTitle.slice(0, 160));
+
+      // ---- the column prints its denominator (§2.5) ------------------------
+      ok(m.holdsAtPresent, 'the "Holds at" column is on the table', 'not found');
+      const bare = m.cellTexts.filter((t) => t !== '—' && !/\bof\b/.test(t));
+      empty(bare, 'every count in that column carries its denominator — never a bare number', (t) => t);
+
+      // ---- the drill shows the working ------------------------------------
+      ok(/How much does this turn on where the cutoff lands/.test(m.drill),
+        'the drill carries the cutoff-sensitivity section', m.drill.slice(0, 120));
+      ok(/holds at \d+ of the \d+ cutoffs/i.test(m.drill),
+        'and states the count with its denominator', (m.drill.match(/holds at[^.]*/i) ?? [''])[0]);
+      ok(/not a probability/i.test(m.drill), 'and says it is not a probability', 'the sentence is missing');
+      ok(m.scenarioRows >= 3,
+        'every cutoff the band is drawn from is listed with its own verdict — a width nobody can '
+        + 'reconstruct is a tier-3 figure wearing a tier-1 face',
+        `${m.scenarioRows} scenario rows`);
+
+      return `${m.marginal} marginal, ${m.firm} firm, ${m.unmeasured} not movable by a cutoff, of ${m.total}`
+        + ` · ${m.chips} chips on the painted rows · ${m.scenarios} cutoffs spanning ${m.bandWidth.toFixed(1)}% of the point`
+        + ` · the drill lists ${m.scenarioRows} of them with their verdicts`;
+    },
+    // ⚠ THE SABOTAGE IS THE FALSE-PRECISION THIS FEATURE EXISTS TO REMOVE:
+    // collapse the band to the point estimate. Every verdict then "holds
+    // everywhere", the marker never fires, and the screen looks cleaner and
+    // claims more than it knows.
+    //
+    // ⚠ IT SABOTAGES THE LOADED RECORD AND REBUILDS, not the JSON on the way in.
+    // The harness applies a hook AFTER the page has loaded and parsed
+    // companies.json, so a `JSON.parse` override never sees the record — the
+    // first attempt did exactly that and was survived. §2.22's rule about
+    // one-shot sabotages losing the race, arriving from the other direction.
+    sabotage: persistent(`(() => {
+      const u = window.__sattva?.data?.cutoffUncertainty?.();
+      if (!u) return;
+      for (const k of u.components) { k.applies = false; k.reason = 'sabotage'; }
+      window.__sattva.view.rebuild();
+    })()`),
+    restore: restoreByReload,
+  }, ctx);
+
+  await suite.check({
+    id: 61,
+    what: 'the FTSE workbook can be uploaded from the dashboard, and it is checked before it is applied',
+    run: async (c) => {
+      await c.settle();
+
+      const before = await c.page.evaluate(() => ({
+        button: Boolean(document.querySelector('[data-upload-ftse]')),
+        rows: window.__sattva.data.all().filter((x) => x.ftse).length,
+        asOf: window.__sattva.data.ftse()?.asOf ?? null,
+        verdicts: window.__sattva.verdictTally(),
+      }));
+      ok(before.button, 'the dashboard carries an upload control', 'no [data-upload-ftse] in the header');
+
+      await c.page.click('[data-upload-ftse]');
+      await c.page.waitForSelector('[data-file]', { timeout: 5000 });
+      await c.page.setInputFiles('[data-file]', 'scripts/fixtures/vanguard-ftse-em-allcap.xlsx');
+      // The read is a ZIP inflate plus a join over ~1,250 companies, in the page.
+      await c.page.waitForFunction(
+        () => /struck in Canadian dollars|could not be read|failed/i.test(document.querySelector('[data-report]')?.textContent ?? ''),
+        null,
+        { timeout: 60000 },
+      );
+      const report = await c.page.evaluate(() => ({
+        text: document.querySelector('[data-report]').innerText,
+        actions: document.querySelector('[data-actions]').innerText,
+      }));
+
+      // ---- ⚠ THE CURRENCY TEST IS THE LOAD-BEARING ONE --------------------
+      // The workbook prints a bare "$" and is struck in CAD; read as USD every
+      // rupee figure from it is 40.65% too large (§2.35). It must be MEASURED
+      // in the browser, not inherited from the committed record.
+      ok(/struck in Canadian dollars/.test(report.text),
+        'the panel establishes the currency by measurement', report.text.slice(0, 200));
+      ok(/median 1\.00\d+ of our own close across \d+ companies/.test(report.text),
+        'and shows the median ratio with its denominator',
+        (report.text.match(/median[^.]*/) ?? [''])[0]);
+
+      // ---- every count with its denominator (§2.5) ------------------------
+      ok(/651 of 6,339/.test(report.text), 'the India slice is stated against the whole book', report.text.slice(0, 400));
+      ok(/638 of 651/.test(report.text), 'and the resolved rows against the rows attempted',
+        (report.text.match(/Resolved[^\n]*/) ?? [''])[0]);
+
+      // ---- rows that could not be placed keep their reason (§2.3, §2.4) ---
+      ok(/13 row\(s\) could not be placed/.test(report.text),
+        'unresolvable rows are named rather than dropped',
+        report.text.slice(-400));
+
+      // ---- nothing is applied until a person says so ----------------------
+      ok(/Apply to the dashboard/.test(report.actions), 'applying is a deliberate act', report.actions);
+      const untouched = await c.page.evaluate(() => window.__sattva.data.ftse()?.receivedAs ?? null);
+      equal(untouched, 'committed fixture', 'reading the workbook changes nothing on its own');
+
+      await c.page.click('[data-actions] button');
+      await c.page.waitForFunction(
+        () => /Applied\./.test(document.querySelector('[data-report]')?.textContent ?? ''),
+        null,
+        { timeout: 30000 },
+      );
+      const after = await c.page.evaluate(() => ({
+        report: document.querySelector('[data-report]').innerText,
+        rows: window.__sattva.data.all().filter((x) => x.ftse).length,
+        receivedAs: window.__sattva.data.ftse().receivedAs,
+        origin: window.__sattva.data.ftseOriginState().origin,
+        verdicts: window.__sattva.verdictTally(),
+      }));
+
+      equal(after.rows, before.rows, 'the same companies carry an FTSE row after the upload');
+      equal(after.receivedAs, 'uploaded through the dashboard', 'the book on the record names where it came from');
+
+      // ---- ⚠ AND IT MOVED NO VERDICT. §2.35 is absolute: FTSE is a second
+      // opinion and cannot become an input. This is the same property
+      // verify-data 57 sweeps, asserted through the interface's own apply path.
+      equal(JSON.stringify(after.verdicts), JSON.stringify(before.verdicts),
+        'applying a FTSE book moves no MSCI verdict — it is a second opinion, never an input');
+
+      // ---- a book only this browser can see SAYS SO (§2.4) ----------------
+      ok(/YOUR screen only/.test(after.report),
+        'a book that reached nobody else says so in those words',
+        after.report.slice(0, 300));
+      equal(after.origin, 'local', 'and the record knows the book is local, so the sources modal can say it');
+
+      return `upload → currency measured in the page, ${before.rows} rows joined, 13 refusals named, `
+        + `nothing applied until asked · applied: 0 verdicts moved, book marked "${after.receivedAs}" and local-only`;
+    },
+    // ⚠ THE SABOTAGE IS THE MISTAKE THAT LOOKS LIKE A FEATURE: apply on drop.
+    // The book reaches the screen before anyone has read the currency test, so
+    // a workbook struck in the wrong currency is live for as long as it takes
+    // somebody to notice. It breaks the "nothing is applied until you say so"
+    // assertion above without touching any of the numbers.
+    sabotage: persistent(`(() => {
+      document.addEventListener('change', (event) => {
+        const input = event.target;
+        if (!input.matches || !input.matches('[data-file]')) return;
+        const tick = setInterval(() => {
+          const button = document.querySelector('[data-actions] button');
+          if (button && /Apply/.test(button.textContent)) { clearInterval(tick); button.click(); }
+        }, 100);
+        setTimeout(() => clearInterval(tick), 40000);
+      }, true);
+    })()`),
     restore: restoreByReload,
   }, ctx);
 

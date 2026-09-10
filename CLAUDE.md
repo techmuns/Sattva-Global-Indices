@@ -1543,6 +1543,136 @@ row 1 of any export (§2.7) — with their denominator, `(2 of 8 selected)`.
 >   every change moves the rows under the cursor and the next click lands on a different
 >   company from the one aimed at. It is redrawn when the *query* changes, never on a tick.
 
+### 2.37 The cutoff is an ESTIMATE, and a point estimate of it is false precision
+
+The desk put the objection in one sentence: *"whether the cut off will be 3,000 or 3,500 or 4,000 Cr,
+that nobody knows… we cannot be 100% right in this forecast."*
+
+They are right, and until 10 Sep 2026 the screen did not say so. Every verdict turns on two rupee
+numbers — the IMI cutoff and the Standard cutoff (§2.33) — and both rendered as a single figure. They
+are derived, they are labelled derived, and they are still **points**. A company at ₹9,300 Cr beside a
+cutoff at ₹9,485 Cr reads *just below the bar*; the honest reading is *inside the width of the bar*.
+
+#### ⚠ IT IS STILL NOT A PROBABILITY, AND §2.13 HAS NOT MOVED
+
+A probability needs a base rate and a base rate needs history. One scored review (§2.32) is not that
+history. What ships is a **scenario count with its denominator** — *"this verdict holds at 5 of the 6
+cutoffs we can defend"* — which is a measurement of our own model's stability, not a claim about
+MSCI's decision. Every count is written with the word **"of"**; the chip beside a verdict is the
+**word** `marginal`, never `3/6`, because a fraction beside a verdict is one glance from being read as
+50%. `verify-data` 61 greps for `agreeing / scenarios` and fails if anyone turns it into a rate.
+
+**And it is an envelope, not a confidence interval.** No σ, no distribution, no coverage claim: the
+band is the lowest and highest cutoff across a handful of named alternatives.
+
+#### The three components, each measured, none typed
+
+| | what it varies | sided | measured from |
+| --- | --- | --- | --- |
+| **price day** | the cutoff re-derived on each of the ten business days MSCI could have priced on | both | the last completed window in `price-history.json` |
+| **constituent count** | the count at which our cutoff reaches the top of MSCI's published Global Minimum Size Range | **down only** | GIMI pp. 24, 26 against our own ranking |
+| **review drift** | how far the bar moved between the last two reviews | both | the two captured MSCI price windows |
+
+Measured on the record of 8 Sep 2026: the day-choice spread is **3.42%** on IMI and **3.01%** on
+Standard; the count correction takes IMI to **0.708×** (₹9,485 → ₹6,719 Cr) and leaves Standard at
+**1.000×**; the drift is **+6.90%** on IMI and **+7.06%** on Standard, from **n = 1**. Six scenarios,
+an IMI band of **₹6,719–₹10,139 Cr** (36.1% of the point) and a Standard band of
+**₹63,665–₹72,967 Cr** (13.6%). **1,043 verdicts are firm, 151 are marginal, 86 cannot be moved by a
+cutoff at all.**
+
+- **The count correction is one-sided and that asymmetry is the finding.** Three sampling funds can
+  omit a constituent and cannot invent one, so the true N is at least ours and the true cutoff is at
+  most ours. Making it symmetric would claim MSCI's cutoff might be *higher* than ours, which nothing
+  supports. `verify-data` 61 fails if `high` stops being exactly 1.
+- **Where our cutoff is already inside MSCI's published range, nothing fires — and that is a
+  corroboration, not a gap.** The Standard cutoff sits inside MSCI's EM Standard range; the IMI one
+  does not (§2.33). The multiplier stays exactly 1 with `insideRange: true`, which is a different
+  field from a component that could not be measured at all.
+- **A component that could not be measured is `applies: false` with a reason in words**, never a
+  silent 1.0 — a silent 1 narrows the band by exactly the degree we failed to look, and the narrowing
+  reads as confidence (§2.4).
+- **`unmeasured` is a third state and is never folded into `firm`.** A verdict the cutoff cannot move
+  — the FIF floor decided it, or an input was missing — has not *survived* anything.
+
+#### ⚠ SCENARIOS MOVE ONE COMPONENT AT A TIME
+
+Crossing them would give 3³ scenarios and a wider envelope, and every interior scenario would be a
+combination nobody could argue for alone. *"The cutoff if MSCI priced on the cheapest of its ten
+candidate days"* is a sentence; the same plus two more assumptions is a stack wearing one number. The
+consequence is that the band is the widest **single**-component move — a **floor** on the real
+uncertainty, not a ceiling — and every surface that shows it says so.
+
+#### ⚠ AND IT IS THE BAR THAT IS BANDED, NOT THE CUTOFF
+
+Most rules compare against a *multiple* of a cutoff — 2/3 out, 1.5× in — so testing a company against
+the raw cutoff band answers a question no rule asked. A migration-down candidate sits far below the
+Standard cutoff *by definition* and would read "outside the band" on every row: true, and useless.
+The bar moves with the cutoff by a fixed ratio, so the bar's band is the cutoff's band scaled by that
+same ratio, recovered from the rule's own threshold rather than from a second copy of the ratio table
+that would drift from `barsFrom()`. **104 companies sit inside the width of the bar that judged
+them.**
+
+**The replay is the real rules engine.** `assessAcrossScenarios` calls `assess`, not a
+reimplementation "just for the sensitivity" — one would drift from the model it claims to measure and
+the drift would be invisible, because both would look reasonable. The build and the browser both call
+it, and the browser rebuilds the scenarios from the **live** cutoff for the same reason it rebuilds
+the cutoff itself.
+
+> ⚠ **`null` from the model is not "not built yet".** `cutoffSensitivityFor` fell back to the stored
+> EOD record with `?? company.cutoffSensitivity`, so when the live band collapsed to a single cutoff
+> every chip stayed on screen against a band that no longer existed. `--prove` caught it on the first
+> run. It reads `has()` now — absent means not built, `null` means built and not measurable, the same
+> distinction `readingFor` already carries.
+
+### 2.38 The desk uploads the FTSE workbook itself, and an upload is not a shortcut past the checks
+
+Vanguard publishes its FTSE book quarterly and it arrives as a file somebody downloads. The only way
+in was `node scripts/import-ftse.mjs` against a committed fixture, which meant the desk waited on
+whoever holds the repo. They asked to do it themselves, so the dashboard takes the workbook.
+
+**It is the SAME code, not a browser version of it.** `public/js/model/ftse-book.js` holds the parse,
+the payload shape, the structural checks and the join, and both callers use it. A second
+implementation would not look broken — it would produce rows, and the rows would resolve, and a book
+uploaded through the page would quietly differ from the same book imported through the script on the
+currency, on which company a house ticker resolved to, and on which of the 13 unresolvable rows kept
+their reason. `verify-data` 63 reads the committed workbook through the shared reader and asserts
+every India holding reproduces **field for field**; its sabotage is a browser reader that is subtly
+different.
+
+- **Nothing is applied until a person says so.** The panel reports first — the currency test with its
+  median and denominator, the structural checks, the resolved count of the attempted count, the
+  method histogram, every unresolved row with its own reason, and which close arbitrated the join —
+  and applies second. Apply-on-drop puts a bad book on screen for as long as it takes somebody to
+  read, and `verify-ui` 61's sabotage is exactly that.
+- **The structural checks are NOT the importer's `EXPECTED` table**, and that distinction is
+  load-bearing. `EXPECTED` describes the committed fixture and every figure in it legitimately moves
+  when a fresh book arrives (§5); applying it to an upload would reject every real quarterly book.
+  What travels is what must hold for *any* Vanguard book, plus the shrink guard every writer here
+  follows — and that guard reads the book it is **replacing**, never the one under test (§3.8).
+- **An uploaded book still cannot move a verdict.** §2.35 is unchanged: `applyFtseBook` writes
+  `company.ftse` and **nothing else**, because `funds` is what `segmentOf` and `assess` read.
+  `verify-data` 64 greps the function for any other assignment and its sabotage is the plausible
+  "improvement" — marking an FTSE-held company `held`.
+- **A company the new book does not hold is set to `null`, not left alone.** Carrying the previous
+  quarter's row forward would put two books on one screen with nothing saying so, and a stale row is
+  worse than an absent one because it looks current.
+- **Three places a book can come from, and the screen always says which**: committed with the site,
+  stored by the Worker for everyone, or uploaded in this browser only. Precedence is published >
+  local > committed, **newest holdings date first** — never newest upload, which would let a stale
+  file displace a fresh one purely by arriving second — and an upload never displaces a newer
+  committed book, because once the artefact is committed it is the floor again.
+- **The join is stored with the book, not redone on every load.** The join is arbitrated against our
+  close on the workbook's **own** date, and only `price-history.json` holds one — 1.5 MB, fetched on
+  demand at upload time, the same pattern the alternate rebalance baselines already use. Re-joining
+  at every page load would either charge every visitor for it or silently fall back to a weaker basis,
+  so the same book would resolve one way when it was reviewed and another way the next morning. What
+  is persisted is what a person actually approved.
+- **The shared store is optional and its absence is named.** There is no KV id in `wrangler.jsonc` on
+  purpose: a placeholder would break `wrangler deploy` for everyone who has not created the namespace,
+  which is a worse default than the feature being off. With no binding the route answers **501** and
+  says what to configure, and the panel says the book reached nobody else — in those words. What it
+  must never do is fail in a way that reads as *nothing has been uploaded* (§2.4).
+
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 
 ### 3.1 The iShares `.xls` files are not `.xls` files
@@ -1556,8 +1686,23 @@ parsing library; do not open them as binary.
 
 **And the Vanguard FTSE workbook is the opposite case — a REAL `.xlsx`.** It is OOXML: a ZIP of XML
 parts where a cell usually holds an index into a shared-string table rather than its own text.
-`scripts/lib/xlsx.mjs` reads that one, with no dependency (Node's `zlib` inflates it). **The two
-readers are not interchangeable and neither can read the other's files.** Pick by the actual format,
+`public/js/core/xlsx.js` reads that one, with no dependency. **The two
+readers are not interchangeable and neither can read the other's files.**
+
+> ⚠ **That reader moved out of `scripts/lib` on 10 Sep 2026 and takes its INFLATE as an argument.**
+> The same workbook is now read in two places — the importer that writes the committed artefact, and
+> the dashboard's upload panel (§2.37) — and only code under `public/js` is served. Node passes
+> `zlib.inflateRawSync`; a browser has no synchronous inflate at all, only the async
+> `DecompressionStream('deflate-raw')`, which is why `readXlsx` is async. `'deflate'` is one
+> character away and wrong: a ZIP member is RAW deflate with no zlib header, so `'deflate'` throws on
+> the first two bytes of every real workbook.
+
+**And `parseGroupedNumber` moved for the same reason.** It lived in `scripts/lib/bse.mjs`, which
+imports `node:child_process` for the curl transport and cannot be loaded in a page at all. It is now
+`public/js/core/grouped-number.js` and `bse.mjs` re-exports it — with an `import` then an `export`,
+not a bare `export … from`, because a re-export does not bind the name in the re-exporting module's
+own scope and `parseCroreToRupees` calls it. That failed loudly on the first run, which is the good
+kind of failure. Pick by the actual format,
 never by the extension — the iShares files are named `.xls` and are not, and that is the whole point
 of this section.
 
@@ -2067,9 +2212,8 @@ scripts/
   lib/resolve.mjs                  ticker → ISIN → NSE symbol + BSE scrip code
   lib/bhavcopy.mjs                 EOD CSV parse + shape and continuity tripwires
   lib/asm-diff.mjs                 ASM snapshot diff, keyed on ISIN; pure, writes nothing
-  lib/xlsx.mjs                     OOXML .xlsx reader (ZIP + XML), zero dependencies
+  lib/cutoff-measure.mjs           the cutoff's own uncertainty, measured from price history
   lib/yahoo.mjs                    one Yahoo daily-close reader, shared by both FX fetchers
-  lib/ftse-resolve.mjs             FTSE holdings → ISIN, arbitrated by an implied price; pure
   lib/munshot.mjs                  Munshot batch client + rawQuote parser, pure
   lib/recompute.mjs                free-float recompute, passive drift, flow primitives
   import-universe.mjs              Screener seed → public/data/universe.json
@@ -2092,8 +2236,8 @@ scripts/
                                    -> public/data/predictions-<review>.json
   build-rebalance.mjs              frozen forecast vs the outcome
                                    -> public/data/rebalance-<review>.json
-  verify-data.mjs                  60 data assertions; no browser, no network
-  verify-ui.mjs                    40 interface assertions; the served site
+  verify-data.mjs                  64 data assertions; no browser, no network
+  verify-ui.mjs                    42 interface assertions; the served site
   check-nse-asm.mjs                what moved on NSE's ASM list, and the freshness guarantee
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
@@ -2106,6 +2250,16 @@ scripts/
   fixtures/munshot-rawquote-reliance.txt     one captured detail quote
 public/
   index.html                       placeholder; the interface is a later prompt
+  js/core/xlsx.js                  OOXML .xlsx reader (ZIP + XML), zero dependencies, shared
+                                   by scripts/ and the browser; inflate is injected
+  js/core/inflate.js               DecompressionStream('deflate-raw') for the browser
+  js/core/grouped-number.js        the ONE grouped-number parser; bse.mjs re-exports it
+  js/model/ftse-resolve.js         FTSE holdings → ISIN, arbitrated by an implied price; pure
+  js/model/ftse-book.js            the workbook read, checked and joined — ONE implementation,
+                                   used by scripts/import-ftse.mjs and by the upload panel
+  js/model/cutoff-uncertainty.js   the cutoff band, its scenarios, and the verdict replay
+  js/data/ftse-store.js            where an uploaded book lives: shared, local, or neither
+  js/ui/ftse-upload.js             the desk's own upload panel
   js/config/thresholds.mjs         EVERY desk threshold, and nowhere else
   js/config/msci-methodology.mjs   MSCI's published rules, cited to a page
   js/model/gimi.js                 the second methodology: MSCI's procedure, our universe
@@ -2195,9 +2349,9 @@ node scripts/verify-data.mjs           # the data assertions; run before committ
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 60 assertions; no browser, no network
+node scripts/verify-data.mjs           # 64 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
-node scripts/verify-ui.mjs             # 40 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 42 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 

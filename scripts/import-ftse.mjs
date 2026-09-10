@@ -25,7 +25,7 @@
  * 568 unrelated companies agreeing on one constant is what a currency error
  * looks like; the constant was USD/CAD. Reading the "$" as USD would have made
  * every FTSE rupee figure 40.65% too large — §3.8's crore-for-rupee trap in a
- * different currency. `assertCurrency` in lib/ftse-resolve.mjs re-runs that
+ * different currency. `assertCurrency` in public/js/model/ftse-resolve.js re-runs that
  * comparison every build, so a future file struck in USD fails loudly instead of
  * inflating the book by two-fifths.
  *
@@ -47,10 +47,15 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { inflateRawSync } from 'node:zlib';
 
-import { readXlsx, tableFrom, rowReader } from './lib/xlsx.mjs';
-import { parseGroupedNumber } from './lib/bse.mjs';
-import { num, renderTable } from './lib/report.mjs';
+// ⚠ THE PARSE LIVES UNDER public/js NOW, AND THIS SCRIPT IS NO LONGER ITS ONLY
+// CALLER. The dashboard's upload panel reads the same workbook with the same
+// reader, so the desk can drop in a fresh quarterly book without waiting for
+// anyone to run this. A second parser for the browser would produce plausible
+// rows that quietly disagreed with these ones — see the header of ftse-book.js.
+import { readFtseBook, assertBookShape } from '../public/js/model/ftse-book.js';
+import { renderTable, num } from './lib/report.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
@@ -58,10 +63,23 @@ const FIXTURE = join(REPO, 'scripts', 'fixtures', 'vanguard-ftse-em-allcap.xlsx'
 const OUT_PATH = join(REPO, 'public', 'data', 'ftse-funds.json');
 
 /**
+ * Node has a synchronous raw inflate and the browser has none, so the shared
+ * reader takes it as an argument. `inflateRawSync` returns a Buffer, which IS a
+ * Uint8Array — no copy needed, and the reader only ever indexes and decodes it.
+ */
+const inflateRaw = (body) => inflateRawSync(body);
+
+/**
  * Measured on the committed fixture. This describes THAT WORKBOOK, not the fund
  * in general — a fresh download will legitimately move every number here, and
  * the table must be re-measured in the same commit that replaces the file
  * (§5). Never loosen a figure to make a run pass.
+ *
+ * ⚠ THIS TABLE DOES NOT TRAVEL TO THE UPLOAD PANEL, and it must not. An upload
+ * is by definition a different workbook, so every figure here will have moved
+ * legitimately and applying it there would reject every real quarterly book.
+ * What the panel runs instead is `assertBookShape` — the checks that hold for
+ * ANY Vanguard book, plus the shrink guard every writer here follows.
  */
 const EXPECTED = {
   name: 'Vanguard FTSE Emerging Markets All Cap Index ETF',
@@ -77,102 +95,31 @@ const EXPECTED = {
   weightRoundsToZeroRows: 1,
 };
 
-/** "$1,234.56" -> 1234.56. Strips exactly one leading $, then validates. */
-function parseMoney(value) {
-  const text = String(value ?? '').trim();
-  if (!text) return null;
-  return parseGroupedNumber(text.startsWith('$') ? text.slice(1) : text);
-}
-
-/** "0.7647%" -> 0.7647. Strips exactly one trailing %, then validates. */
-function parsePercent(value) {
-  const text = String(value ?? '').trim();
-  if (!text) return null;
-  return parseGroupedNumber(text.endsWith('%') ? text.slice(0, -1) : text);
-}
-
-/** "As at Jul 31 2026" -> "2026-07-31". Returns null rather than guessing. */
-const MONTHS = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
-function parseStatedDate(text) {
-  const m = /([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{4})/.exec(String(text ?? ''));
-  if (!m || !MONTHS[m[1]]) return null;
-  return `${m[3]}-${MONTHS[m[1]]}-${String(m[2]).padStart(2, '0')}`;
-}
-
-/**
- * Vanguard writes a Bloomberg stub instead of a name for a recently added
- * security: "New Issuer: BB Company ID:183206". That is not a company name and
- * must never be matched on as one.
- */
-const PLACEHOLDER_NAME = /^New Issuer:\s*BB Company ID:/i;
-
-function main() {
-  const buf = readFileSync(FIXTURE);
-  const { rows } = readXlsx(buf);
-
-  // The preamble carries the download stamp, the fund name and the as-at date,
-  // above a header row whose height is not a guaranteed constant (§3.2).
-  const preamble = rows.filter((r) => r.cells[0]).map((r) => String(r.cells[0]).trim());
-  const downloadedOn = parseStatedDate(preamble.find((t) => /^This file was downloaded on/i.test(t)));
-  const holdingsAsOf = parseStatedDate(preamble.find((t) => /^As at /i.test(t)));
-  const fundName = preamble.find((t) => /^Vanguard /i.test(t)) ?? null;
-
-  const { header, headerRowNumber, dataRows } = tableFrom(rows, 'Ticker');
-  const get = rowReader(header);
-
-  // A data row is one that carries a weight and a region. Everything else in the
-  // sheet is chrome — the footnote about rounding lives below the table.
-  const data = dataRows.filter((r) => get(r, '% of market value') != null && get(r, 'Region') != null);
-  const india = data.filter((r) => get(r, 'Region') === 'IN');
-
-  const sum = (list, fn) => list.reduce((acc, r) => acc + (fn(r) ?? 0), 0);
-  const totalWeightPct = sum(data, (r) => parsePercent(get(r, '% of market value')));
-  const totalMarketValueCad = sum(data, (r) => parseMoney(get(r, 'Market value')));
-  const indiaWeightPct = sum(india, (r) => parsePercent(get(r, '% of market value')));
-  const indiaMarketValueCad = sum(india, (r) => parseMoney(get(r, 'Market value')));
-
-  const holdings = india.map((r) => {
-    const rawWeight = get(r, '% of market value');
-    const weightPct = parsePercent(rawWeight);
-    const name = get(r, 'Holding name');
-    const isPlaceholder = PLACEHOLDER_NAME.test(name ?? '');
-    const ticker = get(r, 'Ticker');
-    return {
-      // Stored verbatim. Vanguard's ticker is a HOUSE CODE, not an NSE symbol:
-      // it writes HDFCB for HDFCBANK, INFO for INFY — and its SOTL is Sterlite
-      // Technologies, while SOTL on NSE is a different listed company
-      // altogether. Nothing may resolve on it without corroboration (§3.9).
-      ticker: ticker || null,
-      tickerKind: ticker ? 'vanguard-house-code' : 'none',
-      name: isPlaceholder ? null : name,
-      // The stub is kept so the row can say WHY it has no name (§2.3, §2.4).
-      publishedName: name,
-      nameKind: isPlaceholder ? 'placeholder' : 'published',
-      sector: get(r, 'Sector') || null,
-      weightPct,
-      // Vanguard's own string, kept because the parsed number cannot show that
-      // "0.00%" was already rounded to nothing before it reached us.
-      weightPctPublished: rawWeight,
-      weightRoundedToZero: weightPct === 0 && (parseMoney(get(r, 'Market value')) ?? 0) > 0,
-      marketValueCad: parseMoney(get(r, 'Market value')),
-      quantity: parseGroupedNumber(get(r, 'Shares')),
-    };
+async function main() {
+  const { payload, measured } = await readFtseBook(readFileSync(FIXTURE), inflateRaw, {
+    fixtures: ['scripts/fixtures/vanguard-ftse-em-allcap.xlsx'],
+    receivedAs: 'committed fixture',
   });
+  const fund = payload.funds[0];
+
+  // ---- is this a Vanguard holdings book at all? --------------------------
+  //
+  // The SAME structural checks the upload panel runs, before the fixture-specific
+  // drift check below. They are looser and they answer a different question — is
+  // this the right kind of file, rather than is it the file we measured — and a
+  // structurally broken workbook gets a sentence naming what is wrong with it
+  // instead of a list of eleven drifted figures.
+  const shape = assertBookShape(measured, { previous: null });
+  if (!shape.ok) {
+    process.stderr.write(
+      `\nThis does not read as a Vanguard holdings export:\n\n${
+        shape.checks.filter((c) => !c.ok).map((c) => `  ${c.label} — ${c.detail}`).join('\n')
+      }\n\n`,
+    );
+    process.exit(1);
+  }
 
   // ---- refuse to write on drift from the committed workbook ---------------
-  const measured = {
-    name: fundName,
-    holdingsAsOf,
-    downloadedOn,
-    headerRowNumber,
-    dataRows: data.length,
-    indiaRows: india.length,
-    indiaWeightPct3dp: indiaWeightPct.toFixed(3),
-    totalWeightPct3dp: totalWeightPct.toFixed(3),
-    placeholderNameRows: holdings.filter((h) => h.nameKind === 'placeholder').length,
-    noTickerRows: holdings.filter((h) => !h.ticker).length,
-    weightRoundsToZeroRows: holdings.filter((h) => h.weightRoundedToZero).length,
-  };
   const drift = Object.keys(EXPECTED).filter((k) => String(measured[k]) !== String(EXPECTED[k]));
   if (drift.length) {
     process.stderr.write(
@@ -185,65 +132,20 @@ function main() {
     process.exit(1);
   }
 
-  const payload = {
-    source: "Vanguard — 'Holdings details' workbook export (.xlsx)",
-    note:
-      'FTSE Emerging Markets holdings, India slice. A SECOND OPINION alongside the MSCI funds: FTSE '
-      + 'runs its own index with its own constituents, size rules and review calendar, so nothing here '
-      + 'feeds the MSCI segment derivation, cutoffs, verdicts or flows.',
-    importedAt: new Date().toISOString(),
-    fixtures: ['scripts/fixtures/vanguard-ftse-em-allcap.xlsx'],
-    units: {
-      weightPct: "Vanguard's published percent OF THE WHOLE FUND — not of its equity book, and not comparable across funds (§3.5)",
-      marketValueCad: 'CANADIAN dollars, as reported by Vanguard. The workbook prints a bare "$" and never names the currency; see the header comment',
-      quantity: 'shares, as reported by Vanguard',
-    },
-    currency: {
-      code: 'CAD',
-      establishedBy:
-        'measured, not assumed: implied share price (market value / shares) converted at the holdings-date '
-        + 'rate and compared with this project\'s own close for the same company on the same day. As CAD the '
-        + 'ratio is 1.0031 with 566 of 568 inside 1%; as USD it is a flat 1.4065 with none inside 1%.',
-      reCheckedEveryBuild: 'assertCurrency() in scripts/lib/ftse-resolve.mjs',
-    },
-    funds: [{
-      id: 'ftse-em',
-      name: fundName,
-      shortName: 'FTSE EM',
-      indexFamily: 'FTSE',
-      currency: 'CAD',
-      asOf: holdingsAsOf,
-      downloadedOn,
-      dataRows: data.length,
-      // Every row in the book, so a weight is never divided by the India slice.
-      totalMarketValueCad,
-      totalWeightPct,
-      weightsExcludeCashAndFutures: true,
-      indiaRows: india.length,
-      indiaMarketValueCad,
-      indiaWeightPct,
-      // Two different denominators, both stated (§2.5): India's share of the
-      // whole fund by published weight, and its share of the equity book by
-      // market value. They differ because the weights stop at 95.0153%.
-      indiaShareOfMarketValuePct: (indiaMarketValueCad / totalMarketValueCad) * 100,
-      holdings,
-    }],
-  };
-
   mkdirSync(dirname(OUT_PATH), { recursive: true });
   writeFileSync(OUT_PATH, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
 
-  process.stdout.write(`\nVanguard FTSE EM holdings — ${fundName}\n\n`);
+  process.stdout.write(`\nVanguard FTSE EM holdings — ${fund.name}\n\n`);
   process.stdout.write(renderTable(
     [{ key: 'k', label: 'measured' }, { key: 'v', label: '', align: 'right' }],
     [
-      { k: 'holdings as at', v: holdingsAsOf },
-      { k: 'downloaded on', v: downloadedOn },
-      { k: 'rows in the book', v: num(data.length) },
-      { k: 'India rows', v: num(india.length) },
-      { k: 'India weight, of the whole fund', v: `${indiaWeightPct.toFixed(3)}%` },
-      { k: 'all weights sum to', v: `${totalWeightPct.toFixed(3)}%  (cash and futures excluded)` },
-      { k: 'India market value', v: `CAD ${num(Math.round(indiaMarketValueCad))}` },
+      { k: 'holdings as at', v: fund.asOf },
+      { k: 'downloaded on', v: fund.downloadedOn },
+      { k: 'rows in the book', v: num(fund.dataRows) },
+      { k: 'India rows', v: num(fund.indiaRows) },
+      { k: 'India weight, of the whole fund', v: `${measured.indiaWeightPct3dp}%` },
+      { k: 'all weights sum to', v: `${measured.totalWeightPct3dp}%  (cash and futures excluded)` },
+      { k: 'India market value', v: `CAD ${num(Math.round(fund.indiaMarketValueCad))}` },
       { k: 'rows with a placeholder name', v: num(measured.placeholderNameRows) },
       { k: 'rows with no ticker', v: num(measured.noTickerRows) },
       { k: "rows Vanguard rounded to '0.00%'", v: num(measured.weightRoundsToZeroRows) },
@@ -252,4 +154,4 @@ function main() {
   process.stdout.write(`\nWrote ${OUT_PATH.replace(`${REPO}/`, '')}\n\n`);
 }
 
-main();
+await main();
