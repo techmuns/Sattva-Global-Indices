@@ -3848,6 +3848,31 @@ async function main() {
       const bare = m.cellTexts.filter((t) => t !== '—' && !/\bof\b/.test(t));
       empty(bare, 'every count in that column carries its denominator — never a bare number', (t) => t);
 
+      // ⚠ CLOSE THE DRILL THIS CHECK OPENED, BEFORE ANY ASSERTION CAN THROW.
+      //
+      // The drill is a `z-50` overlay that covers the header, so leaving it open
+      // hands the next check a page whose controls cannot be clicked — which is
+      // exactly how this shipped: check 61's click on the header button timed
+      // out in CI with `<h2>UPL Ltd</h2> … intercepts pointer events`, naming
+      // the very company this check opens.
+      //
+      // ⚠ AND IT IS INVISIBLE LOCALLY. With the Tailwind CDN unreachable the
+      // drill has no `position` and no `z-index` at all, renders as ordinary
+      // inline flow and overlays nothing, so the click lands and the leak
+      // passes. The CDN is the difference between the two environments, not the
+      // code — the same split checks 33, 36 and 42 already state about what
+      // they can measure. A check must leave the page as it found it whether or
+      // not a stylesheet happened to load.
+      //
+      // It runs BEFORE the assertions because an assertion that throws would
+      // skip anything after it, and the next check would inherit the overlay.
+      await c.page.keyboard.press('Escape');
+      await c.page.waitForFunction(
+        () => (document.querySelector('#drill-root')?.childElementCount ?? 0) === 0,
+        null,
+        { timeout: 10000 },
+      );
+
       // ---- the drill shows the working ------------------------------------
       ok(/How much does this turn on where the cutoff lands/.test(m.drill),
         'the drill carries the cutoff-sensitivity section', m.drill.slice(0, 120));
@@ -3887,6 +3912,18 @@ async function main() {
     what: 'the FTSE workbook can be uploaded from the dashboard, and it is checked before it is applied',
     run: async (c) => {
       await c.settle();
+      // ⚠ THIS CHECK CLICKS THE HEADER, so it must start with nothing over it.
+      // `settle()` waits for the TABLE and says nothing about an overlay, and a
+      // drill left open by an earlier check covers the header once Tailwind is
+      // in force. Clearing it here means a failure names this check's own
+      // subject rather than a neighbour's housekeeping.
+      await c.page.keyboard.press('Escape');
+      await c.page.waitForFunction(
+        () => (document.querySelector('#drill-root')?.childElementCount ?? 0) === 0
+          && (document.querySelector('#modal-root')?.childElementCount ?? 0) === 0,
+        null,
+        { timeout: 10000 },
+      );
 
       const before = await c.page.evaluate(() => ({
         button: Boolean(document.querySelector('[data-upload-ftse]')),
