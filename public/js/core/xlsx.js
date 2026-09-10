@@ -24,9 +24,35 @@
  *
  * Read columns by HEADER NAME, never by index — the same rule as every other
  * reader here (§3.2).
+ *
+ * ---------------------------------------------------------------------------
+ * ⚠ WHY THIS LIVES UNDER public/js AND TAKES ITS INFLATE AS AN ARGUMENT
+ * ---------------------------------------------------------------------------
+ * The same workbook is now read in two places: `scripts/import-ftse.mjs`, which
+ * writes the committed artefact, and the dashboard's upload panel, which lets
+ * the desk drop in a fresh quarterly book without waiting for anyone to run a
+ * script. A second reader for the browser would be a second set of answers to
+ * the sparse-cell and rich-text traps above, and the two would drift — silently,
+ * because both would keep producing plausible rows.
+ *
+ * So there is one reader, and it is environment-neutral:
+ *
+ *   - it works on a `Uint8Array` through a `DataView`, never on Node's `Buffer`;
+ *   - it decodes with `TextDecoder`, which both runtimes have;
+ *   - and it takes its INFLATE as an argument, because the two runtimes cannot
+ *     share one. Node has `zlib.inflateRawSync`; the browser has no synchronous
+ *     inflate at all, only the async `DecompressionStream('deflate-raw')`.
+ *
+ * That last difference is why `readXlsx` is ASYNC. It costs Node an `await` and
+ * it is the only shape a browser can satisfy — a sync signature would have
+ * forced the second implementation this file exists to prevent.
+ *
+ * Only code under public/js is served, so a shared module has to live here. The
+ * build scripts already import from public/js/model for exactly this reason.
  */
 
-import { inflateRawSync } from 'node:zlib';
+const DECODER = new TextDecoder('utf-8');
+const decode = (bytes) => DECODER.decode(bytes);
 
 /* ── ZIP ──────────────────────────────────────────────────────────────────*/
 
@@ -35,10 +61,10 @@ const SIG_CENTRAL = 0x02014b50;
 const SIG_LOCAL = 0x04034b50;
 
 /** Locate the End Of Central Directory record, scanning back over any comment. */
-function findEocd(buf) {
-  const min = Math.max(0, buf.length - 0xffff - 22);
-  for (let i = buf.length - 22; i >= min; i -= 1) {
-    if (buf.readUInt32LE(i) === SIG_EOCD) return i;
+function findEocd(view) {
+  const min = Math.max(0, view.byteLength - 0xffff - 22);
+  for (let i = view.byteLength - 22; i >= min; i -= 1) {
+    if (view.getUint32(i, true) === SIG_EOCD) return i;
   }
   throw new Error('not a ZIP archive: no end-of-central-directory record');
 }
@@ -49,38 +75,46 @@ function findEocd(buf) {
  * header may declare sizes of zero and defer them to a trailing data descriptor,
  * and a reader that trusts those zeroes silently returns empty files.
  */
-function readEntries(buf) {
-  const eocd = findEocd(buf);
-  const count = buf.readUInt16LE(eocd + 10);
-  let p = buf.readUInt32LE(eocd + 16);
+function readEntries(bytes, view) {
+  const eocd = findEocd(view);
+  const count = view.getUint16(eocd + 10, true);
+  let p = view.getUint32(eocd + 16, true);
   const entries = new Map();
   for (let i = 0; i < count; i += 1) {
-    if (buf.readUInt32LE(p) !== SIG_CENTRAL) throw new Error(`corrupt central directory at entry ${i}`);
-    const method = buf.readUInt16LE(p + 10);
-    const compressedSize = buf.readUInt32LE(p + 20);
-    const nameLen = buf.readUInt16LE(p + 28);
-    const extraLen = buf.readUInt16LE(p + 30);
-    const commentLen = buf.readUInt16LE(p + 32);
-    const offset = buf.readUInt32LE(p + 42);
-    const name = buf.toString('utf8', p + 46, p + 46 + nameLen);
+    if (view.getUint32(p, true) !== SIG_CENTRAL) throw new Error(`corrupt central directory at entry ${i}`);
+    const method = view.getUint16(p + 10, true);
+    const compressedSize = view.getUint32(p + 20, true);
+    const nameLen = view.getUint16(p + 28, true);
+    const extraLen = view.getUint16(p + 30, true);
+    const commentLen = view.getUint16(p + 32, true);
+    const offset = view.getUint32(p + 42, true);
+    const name = decode(bytes.subarray(p + 46, p + 46 + nameLen));
     entries.set(name, { name, offset, method, compressedSize });
     p += 46 + nameLen + extraLen + commentLen;
   }
   return entries;
 }
 
-/** The decompressed bytes of one entry, or null when the archive has no such part. */
-export function readZipEntry(buf, name) {
-  const entry = readEntries(buf).get(name);
+/**
+ * The decompressed bytes of one entry, or null when the archive has no such part.
+ *
+ * `inflateRaw` is injected: raw DEFLATE with no zlib header, returning a
+ * `Uint8Array`. Node passes `zlib.inflateRawSync`; the browser passes a
+ * `DecompressionStream('deflate-raw')` wrapper. Both are awaited, so the
+ * synchronous one costs nothing but the keyword.
+ */
+export async function readZipEntry(bytes, name, inflateRaw) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const entry = readEntries(bytes, view).get(name);
   if (!entry) return null;
   const p = entry.offset;
-  if (buf.readUInt32LE(p) !== SIG_LOCAL) throw new Error(`corrupt local header for ${name}`);
-  const nameLen = buf.readUInt16LE(p + 26);
-  const extraLen = buf.readUInt16LE(p + 28);
+  if (view.getUint32(p, true) !== SIG_LOCAL) throw new Error(`corrupt local header for ${name}`);
+  const nameLen = view.getUint16(p + 26, true);
+  const extraLen = view.getUint16(p + 28, true);
   const start = p + 30 + nameLen + extraLen;
-  const body = buf.subarray(start, start + entry.compressedSize);
+  const body = bytes.subarray(start, start + entry.compressedSize);
   if (entry.method === 0) return body;
-  if (entry.method === 8) return inflateRawSync(body);
+  if (entry.method === 8) return inflateRaw(body);
   throw new Error(`unsupported ZIP compression method ${entry.method} for ${name}`);
 }
 
@@ -164,14 +198,17 @@ function parseSheet(xml, shared) {
 
 /**
  * Read the first worksheet of an .xlsx buffer.
- * @returns {{ rows: {number:number, cells:(string|null)[]}[], sharedCount:number }}
+ * @param {Uint8Array} bytes
+ * @param {(body: Uint8Array) => Uint8Array | Promise<Uint8Array>} inflateRaw
+ * @returns {Promise<{ rows: {number:number, cells:(string|null)[]}[], sharedCount:number }>}
  */
-export function readXlsx(buf, sheetPath = 'xl/worksheets/sheet1.xml') {
-  const sharedXml = readZipEntry(buf, 'xl/sharedStrings.xml');
-  const shared = parseSharedStrings(sharedXml ? sharedXml.toString('utf8') : null);
-  const sheetXml = readZipEntry(buf, sheetPath);
+export async function readXlsx(bytes, inflateRaw, sheetPath = 'xl/worksheets/sheet1.xml') {
+  const input = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const sharedXml = await readZipEntry(input, 'xl/sharedStrings.xml', inflateRaw);
+  const shared = parseSharedStrings(sharedXml ? decode(sharedXml) : null);
+  const sheetXml = await readZipEntry(input, sheetPath, inflateRaw);
   if (!sheetXml) throw new Error(`the workbook has no ${sheetPath}`);
-  return { rows: parseSheet(sheetXml.toString('utf8'), shared), sharedCount: shared.length };
+  return { rows: parseSheet(decode(sheetXml), shared), sharedCount: shared.length };
 }
 
 /**

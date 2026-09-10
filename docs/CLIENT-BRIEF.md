@@ -93,6 +93,37 @@ The verdicts are also honest about their own bands. The ₹3,500–4,000 Cr incl
 MSCI derives its size cut-offs globally at each review and does not publish them in advance. Every
 screen that uses those numbers says so.
 
+### What we added instead, in September 2026
+
+You put the objection better than we had: *"whether the cut off will be 3,000 or 3,500 or 4,000 Cr,
+that nobody knows… we cannot be 100% right in this forecast."* That is exactly right, and until now
+the screen did not admit it. Every verdict turns on a size cutoff we estimate, and it rendered as a
+single rupee figure — which invites you to compare your company against it to the rupee.
+
+**The cutoff now carries a band, and every verdict is re-run at each cutoff inside it.** Measured on
+the record of 8 September 2026, the IMI cutoff is **₹9,485 Cr and the band around it runs
+₹6,719–₹10,139 Cr**; the Standard cutoff is ₹68,157 Cr with a band of ₹63,665–₹72,967 Cr. Three
+things move it, each measured rather than assumed:
+
+| | how much | measured from |
+| --- | --- | --- |
+| MSCI does not say which of its ten candidate pricing days it used | ±3.4% | our own price history for both captured windows |
+| our constituent count comes from funds that sample the index, so our cutoff is too high | −29% on IMI, **nothing on Standard** | MSCI's own published minimum-size range |
+| the bar itself moves between reviews | ±6.9% | the last two reviews, so **one observation** |
+
+Every row then says **how many of those cutoffs produce its verdict**: `Holds at 6 of 6` on a verdict
+that does not change anywhere in the band, `Holds at 3 of 6` on one that does — and the second kind
+carries a `marginal` marker beside the verdict itself, so you cannot read the label without seeing
+the caveat. On the current record **1,043 verdicts are firm, 151 are marginal**, and 86 turn on
+something a cutoff cannot move at all. Open any row and the drill lists every cutoff with the verdict
+it gives, and tells you whether the company sits *inside the width of the bar it was judged against* —
+104 of them do, and those cannot be called either way.
+
+**This is still not a probability, and the wording is deliberate.** It is a count of scenarios with
+its denominator — a statement about how stable our own model is, not about what MSCI will decide.
+Nothing on the screen renders it as a fraction or a percentage, because "3/6" beside a verdict is one
+glance away from being read as 50%.
+
 **The upgrade path to a real percentage exists and is not exotic.** BlackRock publish dated holdings
 files. Fetch roughly three years of month-end files for the three funds; comparing consecutive files
 reconstructs every entry, exit and segment migration that actually happened. Then, using daily

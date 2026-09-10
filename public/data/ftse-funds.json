@@ -1,10 +1,11 @@
 {
   "source": "Vanguard — 'Holdings details' workbook export (.xlsx)",
   "note": "FTSE Emerging Markets holdings, India slice. A SECOND OPINION alongside the MSCI funds: FTSE runs its own index with its own constituents, size rules and review calendar, so nothing here feeds the MSCI segment derivation, cutoffs, verdicts or flows.",
-  "importedAt": "2026-09-04T03:30:02.957Z",
+  "importedAt": "2026-09-10T13:42:01.109Z",
   "fixtures": [
     "scripts/fixtures/vanguard-ftse-em-allcap.xlsx"
   ],
+  "receivedAs": "committed fixture",
   "units": {
     "weightPct": "Vanguard's published percent OF THE WHOLE FUND — not of its equity book, and not comparable across funds (§3.5)",
     "marketValueCad": "CANADIAN dollars, as reported by Vanguard. The workbook prints a bare \"$\" and never names the currency; see the header comment",
@@ -13,7 +14,7 @@
   "currency": {
     "code": "CAD",
     "establishedBy": "measured, not assumed: implied share price (market value / shares) converted at the holdings-date rate and compared with this project's own close for the same company on the same day. As CAD the ratio is 1.0031 with 566 of 568 inside 1%; as USD it is a flat 1.4065 with none inside 1%.",
-    "reCheckedEveryBuild": "assertCurrency() in scripts/lib/ftse-resolve.mjs"
+    "reCheckedEveryBuild": "assertCurrency() in public/js/model/ftse-resolve.js"
   },
   "funds": [
     {

@@ -8,7 +8,7 @@
 
 import { escapeHtml } from '../core/dom.js';
 import { shortDate, relativeTime, tickAge, num } from '../core/format.js';
-import { sourceRegistry, freshness, coverage } from '../data/companies.js';
+import { sourceRegistry, freshness, coverage, ftse, ftseOriginState } from '../data/companies.js';
 import * as quotes from '../data/quotes.js';
 import { openModal } from './screener.js';
 
@@ -144,7 +144,7 @@ export function headerStatus(now = new Date()) {
   };
 }
 
-export function openSourcesModal(now = new Date()) {
+export function openSourcesModal({ onUploadFtse, now = new Date() } = {}) {
   const sources = sourceRegistry();
   const cov = coverage();
   const { oldest } = freshness();
@@ -210,11 +210,58 @@ export function openSourcesModal(now = new Date()) {
         'The two exchanges apply different float definitions and their factors genuinely disagree, so neither is ever averaged into the other and both stay on the record.' +
         '</p>'
       : '') +
+    ftseOriginHtml(onUploadFtse) +
     '<p class="text-[11px] leading-relaxed text-slate-400">Each feed is flagged stale on its own schedule, because they are not refreshed on the same one: '
     + `${sources.filter((s) => s.staleAfterDays).map((s) => `${escapeHtml(s.name)} after ${s.staleAfterDays}d`).join(', ')}`
     + `${sources.some((s) => !s.staleAfterDays) ? `, everything else after ${DEFAULT_STALE_AFTER_DAYS}d` : ''}. `
     + 'Those are our thresholds, not standards published by any exchange.</p>' +
     '</div>';
 
-  openModal(body, { size: 'lg', title: 'Data sources' });
+  const handle = openModal(body, { size: 'lg', title: 'Data sources' });
+  // The same panel the header button opens. Somebody auditing where a number
+  // came from arrives here, not at the header, and the answer to "this book is
+  // out of date" should be reachable from the place that says so.
+  if (handle && onUploadFtse) {
+    const button = handle.wrap.querySelector('[data-upload-ftse]');
+    button?.addEventListener('click', () => onUploadFtse());
+  }
+}
+
+/**
+ * Which FTSE book is in force, and how it got here.
+ *
+ * ⚠ FOUR STATES, FOUR SENTENCES (§2.4). "Committed with the site" and "uploaded
+ * in this browser only" are not the same fact, and a reader acting on FTSE
+ * weights nobody else can see should know that before they quote them.
+ */
+function ftseOriginHtml(onUploadFtse) {
+  const book = ftse();
+  if (!book?.available) return '';
+  const { origin, state } = ftseOriginState();
+  const tone = origin === 'local'
+    ? 'bg-amber-50 text-amber-900 ring-amber-200'
+    : 'bg-slate-50 text-slate-600 ring-slate-200';
+  const sentence = origin === 'published'
+    ? 'This book was uploaded through the dashboard and is stored by the Worker, so every reader sees it.'
+    : origin === 'local'
+      ? 'This book was uploaded in THIS BROWSER ONLY — nobody else is seeing these FTSE weights. '
+        + 'Commit the generated ftse-funds.json, or bind the shared store, to give it to everyone.'
+      : 'This book is the one committed with the site.';
+  const storeLine = state === 'not-configured'
+    ? ' The shared store is not configured, so an upload cannot reach other readers yet.'
+    : state === 'no-worker'
+      ? ' There is no Worker on this host, so an upload stays in the uploader\'s browser.'
+      : '';
+  return `<p class="rounded-xl p-3 text-xs leading-relaxed ring-1 ${tone}">`
+    + `<strong>FTSE book as at ${escapeHtml(shortDate(book.asOf))}.</strong> ${escapeHtml(sentence)}`
+    + `${escapeHtml(storeLine)}`
+    // ⚠ THE BUTTON IS RENDERED ONLY WHERE A CALLER CAN ACT ON IT, and the test
+    // is the CALLBACK ITSELF rather than a flag somebody sets alongside it. A
+    // separate "uploads are available" flag is a second source of truth, and
+    // the state it gets wrong is a control that renders and does nothing when
+    // pressed — which is worse than no control.
+    + (onUploadFtse
+      ? ' <button type="button" data-upload-ftse class="font-semibold underline underline-offset-2">Upload a newer workbook</button>'
+      : '')
+    + '</p>';
 }

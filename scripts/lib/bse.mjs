@@ -49,40 +49,22 @@ const API = 'https://api.bseindia.com/BseIndiaAPI/api';
 const RUPEES_PER_CRORE = 1e7;
 
 /**
- * A number written with Indian (or Western) digit grouping, as a plain number.
+ * ⚠ THE GROUPED-NUMBER PARSER MOVED, AND NOTHING ELSE CHANGED.
  *
- * Accepts:  "1,769,379.44"  "17,69,379.44"  "156812.20"  "0.4926"  "7.72"
- * Rejects:  "-"  ""  "N.A."  "1,2,3,4"  "12.3.4"  null  undefined  NaN inputs
- *
- * Returns `null` for anything it does not fully understand. Never guesses,
- * never partially parses. A `null` here means "no reading", which is a
- * different fact from zero and must stay different all the way to the screen.
- *
- * @param {unknown} value
- * @returns {number|null}
+ * `parseGroupedNumber` now lives in `public/js/core/grouped-number.js` and is
+ * re-exported here so every caller in scripts/ is untouched. The move was forced
+ * by the FTSE upload panel, which parses Vanguard's `$1,234.56` in the browser:
+ * this module imports `node:child_process` for the curl transport (§3.7), so it
+ * cannot be loaded in a page at all. A second copy of the one function whose
+ * entire job is to reject what `parseFloat` silently accepts is exactly the
+ * duplication this repo cannot afford.
  */
-export function parseGroupedNumber(value) {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : null;
-  }
-  if (typeof value !== 'string') return null;
+// `import` then `export`, not a bare `export … from`: a re-export alone does not
+// bind the name in this module's own scope, and `parseCroreToRupees` below calls
+// it. That failed loudly on the first run, which is the good kind of failure.
+import { parseGroupedNumber } from '../../public/js/core/grouped-number.js';
 
-  const text = value.trim();
-  if (text === '' || text === '-' || text === '--') return null;
-
-  // The whole string must be a number: optional sign, digit groups separated by
-  // single commas, optional single decimal part. Anything else is not a number
-  // we are willing to guess at.
-  if (!/^-?\d{1,3}(,\d{2,3})*(\.\d+)?$/.test(text) && !/^-?\d+(\.\d+)?$/.test(text)) {
-    return null;
-  }
-
-  const stripped = text.replace(/,/g, '');
-  // Number(), not parseFloat(): Number("8,71,532.61") is NaN, which we can
-  // detect. parseFloat("8,71,532.61") is 8, which we cannot.
-  const parsed = Number(stripped);
-  return Number.isFinite(parsed) ? parsed : null;
-}
+export { parseGroupedNumber };
 
 /**
  * A BSE money field (crore, grouped string) as RUPEES.

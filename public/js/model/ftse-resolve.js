@@ -41,6 +41,20 @@
  *
  * Nothing is ever guessed, and an unresolved row keeps its weight and states its
  * reason rather than being dropped (§2.3, §3.9).
+  *
+ * ---------------------------------------------------------------------------
+ * ⚠ THIS MOVED FROM scripts/lib ON 10 SEP 2026, AND IT IS THE SAME FILE
+ * ---------------------------------------------------------------------------
+ * It was always pure — no imports, no I/O — and it is now imported by two
+ * callers instead of one: the Node importer that writes the committed artefact,
+ * and the dashboard's upload panel, which lets the desk drop in a fresh
+ * quarterly workbook without waiting for anyone to run a script.
+ *
+ * Only code under public/js is served, so a module the browser needs has to
+ * live here. Nothing about the join changed — the price arbitration, the
+ * unique-or-nothing name match and `assertCurrency` are byte for byte what they
+ * were, which is the point: an upload that resolved companies by different
+ * rules from the importer would put two different books on one screen.
  */
 
 /**

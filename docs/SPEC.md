@@ -69,6 +69,14 @@ business days of the month *before* the review month, so once that window shuts 
 **Scope**: gone. The screener shows all companies. A candidate no fund holds yet is what an inclusion
 forecast is about, so hiding it behind a default made the product's own subject opt-in.
 
+**The header carries two controls: the status pill, and `↑ FTSE book`.** The second is an *action*,
+not a toggle — it gates nothing and the screen answers identically whether it is ever pressed, which
+is why §2.27's argument against a header control does not reach it. It opens the upload panel for
+Vanguard's quarterly FTSE workbook, read and checked in the page by the same code that produced the
+book already on screen; nothing is applied until the reader has read the report and pressed Apply.
+The FTSE row in the sources modal opens the same panel, for anyone arriving from the provenance side.
+See CLAUDE.md §2.38.
+
 
 **Stat strip**, four cards on one row, each with a denominator:
 
@@ -384,13 +392,21 @@ These are the product, not decoration around it. The full doctrine is `CLAUDE.md
   export says which filter produced it.
 - **Live is claimed only when a byte arrived**, and only during 09:15–15:30 IST. Otherwise the pill
   reads "Last close · BSE" with the trade date.
+- **The cutoff renders as a band, not a point.** Every verdict turns on a size cutoff MSCI does not
+  publish in advance, so the `Holds at` column prints how many of the defensible cutoffs produce this
+  row's verdict — with its denominator — a `marginal` chip sits beside a verdict that changes inside
+  the band, the rules table states the band under every bar derived from a cutoff, and the drill lists
+  each cutoff with the verdict it gives. It is a **count of scenarios and never a probability**: no
+  fraction and no percentage is rendered from it anywhere (CLAUDE.md §2.37).
 
 ---
 
 ## 7. Where this model is weakest
 
 Twelve ranked, measured limits — no backtest, size is necessary but not sufficient, liquidity never
-gates a verdict, 64 of the 145 non-stable verdicts sit within ±20% of their threshold, and more.
+gates a verdict, 64 of the 145 non-stable verdicts sit within ±20% of their threshold, and more. Since
+10 Sep 2026 the threshold sensitivity is also **on the screen**, per row, rather than only written
+down here.
 
 **They live in `docs/DATA-CONTRACTS.md` → "Where this model is weakest" and are not duplicated here.**
 Read them before quoting anything on this screen to someone who will act on it.

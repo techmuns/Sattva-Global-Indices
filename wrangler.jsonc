@@ -42,4 +42,27 @@
   "observability": {
     "enabled": true
   }
+
+  // ── OPTIONAL: the shared store for an uploaded FTSE book ──────────────────
+  //
+  // The dashboard lets the desk drop in Vanguard's quarterly workbook instead of
+  // waiting for someone to run `node scripts/import-ftse.mjs` and commit the
+  // artefact. With no store bound, that upload applies to the uploader's own
+  // browser and the panel says so. Bind a KV namespace and the same upload
+  // reaches every reader, with no commit and no deploy.
+  //
+  // ⚠ THERE IS NO ID HERE ON PURPOSE. A placeholder id would break
+  // `wrangler deploy` for everyone who has not created the namespace, which is a
+  // worse default than the feature being off. It is a ONE-TIME setup:
+  //
+  //     npx wrangler kv namespace create FTSE_BOOK
+  //
+  // then uncomment the block below with the id it prints, and deploy. The
+  // committed ftse-funds.json stays the floor either way — /api/health reports
+  // `ftseStoreConfigured` so the panel can say which state it is in before
+  // anybody spends a workbook finding out.
+  //
+  // "kv_namespaces": [
+  //   { "binding": "FTSE_BOOK", "id": "<the id wrangler prints>" }
+  // ]
 }

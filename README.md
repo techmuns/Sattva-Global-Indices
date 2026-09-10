@@ -29,6 +29,21 @@ outside market hours.
 
 ---
 
+## Two things the desk can now do without the repository
+
+**1. Upload the quarterly FTSE workbook.** The `↑ FTSE book` control in the header takes Vanguard's
+`Holdings details` export straight from the dashboard. It is read, currency-checked and joined by
+exactly the code that produced the book already on screen — nothing is applied until you have read
+the report and pressed Apply. See **Share an uploaded FTSE book** below for the one-time setup that
+makes an upload reach every reader rather than the uploader's browser.
+
+**2. Read how much of a verdict rests on the cutoff.** Every verdict turns on a size cutoff MSCI does
+not publish in advance, so each row now says how many of the defensible cutoffs produce it — a count
+of scenarios with its denominator, never a probability. `Holds at 3 of 6` means the answer changes
+inside the width of our own bar, and the drill lists every cutoff and the verdict it gives.
+
+---
+
 ## Run it
 
 ```bash
@@ -51,11 +66,11 @@ npx wrangler dev                      # serves the same site plus POST /api/quot
 
 ## Verify it
 
-Two suites, 42 assertions, both exit non-zero on any failure.
+Two suites, 106 assertions, both exit non-zero on any failure.
 
 ```bash
-node scripts/verify-data.mjs                                      # 60 checks, no browser, no network
-node scripts/verify-ui.mjs                                        # 40 checks vs http://127.0.0.1:8080
+node scripts/verify-data.mjs                                      # 64 checks, no browser, no network
+node scripts/verify-ui.mjs                                        # 42 checks vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs `npx wrangler dev`
 node scripts/verify-data.mjs --prove                              # break each check; it must go red
 node scripts/verify-ui.mjs --prove
@@ -120,8 +135,37 @@ npx wrangler secret put MUNS_TOKEN
 npx wrangler deploy
 ```
 
-`wrangler.jsonc` serves `public/` as static assets and routes only `POST /api/quotes` through the
-Worker. Details, including the custom-domain step, are in `docs/HANDOFF.md`.
+`wrangler.jsonc` serves `public/` as static assets and routes `/api/quotes` and `/api/ftse` through
+the Worker. Details, including the custom-domain step, are in `docs/HANDOFF.md`.
+
+### Deploying on every push is ALREADY WIRED — do not add a Pages project
+
+This repository is connected to **Cloudflare Workers Builds**, which is the git integration for a
+Worker that serves static assets. It reports as the `Workers Builds: sattva-global-indices` check on
+every pull request, and a merge to `main` deploys itself. `npx wrangler deploy` above is the manual
+path, for when you want to ship without a push.
+
+⚠ **This is a Worker with an `assets` binding, not a Pages project**, and the two are different
+products. Connecting Cloudflare **Pages** to the same repository would stand up a second deployment
+of the same files on a different hostname — one of them without `/api/quotes` and `/api/ftse`, since
+those routes live in `worker/index.js`. If the site ever appears to be serving stale content or the
+live prices stop working on one URL and not another, look for a stray Pages project first.
+
+### Share an uploaded FTSE book
+
+Also one-time, and independent of the above. With no store bound, an upload through the dashboard
+applies to the uploader's own browser and the panel says so in those words. Bind a KV namespace and
+the same upload reaches every reader with no commit and no deploy:
+
+```bash
+npx wrangler kv namespace create FTSE_BOOK
+```
+
+Uncomment the `kv_namespaces` block at the bottom of `wrangler.jsonc` with the id it prints, and
+deploy. `/api/health` then reports `ftseStoreConfigured: true`, and the upload panel says which state
+it is in before anybody spends a workbook finding out. The committed `public/data/ftse-funds.json`
+stays the floor either way — the panel always offers the generated file for committing, which is what
+makes a book permanent.
 
 ---
 

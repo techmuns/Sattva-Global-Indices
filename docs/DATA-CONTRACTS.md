@@ -128,7 +128,7 @@ each company's own `ftse` field and nowhere else.
 | --- | --- |
 | **Produced by** | `node scripts/import-ftse.mjs` (no network — reads the committed workbook) |
 | **Upstream source** | Vanguard's "Holdings details" export, `scripts/fixtures/vanguard-ftse-em-allcap.xlsx` |
-| **Format** | real OOXML `.xlsx` — a ZIP of XML parts, read by `scripts/lib/xlsx.mjs`. **Not** the SpreadsheetML 2003 that the iShares `.xls` files use (§3.1); the two readers are not interchangeable. |
+| **Format** | real OOXML `.xlsx` — a ZIP of XML parts, read by `public/js/core/xlsx.js`. **Not** the SpreadsheetML 2003 that the iShares `.xls` files use (§3.1); the two readers are not interchangeable. |
 | **Tier** | 1 — Vanguard's own published figures, carried through unchanged. |
 | **Cadence** | Vanguard publishes monthly; re-imported when a fresh workbook is dropped in. |
 | **Failure mode** | `EXPECTED` in the script describes the committed workbook; any drift refuses the write. Replace the fixture and re-measure `EXPECTED` in the same commit. |
@@ -733,9 +733,30 @@ Quarterly Feb/May/Aug/Nov is public. The effective date and snapshot convention 
 | `assessment` | `{ verdict, distancePct, rulesFired, notes, disclosure, basis, asm }`. `asm` is the ASM qualifier: `{ stage, survCode, category, severity, binding, implication, timingNote, attribution }`, or `null`. `binding` is true only where a trade is implied — it fires an `asm-flow-constraint` rule that is inert to the verdict. |
 | `flowEstimate` | `{ shape, flows[], notSampled[], asmConstraint }`, or `null`. `asmConstraint` is non-null only when an ASM name has a forced flow; each `flows[]` entry then carries `constrainedByAsm` and a `timingNote`. |
 | `shareCountQuarantine` | `{ reason, gapPct }` when the share count could not be corroborated |
+| `cutoffSensitivity` | `{ state, verdict, cutoff, scenarios, agreeing, alternatives[], insideBand, bar, reason }`. `state` is `firm` \| `marginal` \| `unmeasured`. `agreeing` of `scenarios` is a **count of scenarios and never a probability** (§2.13, §2.37); `alternatives[]` names each other verdict and how many cutoffs give it. `bar` is `{ ruleKey, label, inputInr, thresholdInr, lowInr, highInr }` — the band of the bar this row was judged against, which is the cutoff's band scaled by the rule's own ratio, **not** the raw cutoff band. `unmeasured` means no cutoff can move this verdict and is never folded into `firm`. |
 
 Top level gains `model` — segment counts, the observed boundary, verdict counts, the next review, and
 the disclosure string that must accompany any verdict.
+
+### `model.cutoffUncertainty` — the band around the two cutoffs
+
+| Field | Meaning |
+| --- | --- |
+| `components[]` | one per source of uncertainty: `price-day`, `constituent-count`, `review-drift`. Each carries `applies`, `sided`, `source`, `basis`, and — when it applies — `standard` and `imi` as `{ low, high }` **dimensionless multipliers**. A component that could not be measured is `applies: false` **with a `reason` in words**, never a silent multiplier of 1 (§2.4). |
+| `windows[]` | the per-day cutoffs across each captured MSCI price window, so the day-choice spread is reproducible from the record |
+| `scenarios[]` | the shipped cutoff first, then one per component per direction: `{ key, label, component, direction, standardInr, imiInr, basis, source }` |
+| `band` | `{ standard, imi, scenarioCount }`, each side `{ lowInr, highInr, pointInr, widthPct }`. `pointInr` **is** the shipped cutoff, and it always sits inside its own band. |
+| `stabilityCounts` | `{ firm, marginal, unmeasured }` over the whole record |
+
+The multipliers are measured at build time from `price-history.json` and from MSCI's published Global
+Minimum Size Range; the scenarios and the band are **derived from them** by
+`public/js/model/cutoff-uncertainty.js`, which the browser re-runs against the live cutoff on every
+tick. They ride on the record so a reader of the file sees the same envelope the screen does, and so
+`verify-data` 61 can recompute them rather than take either on trust.
+
+**It is an envelope, not a confidence interval.** No distribution, no σ, no coverage claim — and each
+scenario moves **one** component alone, so the band is the widest single move rather than a
+compounding of all three. That makes it a floor on the real uncertainty, not a ceiling.
 
 ---
 
@@ -1393,6 +1414,15 @@ number, and within any single verdict its ordering was identical to free float. 
 survives in the drill panel — where the threshold and its value are stated beside the percentage —
 and in the CSV export, which now carries the threshold's name and value in their own columns so the
 sensitivity above can still be reproduced from a sheet.
+
+**Since 10 Sep 2026 this weakness is measured on the screen rather than only written down here.** The
+cutoff carries a band, and every verdict is replayed at each cutoff inside it: a `Holds at` column
+prints the count with its denominator, a `marginal` chip sits beside a verdict that changes somewhere
+inside the band, and the drill lists every cutoff with the verdict it produces. Measured on the record
+of 8 Sep 2026 the IMI band runs **₹6,719–₹10,139 Cr** around a point of ₹9,485 Cr and the Standard
+band **₹63,665–₹72,967 Cr** around ₹68,157 Cr, and **151 of 1,280 verdicts change somewhere inside
+it** — with 1,043 firm and 86 that no cutoff can move. See CLAUDE.md §2.37. It is a count of
+scenarios, not a probability: §2.13 is unchanged.
 
 ### 5. The segment boundary is inferred from three funds, and a fund is not an index
 

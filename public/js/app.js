@@ -12,6 +12,7 @@ import * as data from './data/companies.js';
 import * as state from './core/state.js';
 import { start as startRouter, onRoute, current as currentRoute } from './core/router.js';
 import { mountShell } from './ui/shell.js';
+import { openFtseUpload } from './ui/ftse-upload.js';
 import { renderCompanies } from './tabs/companies.js';
 import { renderRebalance } from './tabs/rebalance.js';
 import * as quotes from './data/quotes.js';
@@ -66,9 +67,23 @@ async function main() {
    * it again on the way back would throw all of that away and re-stream 1,265
    * rows. So each view keeps its own host and only its visibility changes.
    */
+  // ⚠ THE VIEW DOES NOT EXIST YET, so the repaint is reached through a mutable
+  // handle rather than captured. The shell is mounted before the screener —
+  // it owns the host the screener renders into — and a callback that closed
+  // over `view` here would close over `undefined` and silently do nothing after
+  // an upload, leaving a reader looking at the previous book.
+  let view = null;
+  const openUpload = () => openFtseUpload({
+    onApplied: () => {
+      view?.rebuild();
+      refreshStatus();
+    },
+  });
+
   const shell = mountShell(app, {
     route: currentRoute().route,
     onNavigate: (route) => { location.hash = `#/${route}`; },
+    onUploadFtse: openUpload,
   });
 
   // The header pill re-renders on every tick, because what it claims — live or
@@ -79,7 +94,7 @@ async function main() {
   const rebalanceHost = el('div', { 'data-view': 'rebalance', hidden: true });
   shell.host.append(screenerHost, rebalanceHost);
 
-  const view = renderCompanies(screenerHost, { onStatusChange: refreshStatus });
+  view = renderCompanies(screenerHost, { onStatusChange: refreshStatus });
 
   let rebalanceMounted = false;
   const showRoute = (route) => {
