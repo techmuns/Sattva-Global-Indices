@@ -3797,15 +3797,53 @@ async function main() {
           .map((tr) => (tr.children[holdsAt]?.textContent ?? '').trim())
           .filter(Boolean);
 
-        // And the drill, on a company we KNOW is marginal.
+        // ---- the drill, on a company we KNOW is marginal --------------------
+        //
+        // ⚠ THE DRILL AND THE MODEL IT WAS RENDERED FROM ARE READ IN ONE
+        // SYNCHRONOUS PASS. That is the whole fix, and the bug it replaces was
+        // mine.
+        //
+        // This used to open the drill, `await` a 250 ms sleep, read the panel,
+        // and only THEN read `modelCutoffScenarios()`. The model is mutable —
+        // the live poller calls `rebuildModel()` on its own timer — so the
+        // scenario count being asserted was not necessarily the one that
+        // produced the markup being asserted about. `ok(m.scenarios > 1)` could
+        // pass against a model that arrived after the drill was already built
+        // from a different one. CI failed exactly that way: 6 scenarios
+        // reported, and a drill with no cutoff section in it.
+        //
+        // Locally it never fired, because with the Tailwind CDN unreachable and
+        // no Worker the timings differ enough that the two reads always agreed.
+        // A check whose correctness depends on a race losing is not a check.
+        //
+        // `openCompanyDrill` builds its whole body synchronously, so there is
+        // nothing to wait for: rendering and reading now happen in the same
+        // task, before any `await`, and the model is snapshotted in that task
+        // too. The harness's own rule — never sleep to wait for a repaint —
+        // applied to a panel instead of to the table.
+        //
+        // `textContent`, not `innerText`: the assertion is about CONTENT, so it
+        // must not depend on whether a stylesheet arrived and laid the panel out
+        // (the environment split check 48 records about computed style).
         S.view.openCompany(S.data.keyOf(marginal[0]));
-        await new Promise((r) => setTimeout(r, 250));
-        const drill = document.querySelector('[data-panel]')?.innerText ?? '';
-        const scenarioRows = [...(document.querySelector('[data-panel]')?.querySelectorAll('table tr') ?? [])]
+        const scenariosAtRender = S.view.modelCutoffScenarios?.() ?? [];
+        const bandAtRender = S.view.modelCutoffBand?.() ?? null;
+        const sensitivityAtRender = S.view.cutoffSensitivityFor?.(marginal[0]) ?? null;
+        const drillBody = document.querySelector('#drill-root [data-drill-body]');
+        const drill = drillBody?.textContent ?? '';
+        const scenarioRows = [...(drillBody?.querySelectorAll('table tr') ?? [])]
           .map((tr) => tr.textContent)
           .filter((t) => /cutoff scenario|point estimate|the day MSCI priced on|constituent|bar moved/i.test(t));
 
         return {
+          // What the model held AT THE MOMENT the drill was built, so a failure
+          // below names the state that actually produced the markup.
+          renderCompany: marginal[0]?.name ?? null,
+          renderScenarios: scenariosAtRender.length,
+          renderSensitivity: sensitivityAtRender
+            ? `${sensitivityAtRender.state} ${sensitivityAtRender.agreeing} of ${sensitivityAtRender.scenarios}`
+            : String(sensitivityAtRender),
+          renderBandWidth: bandAtRender?.imi?.widthPct ?? null,
           total: rows.length,
           marginal: marginal.length,
           firm: firm.length,
@@ -3816,8 +3854,8 @@ async function main() {
           cellTexts: cellTexts.slice(0, 8),
           drill,
           scenarioRows: scenarioRows.length,
-          bandWidth: S.view.modelCutoffBand?.()?.imi?.widthPct ?? null,
-          scenarios: S.view.modelCutoffScenarios?.()?.length ?? 0,
+          bandWidth: bandAtRender?.imi?.widthPct ?? null,
+          scenarios: scenariosAtRender.length,
         };
       });
 
@@ -3874,10 +3912,18 @@ async function main() {
       );
 
       // ---- the drill shows the working ------------------------------------
+      // ⚠ THE DETAIL NAMES THE MODEL, NOT THE PROSE. This printed
+      // `m.drill.slice(0, 120)` — the drill's own opening lines — which said
+      // nothing at all about WHY the section was missing and cost a CI round to
+      // work around. A failing check has to hand over the state that produced
+      // the failure.
+      const renderState = `${m.renderCompany}: ${m.renderScenarios} scenario(s) at render, `
+        + `sensitivity ${m.renderSensitivity}, band ${m.renderBandWidth}`;
       ok(/How much does this turn on where the cutoff lands/.test(m.drill),
-        'the drill carries the cutoff-sensitivity section', m.drill.slice(0, 120));
+        'the drill carries the cutoff-sensitivity section', `${renderState} · drill ${m.drill.length} chars`);
       ok(/holds at \d+ of the \d+ cutoffs/i.test(m.drill),
-        'and states the count with its denominator', (m.drill.match(/holds at[^.]*/i) ?? [''])[0]);
+        'and states the count with its denominator',
+        `${renderState} · ${(m.drill.match(/holds at[^.]*/i) ?? ['(no "holds at" sentence)'])[0]}`);
       ok(/not a probability/i.test(m.drill), 'and says it is not a probability', 'the sentence is missing');
       ok(m.scenarioRows >= 3,
         'every cutoff the band is drawn from is listed with its own verdict — a width nobody can '
