@@ -138,13 +138,18 @@ npx wrangler deploy
 `wrangler.jsonc` serves `public/` as static assets and routes `/api/quotes` and `/api/ftse` through
 the Worker. Details, including the custom-domain step, are in `docs/HANDOFF.md`.
 
-### Deploy on every push, once
+### Deploying on every push is ALREADY WIRED — do not add a Pages project
 
-GitHub → Cloudflare Pages is a one-time connection and then it is automatic: in the Cloudflare
-dashboard, **Workers & Pages → Create → Pages → Connect to Git**, pick this repository and the branch
-to deploy, and leave the build command **empty** with the output directory set to `public/`. There is
-no build step here by design, so there is nothing for Cloudflare to run. After that every push
-deploys itself and nobody has to run `wrangler deploy` again.
+This repository is connected to **Cloudflare Workers Builds**, which is the git integration for a
+Worker that serves static assets. It reports as the `Workers Builds: sattva-global-indices` check on
+every pull request, and a merge to `main` deploys itself. `npx wrangler deploy` above is the manual
+path, for when you want to ship without a push.
+
+⚠ **This is a Worker with an `assets` binding, not a Pages project**, and the two are different
+products. Connecting Cloudflare **Pages** to the same repository would stand up a second deployment
+of the same files on a different hostname — one of them without `/api/quotes` and `/api/ftse`, since
+those routes live in `worker/index.js`. If the site ever appears to be serving stale content or the
+live prices stop working on one URL and not another, look for a stray Pages project first.
 
 ### Share an uploaded FTSE book
 
