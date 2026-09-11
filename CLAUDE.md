@@ -1691,7 +1691,7 @@ readers are not interchangeable and neither can read the other's files.**
 
 > ⚠ **That reader moved out of `scripts/lib` on 10 Sep 2026 and takes its INFLATE as an argument.**
 > The same workbook is now read in two places — the importer that writes the committed artefact, and
-> the dashboard's upload panel (§2.37) — and only code under `public/js` is served. Node passes
+> the dashboard's upload panel (§2.38) — and only code under `public/js` is served. Node passes
 > `zlib.inflateRawSync`; a browser has no synchronous inflate at all, only the async
 > `DecompressionStream('deflate-raw')`, which is why `readXlsx` is async. `'deflate'` is one
 > character away and wrong: a ZIP member is RAW deflate with no zlib header, so `'deflate'` throws on
@@ -2028,7 +2028,8 @@ else's free service and this job runs monthly — there is no reason to lean on 
 >
 > It stops at the first comma and returns a plausible small number that will sort, sum and rank
 > perfectly happily. **`parseFloat` is banned anywhere near a BSE figure.** Everything goes through
-> `parseGroupedNumber` in `scripts/lib/bse.mjs`, which validates the entire string before
+> `parseGroupedNumber` in `public/js/core/grouped-number.js` — which `bse.mjs` re-exports, so
+> every caller here is unchanged — and it validates the entire string before
 > converting, and every value is normalised to **rupees at that boundary** so exactly one unit
 > exists downstream. A crore value in a rupee field is a ten-million-fold error that looks like a
 > formatting bug.
@@ -2208,7 +2209,7 @@ scripts/
   lib/spreadsheetml.mjs            SpreadsheetML 2003 reader, zero dependencies
   lib/report.mjs                   console tables, number formatting, check lists
   lib/assert.mjs                   the verification harness: check / skip / prove
-  lib/bse.mjs                      BSE client + the ₹-crore string parser
+  lib/bse.mjs                      BSE client; re-exports the ₹-crore parser from public/js
   lib/resolve.mjs                  ticker → ISIN → NSE symbol + BSE scrip code
   lib/bhavcopy.mjs                 EOD CSV parse + shape and continuity tripwires
   lib/asm-diff.mjs                 ASM snapshot diff, keyed on ISIN; pure, writes nothing
@@ -2300,7 +2301,7 @@ public/
   js/tabs/rebalance.js             the Latest Rebalance view — the one screen
                                    that marks its own homework
 worker/
-  index.js                         static assets + POST /api/quotes
+  index.js                         static assets, POST /api/quotes, GET/PUT /api/ftse
   http.mjs                         ETag / 304 / CORS / cache-state helpers
 wrangler.jsonc                     Worker config; npx-only, no node_modules here
 .github/workflows/
