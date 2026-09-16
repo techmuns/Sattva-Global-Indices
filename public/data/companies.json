@@ -1,7 +1,7 @@
 {
   "source": "iShares holdings + NSE pre-open free float + BSE free float + niftyindices ISIN map",
   "note": "floatFactor is dimensionless and price-independent. NSE wins wherever it publishes a reading because MSCI follows NSE; BSE fills gaps only. The two are never averaged, and where both exist both are kept so the disagreement stays inspectable. Every monetary field is RUPEES. A null in funds{} means NOT HELD by that fund — it is not a zero weight.",
-  "builtAt": "2026-09-12T08:24:58.197Z",
+  "builtAt": "2026-09-16T09:02:44.531Z",
   "holdingsAsOfByFund": {
     "eem": "2026-08-31",
     "smin": "2026-08-31",
@@ -17,7 +17,7 @@
     "benchmarksAsOf": "2026-09-08",
     "bseScripMasterCapturedAt": "2026-09-08T17:59:07.723Z",
     "nseUniverseCapturedAt": "2026-09-12T08:24:32.184Z",
-    "asmAsOf": "11-Sep-2026"
+    "asmAsOf": "16-Sep-2026"
   },
   "thresholds": {
     "scrapeUniverseMinFullMcapInr": 20000000000,
@@ -56,7 +56,7 @@
     "liveEligible": 1218,
     "liveIneligible": 62,
     "withAdv": 750,
-    "asmFlagged": 100,
+    "asmFlagged": 84,
     "byFund": {
       "eem": {
         "shortName": "EM",
@@ -636,36 +636,37 @@
     "publisher": "National Stock Exchange of India",
     "endpoint": "https://www.nseindia.com/api/reportASM",
     "note": "NSE's published surveillance stage, carried through unchanged (tier 1) and joined to the universe by ISIN. dhan.co/nse-asm-list mirrors this same NSE feed. A company not on the list is NOT under ASM; a null stage when the feed is unavailable means we could not check.",
-    "capturedAt": "2026-09-12T08:24:57.915Z",
-    "asOf": "11-Sep-2026",
-    "totalFlagged": 239,
-    "flaggedInUniverse": 100,
+    "capturedAt": "2026-09-16T09:02:44.027Z",
+    "asOf": "16-Sep-2026",
+    "totalFlagged": 225,
+    "flaggedInUniverse": 84,
     "stagesInUniverse": {
-      "LTASM - I (13)": 62,
-      "STASM - I (11)": 30,
+      "LTASM - I (13)": 53,
+      "STASM - I (11)": 22,
       "LTASM - IV (16)": 7,
-      "LTASM - III (15)": 1
+      "LTASM - III (15)": 1,
+      "LTASM - II (14)": 1
     },
     "categories": [
       {
         "key": "longterm",
         "label": "Long Term ASM (LTASM)",
-        "count": 149,
-        "withIsin": 149,
+        "count": 144,
+        "withIsin": 144,
         "byStage": {
-          "LTASM - I (13)": 136,
+          "LTASM - I (13)": 130,
           "LTASM - IV (16)": 9,
           "LTASM - II (14)": 3,
-          "LTASM - III (15)": 1
+          "LTASM - III (15)": 2
         }
       },
       {
         "key": "shortterm",
         "label": "Short Term ASM (STASM)",
-        "count": 90,
-        "withIsin": 90,
+        "count": 81,
+        "withIsin": 81,
         "byStage": {
-          "STASM - I (11)": 89,
+          "STASM - I (11)": 80,
           "STASM - II (12)": 1
         }
       }
@@ -34499,7 +34500,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -46142,7 +46143,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -48323,7 +48324,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -49559,7 +49560,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -52927,7 +52928,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -54412,7 +54413,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -59372,7 +59373,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -63508,7 +63509,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -70797,13 +70798,7 @@
       "yearlyChangePct": 142.43,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "longterm",
-        "stage": "Stage I",
-        "survCode": "LTASM - I (13)",
-        "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": true,
       "funds": {
         "eem": null,
@@ -70863,16 +70858,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": 311.868,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "LTASM - I (13)",
-          "category": "longterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "exit-size-buffer",
         "methodology": "freefloat",
         "rulesFired": [
@@ -72333,7 +72319,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -75676,7 +75662,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -79675,13 +79661,7 @@
       "yearlyChangePct": 71.79,
       "lastSplitFactor": "10:1",
       "lastSplitDate": "2015-08-21",
-      "asm": {
-        "category": "longterm",
-        "stage": "Stage I",
-        "survCode": "LTASM - I (13)",
-        "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": true,
       "funds": {
         "eem": null,
@@ -79741,16 +79721,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": 249.24,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "LTASM - I (13)",
-          "category": "longterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "exit-size-buffer",
         "methodology": "freefloat",
         "rulesFired": [
@@ -81594,7 +81565,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -82460,13 +82431,7 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": true,
       "funds": {
         "eem": null,
@@ -82495,16 +82460,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": 233.512,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "exit-size-buffer",
         "methodology": "freefloat",
         "rulesFired": [
@@ -87169,7 +87125,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -91441,7 +91397,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -92565,13 +92521,7 @@
       "yearlyChangePct": -27.44,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "longterm",
-        "stage": "Stage I",
-        "survCode": "LTASM - I (13)",
-        "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": true,
       "funds": {
         "eem": null,
@@ -92631,16 +92581,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": 175.377,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "LTASM - I (13)",
-          "category": "longterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "exit-size-buffer",
         "methodology": "freefloat",
         "rulesFired": [
@@ -95765,7 +95706,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -102861,7 +102802,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -103366,7 +103307,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -106964,7 +106905,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -109805,7 +109746,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -113834,7 +113775,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -116856,13 +116797,7 @@
       "yearlyChangePct": 124.67,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "longterm",
-        "stage": "Stage I",
-        "survCode": "LTASM - I (13)",
-        "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -116880,16 +116815,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": null,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "LTASM - I (13)",
-          "category": "longterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "fif-floor",
         "methodology": "freefloat",
         "rulesFired": [
@@ -117651,7 +117577,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -117881,7 +117807,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -118355,7 +118281,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -120198,7 +120124,13 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": null,
+      "asm": {
+        "category": "shortterm",
+        "stage": "Stage I",
+        "survCode": "STASM - I (11)",
+        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+        "asmDate": "16-Sep-2026"
+      },
       "held": false,
       "funds": {
         "eem": null,
@@ -120216,7 +120148,16 @@
       "assessment": {
         "verdict": "possible-inclusion",
         "distancePct": -9.273,
-        "asm": null,
+        "asm": {
+          "stage": "Stage I",
+          "survCode": "STASM - I (11)",
+          "category": "shortterm",
+          "severity": "entry",
+          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
+          "binding": true,
+          "implication": "A passive fund is not mandated to rebalance a name under ASM on the review schedule, and higher stages restrict how much can be traded per session, so the forced flow may be deferred, stretched over more sessions, or not undertaken.",
+          "timingNote": "Days-of-ADV understates the time to implement: ASM shrinks the volume a fund can work through, and trade-to-trade settlement removes intraday netting."
+        },
         "distanceRuleKey": "entry-buffer",
         "methodology": "freefloat",
         "rulesFired": [
@@ -120289,10 +120230,22 @@
             "note": "The 622th company by full market cap across all 1254 with both sizes on the record.",
             "unit": "inr",
             "band": null
+          },
+          {
+            "key": "asm-flow-constraint",
+            "label": "Under NSE ASM — forced flow not mandated",
+            "input": "STASM - I (11)",
+            "threshold": null,
+            "thresholdSource": "desk",
+            "result": "flow not mandated",
+            "note": "A passive fund is not mandated to rebalance a name under ASM on the review schedule, and higher stages restrict how much can be traded per session, so the forced flow may be deferred, stretched over more sessions, or not undertaken.",
+            "unit": "stage",
+            "band": null
           }
         ],
         "notes": [
-          "EM Small-Cap does not currently sample this company, so it has no basis for an EM SC flow estimate."
+          "EM Small-Cap does not currently sample this company, so it has no basis for an EM SC flow estimate.",
+          "Under NSE ASM (STASM - I (11)). A passive fund is not mandated to rebalance a name under ASM on the review schedule, and higher stages restrict how much can be traded per session, so the forced flow may be deferred, stretched over more sessions, or not undertaken. The flow size below is the mechanical estimate; it is not a mandated forced trade, and days-of-ADV understates the time to implement. This is the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing."
         ],
         "disclosure": "A rule-based assessment: MSCI's published buffers, free-float minimum and FIF floor applied to size cutoffs derived from the constituents the funds hold. The ratios are MSCI's; the rupee cutoffs are ours. Not a probability, and not MSCI's decision.",
         "basis": "end-of-day price; the interface re-assesses against a live price when one is in force"
@@ -120349,7 +120302,10 @@
               "segment": "smallcap"
             },
             "certainty": "estimated",
-            "note": "The India Small-Cap ETF replicates the segment, so an entry draws a flow from it for certain."
+            "note": "The India Small-Cap ETF replicates the segment, so an entry draws a flow from it for certain.",
+            "constrainedByAsm": true,
+            "asmStage": "STASM - I (11)",
+            "timingNote": "Days-of-ADV understates the time to implement: ASM shrinks the volume a fund can work through, and trade-to-trade settlement removes intraday netting."
           }
         ],
         "notSampled": [
@@ -120359,7 +120315,16 @@
             "reason": "EM Small-Cap samples the segment rather than replicating it and does not currently hold this company, so whether it would buy is not derivable. Not zero."
           }
         ],
-        "asmConstraint": null
+        "asmConstraint": {
+          "stage": "Stage I",
+          "survCode": "STASM - I (11)",
+          "category": "shortterm",
+          "severity": "entry",
+          "mandated": false,
+          "implication": "A passive fund is not mandated to rebalance a name under ASM on the review schedule, and higher stages restrict how much can be traded per session, so the forced flow may be deferred, stretched over more sessions, or not undertaken.",
+          "timingNote": "Days-of-ADV understates the time to implement: ASM shrinks the volume a fund can work through, and trade-to-trade settlement removes intraday netting.",
+          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing."
+        }
       },
       "relativePerformance": {
         "state": "incomplete-window",
@@ -121629,7 +121594,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -124891,7 +124856,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -125115,7 +125080,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -128556,7 +128521,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -130339,7 +130304,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -133468,7 +133433,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -135947,7 +135912,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -139574,13 +139539,7 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": true,
       "funds": {
         "eem": null,
@@ -139619,16 +139578,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": 53.952,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "exit-size-buffer",
         "methodology": "freefloat",
         "rulesFired": [
@@ -144695,7 +144645,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -146646,7 +146596,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -152322,7 +152272,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -152543,7 +152493,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -153682,13 +153632,7 @@
       "yearlyChangePct": 34.74,
       "lastSplitFactor": "5:1",
       "lastSplitDate": "2010-11-18",
-      "asm": {
-        "category": "longterm",
-        "stage": "Stage I",
-        "survCode": "LTASM - I (13)",
-        "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -153727,16 +153671,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -15.785,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "LTASM - I (13)",
-          "category": "longterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -156616,7 +156551,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -156837,7 +156772,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -157679,7 +157614,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -163312,7 +163247,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -171961,7 +171896,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -173712,7 +173647,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -174840,7 +174775,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -175053,7 +174988,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -177339,7 +177274,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -183788,7 +183723,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -185429,7 +185364,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -186066,7 +186001,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -186833,7 +186768,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -187689,7 +187624,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -190308,7 +190243,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -192028,7 +191963,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -195403,7 +195338,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -196429,7 +196364,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -196642,7 +196577,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -199438,7 +199373,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -203137,7 +203072,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -209530,7 +209465,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -212232,7 +212167,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -214657,7 +214592,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -215860,7 +215795,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -216068,13 +216003,7 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -216092,16 +216021,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -59.858,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -220226,13 +220146,7 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -220250,16 +220164,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -61.465,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -220444,7 +220349,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -220657,7 +220562,7 @@
         "stage": "Stage III",
         "survCode": "LTASM - III (15)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage III",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -224072,7 +223977,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -226048,7 +225953,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -226657,7 +226562,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -230245,13 +230150,7 @@
       "yearlyChangePct": -35.56,
       "lastSplitFactor": "10:1",
       "lastSplitDate": "2025-11-14",
-      "asm": {
-        "category": "longterm",
-        "stage": "Stage I",
-        "survCode": "LTASM - I (13)",
-        "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -230290,16 +230189,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -65.659,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "LTASM - I (13)",
-          "category": "longterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -230880,7 +230770,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -238248,13 +238138,7 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -238272,16 +238156,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -68.946,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -238659,13 +238534,7 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -238683,16 +238552,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -69.1,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -239867,7 +239727,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -242866,7 +242726,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -243669,7 +243529,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -247840,7 +247700,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -250033,7 +249893,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -251825,13 +251685,7 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -251849,16 +251703,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -73.662,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -252830,13 +252675,7 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "longterm",
-        "stage": "Stage I",
-        "survCode": "LTASM - I (13)",
-        "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -252854,16 +252693,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -74.063,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "LTASM - I (13)",
-          "category": "longterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -254257,7 +254087,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -255804,13 +255634,7 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -255828,16 +255652,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -74.901,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -256022,7 +255837,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -259239,7 +259054,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -260239,7 +260054,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -260449,10 +260264,10 @@
       "lastSplitDate": null,
       "asm": {
         "category": "longterm",
-        "stage": "Stage I",
-        "survCode": "LTASM - I (13)",
-        "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "stage": "Stage II",
+        "survCode": "LTASM - II (14)",
+        "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage II",
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -260472,10 +260287,10 @@
         "verdict": "stable",
         "distancePct": -75.85,
         "asm": {
-          "stage": "Stage I",
-          "survCode": "LTASM - I (13)",
+          "stage": "Stage II",
+          "survCode": "LTASM - II (14)",
           "category": "longterm",
-          "severity": "entry",
+          "severity": "severe",
           "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
           "binding": false,
           "implication": null,
@@ -261452,13 +261267,7 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "longterm",
-        "stage": "Stage I",
-        "survCode": "LTASM - I (13)",
-        "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -261476,16 +261285,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -76.207,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "LTASM - I (13)",
-          "category": "longterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -263209,7 +263009,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -263620,7 +263420,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -264625,7 +264425,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -269937,7 +269737,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -273899,7 +273699,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -274926,7 +274726,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -275237,7 +275037,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -275874,13 +275674,7 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "11-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -275898,16 +275692,7 @@
       "assessment": {
         "verdict": "unknown",
         "distancePct": null,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "no-free-float",
         "methodology": "freefloat",
         "rulesFired": [
@@ -276019,7 +275804,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -277439,7 +277224,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "11-Sep-2026"
+        "asmDate": "16-Sep-2026"
       },
       "held": false,
       "funds": {

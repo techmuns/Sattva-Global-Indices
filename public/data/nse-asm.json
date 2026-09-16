@@ -1,31 +1,31 @@
 {
   "source": "NSE Additional Surveillance Measure (ASM) report — nseindia.com/api/reportASM",
   "note": "NSE's published list of securities under Additional Surveillance Measure (ASM), with the surveillance stage for each, carried through unchanged (tier 1). Joined to the universe by ISIN. dhan.co/nse-asm-list mirrors this same NSE feed.",
-  "capturedAt": "2026-09-12T08:24:57.915Z",
-  "asOf": "11-Sep-2026",
+  "capturedAt": "2026-09-16T09:02:44.027Z",
+  "asOf": "16-Sep-2026",
   "endpoint": "https://www.nseindia.com/api/reportASM",
-  "totalFlagged": 239,
-  "withIsin": 239,
+  "totalFlagged": 225,
+  "withIsin": 225,
   "categories": [
     {
       "key": "longterm",
       "label": "Long Term ASM (LTASM)",
-      "count": 149,
-      "withIsin": 149,
+      "count": 144,
+      "withIsin": 144,
       "byStage": {
-        "LTASM - I (13)": 136,
+        "LTASM - I (13)": 130,
         "LTASM - IV (16)": 9,
         "LTASM - II (14)": 3,
-        "LTASM - III (15)": 1
+        "LTASM - III (15)": 2
       }
     },
     {
       "key": "shortterm",
       "label": "Short Term ASM (STASM)",
-      "count": 90,
-      "withIsin": 90,
+      "count": 81,
+      "withIsin": 81,
       "byStage": {
-        "STASM - I (11)": 89,
+        "STASM - I (11)": 80,
         "STASM - II (12)": 1
       }
     }
@@ -39,7 +39,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -50,18 +50,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE00FF01025",
-      "symbol": "ACUTAAS",
-      "companyName": "Acutaas Chemicals Limited",
-      "category": "longterm",
-      "stage": "Stage I",
-      "survCode": "LTASM - I (13)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -72,7 +61,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -83,7 +72,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -94,7 +83,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -105,7 +94,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -116,7 +105,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -127,7 +116,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE00Y801016",
+      "symbol": "AKG",
+      "companyName": "Akg Exim Limited",
+      "category": "longterm",
+      "stage": "Stage I",
+      "survCode": "LTASM - I (13)",
+      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -138,7 +138,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -149,18 +149,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
-      "isin": "INE02AR01019",
-      "symbol": "ANMOL",
-      "companyName": "Anmol India Limited",
+      "isin": "INE326B01035",
+      "symbol": "ALMONDZ",
+      "companyName": "Almondz Global Securities Limited",
       "category": "shortterm",
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -171,7 +171,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -182,7 +182,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -193,7 +193,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -204,7 +204,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -215,7 +215,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -226,7 +226,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE760Y01011",
+      "symbol": "ASHOKAMET",
+      "companyName": "Ashoka Metcast Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -237,7 +248,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -248,7 +259,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -259,7 +270,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -270,29 +281,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
       "isin": "INE0ALR01029",
       "symbol": "ATALREAL",
       "companyName": "Atal Realtech Limited",
-      "category": "shortterm",
+      "category": "longterm",
       "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE349W01017",
-      "symbol": "AVADHSUGAR",
-      "companyName": "Avadh Sugar & Energy Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "survCode": "LTASM - I (13)",
+      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -303,18 +303,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE193B01039",
-      "symbol": "AYMSYNTEX",
-      "companyName": "AYM Syntex Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -325,29 +314,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE0PQ601019",
-      "symbol": "BALAJIPHOS",
-      "companyName": "Balaji Phosphates Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE050E01027",
-      "symbol": "BALAMINES",
-      "companyName": "Balaji Amines Limited",
-      "category": "longterm",
-      "stage": "Stage I",
-      "survCode": "LTASM - I (13)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -358,7 +325,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -369,7 +336,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -380,7 +347,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -391,7 +358,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -402,7 +369,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -413,7 +380,7 @@
       "stage": "Stage IV",
       "survCode": "LTASM - IV (16)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -424,7 +391,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -435,7 +402,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -446,7 +413,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -457,7 +424,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -468,18 +435,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE686A01026",
-      "symbol": "CEMPRO",
-      "companyName": "Cemindia Projects Limited",
-      "category": "longterm",
-      "stage": "Stage I",
-      "survCode": "LTASM - I (13)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -490,7 +446,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -501,7 +457,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -512,7 +468,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE792I01017",
+      "symbol": "CORDSCABLE",
+      "companyName": "Cords Cable Industries Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -523,7 +490,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -534,7 +501,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -545,29 +512,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
-      "isin": "INE495A01022",
-      "symbol": "DALMIASUG",
-      "companyName": "Dalmia Bharat Sugar and Industries Limited",
+      "isin": "INE00IY01012",
+      "symbol": "DEEP",
+      "companyName": "Deep Polymers Limited",
       "category": "shortterm",
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE0S8401018",
-      "symbol": "DCG",
-      "companyName": "DCG Cables & Wires Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -578,29 +534,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE041A01016",
-      "symbol": "DHAMPURSUG",
-      "companyName": "Dhampur Sugar Mills Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE0M3I01029",
-      "symbol": "DHANSA",
-      "companyName": "Dhansa Labs Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -611,7 +545,7 @@
       "stage": "Stage II",
       "survCode": "STASM - II (12)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage II",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -622,7 +556,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -633,7 +567,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -644,7 +578,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -655,7 +589,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -666,7 +600,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -677,7 +611,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -688,7 +622,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -699,7 +633,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -710,7 +644,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -721,7 +655,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -732,7 +666,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -743,7 +677,18 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE0Q4701019",
+      "symbol": "FONEBOX",
+      "companyName": "Fonebox Retail Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -754,7 +699,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -765,7 +710,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -776,7 +721,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -787,7 +732,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -798,7 +743,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -809,7 +754,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -820,18 +765,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE926B01016",
-      "symbol": "GRANDOAK",
-      "companyName": "Grand Oak Canyons Distillery Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -842,7 +776,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -853,18 +787,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE0SQY01018",
-      "symbol": "GSMFOILS",
-      "companyName": "GSM Foils Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -875,18 +798,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE330T01021",
-      "symbol": "HAPPYFORGE",
-      "companyName": "Happy Forgings Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -897,7 +809,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -908,7 +820,7 @@
       "stage": "Stage IV",
       "survCode": "LTASM - IV (16)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -919,7 +831,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -930,7 +842,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -941,7 +853,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -952,7 +864,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -963,7 +875,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -974,7 +886,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -985,7 +897,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -996,7 +908,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1007,18 +919,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE0OAF01028",
-      "symbol": "JNKINDIA",
-      "companyName": "JNK India Limited",
-      "category": "longterm",
-      "stage": "Stage I",
-      "survCode": "LTASM - I (13)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1026,10 +927,10 @@
       "symbol": "KABRAEXTRU",
       "companyName": "Kabra Extrusion Technik Limited",
       "category": "longterm",
-      "stage": "Stage I",
-      "survCode": "LTASM - I (13)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "stage": "Stage II",
+      "survCode": "LTASM - II (14)",
+      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage II",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1040,18 +941,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE0MOT01016",
-      "symbol": "KANDARP",
-      "companyName": "Kandarp Digi Smart BPO Limited",
-      "category": "longterm",
-      "stage": "Stage I",
-      "survCode": "LTASM - I (13)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1062,7 +952,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1073,7 +963,18 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE641C01019",
+      "symbol": "KAVDEFENCE",
+      "companyName": "Kavveri Defence & Wireless Technologies Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1084,7 +985,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1095,7 +996,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1106,7 +1007,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1117,7 +1018,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1128,7 +1029,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1139,18 +1040,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE552U01010",
-      "symbol": "KPL",
-      "companyName": "Kwality Pharmaceuticals Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1161,7 +1051,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1172,18 +1062,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE2KCE01013",
-      "symbol": "KWIL",
-      "companyName": "Kwality Wall's (India) Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1194,7 +1073,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1205,7 +1084,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1216,7 +1095,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1227,7 +1106,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1238,7 +1117,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1249,7 +1128,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1260,29 +1139,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE00C401011",
-      "symbol": "MAL",
-      "companyName": "Mangalam Alloys Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE201A01024",
-      "symbol": "MANALIPETC",
-      "companyName": "Manali Petrochemicals Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1293,18 +1150,18 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
-      "isin": "INE01JE01028",
-      "symbol": "MARINE",
-      "companyName": "Marine Electricals (India) Limited",
-      "category": "shortterm",
+      "isin": "INE584F01014",
+      "symbol": "MANGALAM",
+      "companyName": "Mangalam Drugs And Organics Limited",
+      "category": "longterm",
       "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "survCode": "LTASM - I (13)",
+      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1315,7 +1172,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1326,7 +1183,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE442D01010",
+      "symbol": "MEDICAPQ",
+      "companyName": "Medi Caps Limited",
+      "category": "longterm",
+      "stage": "Stage I",
+      "survCode": "LTASM - I (13)",
+      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1337,7 +1205,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1348,7 +1216,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1359,18 +1227,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE511Y01018",
-      "symbol": "MMP",
-      "companyName": "MMP Industries Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1381,7 +1238,29 @@
       "stage": "Stage IV",
       "survCode": "LTASM - IV (16)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE869T01028",
+      "symbol": "MOLBIO",
+      "companyName": "Molbio Diagnostics Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE296Q01012",
+      "symbol": "MONEYBOXX",
+      "companyName": "Moneyboxx Finance Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1392,7 +1271,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1403,7 +1282,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1414,7 +1293,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1425,7 +1304,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1436,18 +1315,7 @@
       "stage": "Stage IV",
       "survCode": "LTASM - IV (16)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE0CG401037",
-      "symbol": "MUKKA",
-      "companyName": "Mukka Proteins Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1458,7 +1326,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1469,7 +1337,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1480,7 +1348,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1491,7 +1359,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1502,7 +1370,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1513,7 +1381,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1524,7 +1392,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1535,7 +1403,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1546,7 +1414,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1557,7 +1425,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1568,7 +1436,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1579,7 +1447,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1590,18 +1458,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE0LXG01040",
-      "symbol": "OLAELEC",
-      "companyName": "Ola Electric Mobility Limited",
-      "category": "longterm",
-      "stage": "Stage I",
-      "survCode": "LTASM - I (13)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1609,10 +1466,10 @@
       "symbol": "ONIXSOLAR",
       "companyName": "Onix Solar Energy Limited",
       "category": "longterm",
-      "stage": "Stage II",
-      "survCode": "LTASM - II (14)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage II",
-      "asmDate": "11-Sep-2026",
+      "stage": "Stage I",
+      "survCode": "LTASM - I (13)",
+      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1623,18 +1480,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
-      "isin": "INE074B01023",
-      "symbol": "PARACABLES",
-      "companyName": "Paramount Communications Limited",
-      "category": "longterm",
+      "isin": "INE00IK01029",
+      "symbol": "OSWALSEEDS",
+      "companyName": "ShreeOswal Seeds And Chemicals Limited",
+      "category": "shortterm",
       "stage": "Stage I",
-      "survCode": "LTASM - I (13)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1645,7 +1502,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1656,7 +1513,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1667,7 +1524,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1678,7 +1535,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE06ZX01015",
+      "symbol": "PARTYCRUS",
+      "companyName": "Party Cruisers Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1689,7 +1557,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1700,7 +1568,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1711,7 +1579,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1722,7 +1590,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1730,10 +1598,10 @@
       "symbol": "POLYSIL",
       "companyName": "Polysil Irrigation Systems Limited",
       "category": "longterm",
-      "stage": "Stage II",
-      "survCode": "LTASM - II (14)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage II",
-      "asmDate": "11-Sep-2026",
+      "stage": "Stage III",
+      "survCode": "LTASM - III (15)",
+      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage III",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1744,7 +1612,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1755,7 +1623,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1766,7 +1634,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1777,7 +1645,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE0GOJ01027",
+      "symbol": "QUADPRO",
+      "companyName": "Quadpro Ites Limited",
+      "category": "longterm",
+      "stage": "Stage I",
+      "survCode": "LTASM - I (13)",
+      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1788,18 +1667,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE583V01021",
-      "symbol": "RADHIKAJWE",
-      "companyName": "Radhika Jeweltech Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1810,7 +1678,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1821,7 +1689,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1832,7 +1700,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1843,7 +1711,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1854,18 +1722,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE05CZ01011",
-      "symbol": "RATNAVEER",
-      "companyName": "Ratnaveer Precision Engineering Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1876,7 +1733,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1887,7 +1744,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1898,7 +1755,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1909,7 +1766,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1920,7 +1777,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1931,7 +1788,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1942,7 +1799,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1953,7 +1810,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1964,7 +1821,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1975,7 +1832,7 @@
       "stage": "Stage II",
       "survCode": "LTASM - II (14)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage II",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1986,7 +1843,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -1997,7 +1854,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2008,7 +1865,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE10VS01016",
+      "symbol": "SAWALIYA",
+      "companyName": "Sawaliya Food Products Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2019,7 +1887,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2030,7 +1898,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2041,7 +1909,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2052,7 +1920,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2063,7 +1931,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2074,7 +1942,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2085,7 +1953,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2096,18 +1964,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE551C01044",
-      "symbol": "SHUKRAPHAR",
-      "companyName": "Shukra Pharmaceuticals Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2118,7 +1975,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2129,7 +1986,7 @@
       "stage": "Stage IV",
       "survCode": "LTASM - IV (16)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2140,7 +1997,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2151,7 +2008,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2162,7 +2019,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2173,7 +2030,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2184,7 +2041,29 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE559N01010",
+      "symbol": "SRGHFL",
+      "companyName": "SRG Housing Finance Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE1VXE01018",
+      "symbol": "STLNETWORK",
+      "companyName": "STL Networks Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2195,29 +2074,7 @@
       "stage": "Stage IV",
       "survCode": "LTASM - IV (16)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE01FR01028",
-      "symbol": "STYLEBAAZA",
-      "companyName": "Baazar Style Retail Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE754A01055",
-      "symbol": "SUBEXLTD",
-      "companyName": "Subex Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2228,7 +2085,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE0U2N01013",
+      "symbol": "SUNLITE",
+      "companyName": "Sunlite Recycling Industries Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2239,7 +2107,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2250,7 +2118,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2261,7 +2129,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2269,10 +2137,10 @@
       "symbol": "TAKE",
       "companyName": "TAKE Limited",
       "category": "longterm",
-      "stage": "Stage I",
-      "survCode": "LTASM - I (13)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "stage": "Stage II",
+      "survCode": "LTASM - II (14)",
+      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage II",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2283,7 +2151,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE0N2D01013",
+      "symbol": "TBI",
+      "companyName": "TBI Corn Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2294,18 +2173,18 @@
       "stage": "Stage III",
       "survCode": "LTASM - III (15)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage III",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
-      "isin": "INE0JQS01019",
-      "symbol": "TECHERA",
-      "companyName": "TechEra Engineering (India) Limited",
-      "category": "longterm",
+      "isin": "INE887D01024",
+      "symbol": "TCC",
+      "companyName": "TCC Concept Limited",
+      "category": "shortterm",
       "stage": "Stage I",
-      "survCode": "LTASM - I (13)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2316,7 +2195,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2327,7 +2206,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2338,7 +2217,7 @@
       "stage": "Stage IV",
       "survCode": "LTASM - IV (16)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2349,18 +2228,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE148A01019",
-      "symbol": "TNPETRO",
-      "companyName": "Tamilnadu PetroProducts Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2371,7 +2239,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2382,18 +2250,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE899L01030",
-      "symbol": "UEL",
-      "companyName": "Ujaas Energy Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2404,7 +2261,7 @@
       "stage": "Stage IV",
       "survCode": "LTASM - IV (16)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2415,18 +2272,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE071E01023",
-      "symbol": "UGARSUGAR",
-      "companyName": "The Ugar Sugar Works Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2437,18 +2283,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
-      "isin": "INE12UR01024",
-      "symbol": "UTLSOLAR",
-      "companyName": "Fujiyama Power Systems Limited",
-      "category": "longterm",
+      "isin": "INE359B01010",
+      "symbol": "VEDAVAAG",
+      "companyName": "VEDAVAAG Systems Limited",
+      "category": "shortterm",
       "stage": "Stage I",
-      "survCode": "LTASM - I (13)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2459,7 +2305,18 @@
       "stage": "Stage IV",
       "survCode": "LTASM - IV (16)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE273D01027",
+      "symbol": "VGL",
+      "companyName": "VARVEE GLOBAL LIMITED",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2470,18 +2327,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE0OLS01010",
-      "symbol": "VINYAS",
-      "companyName": "Vinyas Innovative Technologies Limited",
-      "category": "longterm",
-      "stage": "Stage I",
-      "survCode": "LTASM - I (13)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2492,7 +2338,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2503,7 +2349,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2514,7 +2360,18 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
+      "series": null
+    },
+    {
+      "isin": "INE24H301028",
+      "symbol": "VIVIDEL",
+      "companyName": "Vivid Electromech Limited",
+      "category": "longterm",
+      "stage": "Stage I",
+      "survCode": "LTASM - I (13)",
+      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2525,7 +2382,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2536,7 +2393,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2547,7 +2404,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2558,18 +2415,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
-      "series": null
-    },
-    {
-      "isin": "INE855C01023",
-      "symbol": "WEBELSOLAR",
-      "companyName": "Websol Energy System Limited",
-      "category": "longterm",
-      "stage": "Stage I",
-      "survCode": "LTASM - I (13)",
-      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2580,7 +2426,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2591,7 +2437,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2602,7 +2448,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2613,7 +2459,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2624,7 +2470,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2635,7 +2481,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2646,7 +2492,7 @@
       "stage": "Stage I",
       "survCode": "STASM - I (11)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     },
     {
@@ -2657,7 +2503,7 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "11-Sep-2026",
+      "asmDate": "16-Sep-2026",
       "series": null
     }
   ],
