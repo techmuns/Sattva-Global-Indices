@@ -1,7 +1,7 @@
 {
   "source": "niftyindices.com index constituent CSVs",
   "note": "The authoritative NSE symbol <-> ISIN mapping for this project. BSE scrip_id is never used as a substitute, however often the two agree.",
-  "capturedAt": "2026-09-17T18:23:59.261Z",
+  "capturedAt": "2026-09-19T08:35:34.520Z",
   "sources": [
     {
       "key": "nifty500",

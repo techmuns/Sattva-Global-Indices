@@ -1,7 +1,7 @@
 {
   "source": "iShares holdings + NSE pre-open free float + BSE free float + niftyindices ISIN map",
   "note": "floatFactor is dimensionless and price-independent. NSE wins wherever it publishes a reading because MSCI follows NSE; BSE fills gaps only. The two are never averaged, and where both exist both are kept so the disagreement stays inspectable. Every monetary field is RUPEES. A null in funds{} means NOT HELD by that fund — it is not a zero weight.",
-  "builtAt": "2026-09-17T18:31:28.600Z",
+  "builtAt": "2026-09-19T08:35:40.130Z",
   "holdingsAsOfByFund": {
     "eem": "2026-08-31",
     "smin": "2026-08-31",
@@ -10,14 +10,14 @@
   "asOf": {
     "isharesHoldings": "2026-08-17",
     "ftseHoldings": "2026-07-31",
-    "nseSession": "17-Sep-2026 09:09:24",
+    "nseSession": "18-Sep-2026 09:08:37",
     "bseCapturedAt": "2026-09-17T18:27:33.328Z",
     "bhavcopyTradeDate": "2026-09-17",
     "quoteStatsCapturedAt": "2026-08-19T14:10:29.769Z",
     "benchmarksAsOf": "2026-09-17",
     "bseScripMasterCapturedAt": "2026-09-17T18:23:57.889Z",
-    "nseUniverseCapturedAt": "2026-09-17T18:23:59.261Z",
-    "asmAsOf": "17-Sep-2026"
+    "nseUniverseCapturedAt": "2026-09-19T08:35:34.520Z",
+    "asmAsOf": "18-Sep-2026"
   },
   "thresholds": {
     "scrapeUniverseMinFullMcapInr": 20000000000,
@@ -56,7 +56,7 @@
     "liveEligible": 1218,
     "liveIneligible": 71,
     "withAdv": 750,
-    "asmFlagged": 83,
+    "asmFlagged": 79,
     "byFund": {
       "eem": {
         "shortName": "EM",
@@ -637,13 +637,13 @@
     "publisher": "National Stock Exchange of India",
     "endpoint": "https://www.nseindia.com/api/reportASM",
     "note": "NSE's published surveillance stage, carried through unchanged (tier 1) and joined to the universe by ISIN. dhan.co/nse-asm-list mirrors this same NSE feed. A company not on the list is NOT under ASM; a null stage when the feed is unavailable means we could not check.",
-    "capturedAt": "2026-09-17T18:24:04.344Z",
-    "asOf": "17-Sep-2026",
-    "totalFlagged": 225,
-    "flaggedInUniverse": 83,
+    "capturedAt": "2026-09-19T08:35:39.729Z",
+    "asOf": "18-Sep-2026",
+    "totalFlagged": 219,
+    "flaggedInUniverse": 79,
     "stagesInUniverse": {
       "LTASM - I (13)": 54,
-      "STASM - I (11)": 20,
+      "STASM - I (11)": 16,
       "LTASM - IV (16)": 7,
       "LTASM - III (15)": 1,
       "LTASM - II (14)": 1
@@ -652,10 +652,10 @@
       {
         "key": "longterm",
         "label": "Long Term ASM (LTASM)",
-        "count": 146,
-        "withIsin": 146,
+        "count": 145,
+        "withIsin": 145,
         "byStage": {
-          "LTASM - I (13)": 132,
+          "LTASM - I (13)": 131,
           "LTASM - IV (16)": 9,
           "LTASM - II (14)": 3,
           "LTASM - III (15)": 2
@@ -664,10 +664,10 @@
       {
         "key": "shortterm",
         "label": "Short Term ASM (STASM)",
-        "count": 79,
-        "withIsin": 79,
+        "count": 74,
+        "withIsin": 74,
         "byStage": {
-          "STASM - I (11)": 77,
+          "STASM - I (11)": 72,
           "STASM - II (12)": 2
         }
       }
@@ -1291,9 +1291,9 @@
     },
     "segmentFloatTotals": {
       "totals": {
-        "standard": 158813882802559,
-        "smallcap": 38837177721488,
-        "outside": 18228028590274
+        "standard": 158815512785644,
+        "smallcap": 38845923038371,
+        "outside": 18228856050591
       },
       "counts": {
         "standard": 167,
@@ -1501,7 +1501,7 @@
   },
   "floatFactorDisagreement": {
     "comparedCompanies": 209,
-    "medianAbsGapPct": 0.078,
+    "medianAbsGapPct": 0.075,
     "worstAbsGapPct": 185.731,
     "overReviewThreshold": [
       {
@@ -1607,9 +1607,9 @@
         "isin": "INE148O01028",
         "name": "Delhivery Ltd",
         "nseSymbol": "DELHIVERY",
-        "floatFactorNse": 0.745867,
+        "floatFactorNse": 0.745994,
         "floatFactorBse": 0.794804,
-        "gapPct": -6.157,
+        "gapPct": -6.141,
         "fullMcapInr": 322104300000
       },
       {
@@ -2210,13 +2210,13 @@
       "floatChoice": {
         "rule": "bse-primary",
         "chose": "bse",
-        "gapPct": 0.598,
+        "gapPct": 0.041,
         "thresholdPct": 2,
-        "why": "both exchanges publish and they differ by 0.598%, within the desk's 2% switch point, so BSE stands"
+        "why": "both exchanges publish and they differ by 0.041%, within the desk's 2% switch point, so BSE stands"
       },
-      "floatFactorNse": 0.99706,
+      "floatFactorNse": 0.991532,
       "floatFactorBse": 0.991129,
-      "floatGapPct": 0.598,
+      "floatGapPct": 0.041,
       "freeFloatMcapInr": 10892814662380,
       "freeFloatBasis": "floatFactor × sharesOutstanding × price",
       "freeFloatMcapAtCaptureInr": 10892814662651,
@@ -7693,13 +7693,13 @@
       "floatChoice": {
         "rule": "bse-primary",
         "chose": "bse",
-        "gapPct": -0.257,
+        "gapPct": 0.067,
         "thresholdPct": 2,
-        "why": "both exchanges publish and they differ by 0.257%, within the desk's 2% switch point, so BSE stands"
+        "why": "both exchanges publish and they differ by 0.067%, within the desk's 2% switch point, so BSE stands"
       },
-      "floatFactorNse": 0.487039,
+      "floatFactorNse": 0.488617,
       "floatFactorBse": 0.488292,
-      "floatGapPct": -0.257,
+      "floatGapPct": 0.067,
       "freeFloatMcapInr": 1412017658565,
       "freeFloatBasis": "floatFactor × sharesOutstanding × price",
       "freeFloatMcapAtCaptureInr": 1412017658562,
@@ -10194,11 +10194,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 1.089914,
-            "flowInr": 804224711,
-            "flowCrore": 80.42,
-            "flowShares": 635123,
-            "daysOfAdv": 0.2254,
+            "targetWeightPp": 1.089669,
+            "flowInr": 804043657,
+            "flowCrore": 80.4,
+            "flowShares": 634980,
+            "daysOfAdv": 0.2253,
             "advQty": 2818166,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -10208,7 +10208,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 423291940600,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -11623,10 +11623,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.790298,
-            "flowInr": 583144477,
-            "flowCrore": 58.31,
-            "flowShares": 269556,
+            "targetWeightPp": 0.79012,
+            "flowInr": 583013195,
+            "flowCrore": 58.3,
+            "flowShares": 269496,
             "daysOfAdv": 0.2259,
             "advQty": 1193158,
             "advSource": "munshot-3m-detail",
@@ -11637,7 +11637,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 306929585890,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -15227,13 +15227,13 @@
       "floatChoice": {
         "rule": "bse-primary",
         "chose": "bse",
-        "gapPct": 0.005,
+        "gapPct": 0.006,
         "thresholdPct": 2,
-        "why": "both exchanges publish and they differ by 0.005%, within the desk's 2% switch point, so BSE stands"
+        "why": "both exchanges publish and they differ by 0.006%, within the desk's 2% switch point, so BSE stands"
       },
-      "floatFactorNse": 0.403117,
+      "floatFactorNse": 0.403121,
       "floatFactorBse": 0.403096,
-      "floatGapPct": 0.005,
+      "floatGapPct": 0.006,
       "freeFloatMcapInr": 567198558344,
       "freeFloatBasis": "floatFactor × sharesOutstanding × price",
       "freeFloatMcapAtCaptureInr": 567198558318,
@@ -21667,13 +21667,13 @@
       "floatChoice": {
         "rule": "bse-primary",
         "chose": "bse",
-        "gapPct": 1.098,
+        "gapPct": 1.102,
         "thresholdPct": 2,
-        "why": "both exchanges publish and they differ by 1.098%, within the desk's 2% switch point, so BSE stands"
+        "why": "both exchanges publish and they differ by 1.102%, within the desk's 2% switch point, so BSE stands"
       },
-      "floatFactorNse": 0.313188,
+      "floatFactorNse": 0.313201,
       "floatFactorBse": 0.309787,
-      "floatGapPct": 1.098,
+      "floatGapPct": 1.102,
       "freeFloatMcapInr": 330360574203,
       "freeFloatBasis": "floatFactor × sharesOutstanding × price",
       "freeFloatMcapAtCaptureInr": 330360574244,
@@ -22620,11 +22620,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.409413,
-            "flowInr": 302097167,
-            "flowCrore": 30.21,
-            "flowShares": 3810990,
-            "daysOfAdv": 0.3588,
+            "targetWeightPp": 0.409321,
+            "flowInr": 302029157,
+            "flowCrore": 30.2,
+            "flowShares": 3810132,
+            "daysOfAdv": 0.3587,
             "advQty": 10621705,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -22634,7 +22634,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 159004435468,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -23261,11 +23261,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.633794,
-            "flowInr": 467663194,
-            "flowCrore": 46.77,
-            "flowShares": 259222,
-            "daysOfAdv": 0.466,
+            "targetWeightPp": 0.633651,
+            "flowInr": 467557910,
+            "flowCrore": 46.76,
+            "flowShares": 259164,
+            "daysOfAdv": 0.4659,
             "advQty": 556240,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -23275,7 +23275,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 246147697603,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -25256,11 +25256,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 2.062448,
-            "flowInr": 1521836661,
-            "flowCrore": 152.18,
-            "flowShares": 7344772,
-            "daysOfAdv": 0.362,
+            "targetWeightPp": 2.061983,
+            "flowInr": 1521494053,
+            "flowCrore": 152.15,
+            "flowShares": 7343118,
+            "daysOfAdv": 0.3619,
             "advQty": 20288926,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -25270,7 +25270,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 800996518407,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -27233,10 +27233,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.432388,
-            "flowInr": 319049637,
+            "targetWeightPp": 0.43229,
+            "flowInr": 318977810,
             "flowCrore": 31.9,
-            "flowShares": 143920,
+            "flowShares": 143888,
             "daysOfAdv": 0.1728,
             "advQty": 832865,
             "advSource": "munshot-3m-detail",
@@ -27247,7 +27247,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 167927120753,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -30066,11 +30066,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.499437,
-            "flowInr": 368524243,
-            "flowCrore": 36.85,
-            "flowShares": 1130269,
-            "daysOfAdv": 0.2755,
+            "targetWeightPp": 0.499325,
+            "flowInr": 368441278,
+            "flowCrore": 36.84,
+            "flowShares": 1130015,
+            "daysOfAdv": 0.2754,
             "advQty": 4103146,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -30080,7 +30080,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 193967357475,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -31580,13 +31580,13 @@
       "floatChoice": {
         "rule": "bse-primary",
         "chose": "bse",
-        "gapPct": -0.105,
+        "gapPct": -0.103,
         "thresholdPct": 2,
-        "why": "both exchanges publish and they differ by 0.105%, within the desk's 2% switch point, so BSE stands"
+        "why": "both exchanges publish and they differ by 0.103%, within the desk's 2% switch point, so BSE stands"
       },
-      "floatFactorNse": 0.4855,
+      "floatFactorNse": 0.485505,
       "floatFactorBse": 0.486008,
-      "floatGapPct": -0.105,
+      "floatGapPct": -0.103,
       "freeFloatMcapInr": 359845815428,
       "freeFloatBasis": "floatFactor × sharesOutstanding × price",
       "freeFloatMcapAtCaptureInr": 359845815090,
@@ -32466,10 +32466,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.650092,
-            "flowInr": 479689349,
-            "flowCrore": 47.97,
-            "flowShares": 2738735,
+            "targetWeightPp": 0.649946,
+            "flowInr": 479581358,
+            "flowCrore": 47.96,
+            "flowShares": 2738118,
             "daysOfAdv": 0.1534,
             "advQty": 17852021,
             "advSource": "munshot-3m-detail",
@@ -32480,7 +32480,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 252477488870,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -32558,13 +32558,13 @@
       "floatChoice": {
         "rule": "bse-primary",
         "chose": "bse",
-        "gapPct": -0.454,
+        "gapPct": -0.428,
         "thresholdPct": 2,
-        "why": "both exchanges publish and they differ by 0.454%, within the desk's 2% switch point, so BSE stands"
+        "why": "both exchanges publish and they differ by 0.428%, within the desk's 2% switch point, so BSE stands"
       },
-      "floatFactorNse": 0.279895,
+      "floatFactorNse": 0.279968,
       "floatFactorBse": 0.281172,
-      "floatGapPct": -0.454,
+      "floatGapPct": -0.428,
       "freeFloatMcapInr": 201115527162,
       "freeFloatBasis": "floatFactor × sharesOutstanding × price",
       "freeFloatMcapAtCaptureInr": 201115527238,
@@ -35289,7 +35289,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -35673,11 +35673,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.417994,
-            "flowInr": 308428650,
+            "targetWeightPp": 0.4179,
+            "flowInr": 308359214,
             "flowCrore": 30.84,
-            "flowShares": 525566,
-            "daysOfAdv": 0.1044,
+            "flowShares": 525448,
+            "daysOfAdv": 0.1043,
             "advQty": 5035819,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -35687,7 +35687,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 162336918786,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -36511,10 +36511,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.429083,
-            "flowInr": 316611354,
-            "flowCrore": 31.66,
-            "flowShares": 2292624,
+            "targetWeightPp": 0.428987,
+            "flowInr": 316540076,
+            "flowCrore": 31.65,
+            "flowShares": 2292108,
             "daysOfAdv": 0.2523,
             "advQty": 9086526,
             "advSource": "munshot-3m-detail",
@@ -36525,7 +36525,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 166643765888,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -36758,10 +36758,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.641903,
-            "flowInr": 473646998,
-            "flowCrore": 47.36,
-            "flowShares": 1172394,
+            "targetWeightPp": 0.641759,
+            "flowInr": 473540367,
+            "flowCrore": 47.35,
+            "flowShares": 1172130,
             "daysOfAdv": 0.2194,
             "advQty": 5343137,
             "advSource": "munshot-3m-detail",
@@ -36772,7 +36772,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 249297185595,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -37005,11 +37005,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.412624,
-            "flowInr": 304466782,
-            "flowCrore": 30.45,
-            "flowShares": 76277,
-            "daysOfAdv": 1.0391,
+            "targetWeightPp": 0.412531,
+            "flowInr": 304398238,
+            "flowCrore": 30.44,
+            "flowShares": 76260,
+            "daysOfAdv": 1.0389,
             "advQty": 73405,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -37019,7 +37019,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 160251647568,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -37449,10 +37449,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.421874,
-            "flowInr": 311291747,
-            "flowCrore": 31.13,
-            "flowShares": 3852621,
+            "targetWeightPp": 0.421779,
+            "flowInr": 311221667,
+            "flowCrore": 31.12,
+            "flowShares": 3851753,
             "daysOfAdv": 0.2488,
             "advQty": 15481808,
             "advSource": "munshot-3m-detail",
@@ -37463,7 +37463,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 163843868544,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -38979,11 +38979,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.346495,
-            "flowInr": 255671619,
-            "flowCrore": 25.57,
-            "flowShares": 752418,
-            "daysOfAdv": 0.6853,
+            "targetWeightPp": 0.346417,
+            "flowInr": 255614060,
+            "flowCrore": 25.56,
+            "flowShares": 752249,
+            "daysOfAdv": 0.6851,
             "advQty": 1098006,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -38993,7 +38993,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 134569025702,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -39748,13 +39748,13 @@
       "floatChoice": {
         "rule": "bse-primary",
         "chose": "bse",
-        "gapPct": 0.324,
+        "gapPct": -0.01,
         "thresholdPct": 2,
-        "why": "both exchanges publish and they differ by 0.324%, within the desk's 2% switch point, so BSE stands"
+        "why": "both exchanges publish and they differ by 0.010%, within the desk's 2% switch point, so BSE stands"
       },
-      "floatFactorNse": 0.885513,
+      "floatFactorNse": 0.882572,
       "floatFactorBse": 0.882656,
-      "floatGapPct": 0.324,
+      "floatGapPct": -0.01,
       "freeFloatMcapInr": 516243163204,
       "freeFloatBasis": "floatFactor × sharesOutstanding × price",
       "freeFloatMcapAtCaptureInr": 516243163203,
@@ -40297,11 +40297,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.372115,
-            "flowInr": 274575599,
-            "flowCrore": 27.46,
-            "flowShares": 402279,
-            "daysOfAdv": 0.6058,
+            "targetWeightPp": 0.372031,
+            "flowInr": 274513785,
+            "flowCrore": 27.45,
+            "flowShares": 402189,
+            "daysOfAdv": 0.6057,
             "advQty": 664010,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -40311,7 +40311,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 144518859889,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -40523,11 +40523,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.346712,
-            "flowInr": 255831675,
+            "targetWeightPp": 0.346634,
+            "flowInr": 255774080,
             "flowCrore": 25.58,
-            "flowShares": 9874,
-            "daysOfAdv": 0.9178,
+            "flowShares": 9872,
+            "daysOfAdv": 0.9176,
             "advQty": 10758,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -40537,7 +40537,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 134653268803,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -40989,10 +40989,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.63024,
-            "flowInr": 465040656,
-            "flowCrore": 46.5,
-            "flowShares": 2642276,
+            "targetWeightPp": 0.630098,
+            "flowInr": 464935962,
+            "flowCrore": 46.49,
+            "flowShares": 2641682,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -41003,7 +41003,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 244767363034,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -41666,11 +41666,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.327217,
-            "flowInr": 241446271,
+            "targetWeightPp": 0.327143,
+            "flowInr": 241391915,
             "flowCrore": 24.14,
-            "flowShares": 538162,
-            "daysOfAdv": 0.9755,
+            "flowShares": 538041,
+            "daysOfAdv": 0.9753,
             "advQty": 551653,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -41680,7 +41680,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 127081721360,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -42153,11 +42153,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.329453,
-            "flowInr": 243096695,
-            "flowCrore": 24.31,
-            "flowShares": 39890,
-            "daysOfAdv": 1.2874,
+            "targetWeightPp": 0.329379,
+            "flowInr": 243041967,
+            "flowCrore": 24.3,
+            "flowShares": 39882,
+            "daysOfAdv": 1.2871,
             "advQty": 30985,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -42167,7 +42167,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 127950397902,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -44181,10 +44181,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.210229,
-            "flowInr": 155123740,
+            "targetWeightPp": 0.210182,
+            "flowInr": 155088817,
             "flowCrore": 15.51,
-            "flowShares": 156115,
+            "flowShares": 156080,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -44195,7 +44195,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 81647116642,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -45015,7 +45015,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -46374,13 +46374,13 @@
       "floatChoice": {
         "rule": "bse-primary",
         "chose": "bse",
-        "gapPct": 0.042,
+        "gapPct": 0.076,
         "thresholdPct": 2,
-        "why": "both exchanges publish and they differ by 0.042%, within the desk's 2% switch point, so BSE stands"
+        "why": "both exchanges publish and they differ by 0.076%, within the desk's 2% switch point, so BSE stands"
       },
-      "floatFactorNse": 0.691573,
+      "floatFactorNse": 0.691807,
       "floatFactorBse": 0.691285,
-      "floatGapPct": 0.042,
+      "floatGapPct": 0.076,
       "freeFloatMcapInr": 304817488415,
       "freeFloatBasis": "floatFactor × sharesOutstanding × price",
       "freeFloatMcapAtCaptureInr": 304817489141,
@@ -46546,11 +46546,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.78486,
-            "flowInr": 579131642,
-            "flowCrore": 57.91,
-            "flowShares": 250706,
-            "daysOfAdv": 0.4278,
+            "targetWeightPp": 0.784683,
+            "flowInr": 579001263,
+            "flowCrore": 57.9,
+            "flowShares": 250650,
+            "daysOfAdv": 0.4277,
             "advQty": 586028,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -46560,7 +46560,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 304817488415,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -47770,11 +47770,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.544996,
-            "flowInr": 402141392,
+            "targetWeightPp": 0.544874,
+            "flowInr": 402050859,
             "flowCrore": 40.21,
-            "flowShares": 1419740,
-            "daysOfAdv": 0.5644,
+            "flowShares": 1419421,
+            "daysOfAdv": 0.5643,
             "advQty": 2515489,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -47784,7 +47784,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 211661253375,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -47888,7 +47888,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -48044,11 +48044,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.594252,
-            "flowInr": 438486175,
-            "flowCrore": 43.85,
-            "flowShares": 531917,
-            "daysOfAdv": 0.2107,
+            "targetWeightPp": 0.594118,
+            "flowInr": 438387459,
+            "flowCrore": 43.84,
+            "flowShares": 531798,
+            "daysOfAdv": 0.2106,
             "advQty": 2525067,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -48058,7 +48058,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 230790799283,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -48320,11 +48320,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.550815,
-            "flowInr": 406434473,
-            "flowCrore": 40.64,
-            "flowShares": 121975,
-            "daysOfAdv": 0.6209,
+            "targetWeightPp": 0.550691,
+            "flowInr": 406342973,
+            "flowCrore": 40.63,
+            "flowShares": 121948,
+            "daysOfAdv": 0.6207,
             "advQty": 196460,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -48334,7 +48334,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 213920853915,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -48807,11 +48807,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.271682,
-            "flowInr": 200468388,
-            "flowCrore": 20.05,
-            "flowShares": 174320,
-            "daysOfAdv": 0.1167,
+            "targetWeightPp": 0.271621,
+            "flowInr": 200423257,
+            "flowCrore": 20.04,
+            "flowShares": 174281,
+            "daysOfAdv": 0.1166,
             "advQty": 1494162,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -48821,7 +48821,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 105513610692,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -49284,11 +49284,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.293166,
-            "flowInr": 216321231,
+            "targetWeightPp": 0.2931,
+            "flowInr": 216272531,
             "flowCrore": 21.63,
-            "flowShares": 1075422,
-            "daysOfAdv": 0.1504,
+            "flowShares": 1075180,
+            "daysOfAdv": 0.1503,
             "advQty": 7152759,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -49298,7 +49298,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 113857523044,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -49861,7 +49861,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -50233,11 +50233,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.568571,
-            "flowInr": 419536531,
-            "flowCrore": 41.95,
-            "flowShares": 11952,
-            "daysOfAdv": 0.3287,
+            "targetWeightPp": 0.568443,
+            "flowInr": 419442082,
+            "flowCrore": 41.94,
+            "flowShares": 11949,
+            "daysOfAdv": 0.3286,
             "advQty": 36366,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -50247,7 +50247,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 220816931007,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -50720,11 +50720,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.314647,
-            "flowInr": 232171191,
-            "flowCrore": 23.22,
-            "flowShares": 654926,
-            "daysOfAdv": 0.1278,
+            "targetWeightPp": 0.314576,
+            "flowInr": 232118922,
+            "flowCrore": 23.21,
+            "flowShares": 654778,
+            "daysOfAdv": 0.1277,
             "advQty": 5126499,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -50734,7 +50734,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 122199918168,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -52115,11 +52115,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.659947,
-            "flowInr": 486960827,
-            "flowCrore": 48.7,
-            "flowShares": 428399,
-            "daysOfAdv": 0.4272,
+            "targetWeightPp": 0.659798,
+            "flowInr": 486851198,
+            "flowCrore": 48.69,
+            "flowShares": 428302,
+            "daysOfAdv": 0.4271,
             "advQty": 1002815,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -52129,7 +52129,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 256304725128,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -52233,7 +52233,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -52368,10 +52368,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.483704,
-            "flowInr": 356915082,
-            "flowCrore": 35.69,
-            "flowShares": 1278578,
+            "targetWeightPp": 0.483595,
+            "flowInr": 356834730,
+            "flowCrore": 35.68,
+            "flowShares": 1278290,
             "daysOfAdv": 0.0384,
             "advQty": 33329952,
             "advSource": "munshot-3m-detail",
@@ -52382,7 +52382,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 187857044813,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -53086,10 +53086,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.165436,
-            "flowInr": 122071729,
-            "flowCrore": 12.21,
-            "flowShares": 1110349,
+            "targetWeightPp": 0.165399,
+            "flowInr": 122044247,
+            "flowCrore": 12.2,
+            "flowShares": 1110099,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -53100,7 +53100,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 64250673052,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -54514,11 +54514,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.354059,
-            "flowInr": 261252292,
-            "flowCrore": 26.13,
-            "flowShares": 571480,
-            "daysOfAdv": 0.6205,
+            "targetWeightPp": 0.353979,
+            "flowInr": 261193477,
+            "flowCrore": 26.12,
+            "flowShares": 571352,
+            "daysOfAdv": 0.6203,
             "advQty": 921018,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -54528,7 +54528,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 137506331360,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -54740,9 +54740,9 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.756293,
-            "flowInr": 558052668,
-            "flowCrore": 55.81,
+            "targetWeightPp": 0.756123,
+            "flowInr": 557927034,
+            "flowCrore": 55.79,
             "flowShares": null,
             "daysOfAdv": null,
             "advQty": null,
@@ -54754,7 +54754,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 293722877963,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -56160,10 +56160,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.28981,
-            "flowInr": 213844814,
+            "targetWeightPp": 0.289745,
+            "flowInr": 213796672,
             "flowCrore": 21.38,
-            "flowShares": 160346,
+            "flowShares": 160309,
             "daysOfAdv": 0.1205,
             "advQty": 1330247,
             "advSource": "munshot-3m-detail",
@@ -56174,7 +56174,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 112554097454,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -56416,11 +56416,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.479578,
-            "flowInr": 353870792,
-            "flowCrore": 35.39,
-            "flowShares": 153324,
-            "daysOfAdv": 0.4076,
+            "targetWeightPp": 0.47947,
+            "flowInr": 353791125,
+            "flowCrore": 35.38,
+            "flowShares": 153289,
+            "daysOfAdv": 0.4075,
             "advQty": 376190,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -56430,7 +56430,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 186254727187,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -56821,11 +56821,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.218541,
-            "flowInr": 161256507,
-            "flowCrore": 16.13,
-            "flowShares": 950525,
-            "daysOfAdv": 0.3989,
+            "targetWeightPp": 0.218491,
+            "flowInr": 161220203,
+            "flowCrore": 16.12,
+            "flowShares": 950311,
+            "daysOfAdv": 0.3988,
             "advQty": 2383146,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -56835,7 +56835,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 84875009006,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -59401,21 +59401,21 @@
       "priceInr": 429.95,
       "priceSource": "bhavcopy-bse",
       "priceAsOf": "17 Sep 26 | 16:00",
-      "floatFactor": 0.745867,
+      "floatFactor": 0.745994,
       "floatSource": "nse",
       "floatChoice": {
         "rule": "nse-preferred-on-material-gap",
         "chose": "nse",
-        "gapPct": -6.157,
+        "gapPct": -6.141,
         "thresholdPct": 2,
-        "why": "both exchanges publish and they differ by 6.157%, beyond the desk's 2% switch point, so NSE is used"
+        "why": "both exchanges publish and they differ by 6.141%, beyond the desk's 2% switch point, so NSE is used"
       },
-      "floatFactorNse": 0.745867,
+      "floatFactorNse": 0.745994,
       "floatFactorBse": 0.794804,
-      "floatGapPct": -6.157,
-      "freeFloatMcapInr": 240246967970,
+      "floatGapPct": -6.141,
+      "freeFloatMcapInr": 240287875216,
       "freeFloatBasis": "floatFactor × sharesOutstanding × price",
-      "freeFloatMcapAtCaptureInr": 240246967928,
+      "freeFloatMcapAtCaptureInr": 240287875174,
       "prevCloseInr": 421.3,
       "priceDate": "2026-09-17",
       "priceStaleDays": 0,
@@ -59494,7 +59494,7 @@
           {
             "key": "desk-exclusion-band",
             "label": "Free float vs the desk's exclusion band",
-            "input": 240246967970,
+            "input": 240287875216,
             "threshold": 19634200000,
             "thresholdSource": "desk",
             "result": "above",
@@ -59531,7 +59531,7 @@
           {
             "key": "fif-floor",
             "label": "Float factor vs MSCI's 0.15 Foreign Inclusion Factor floor",
-            "input": 0.745867,
+            "input": 0.745994,
             "threshold": 0.15,
             "thresholdSource": "msci",
             "result": "above",
@@ -59553,7 +59553,7 @@
           {
             "key": "exit-free-float-minimum",
             "label": "Free float vs an existing constituent's free-float minimum",
-            "input": 240246967970,
+            "input": 240287875216,
             "threshold": 30730133333.333332,
             "thresholdSource": "msci",
             "result": "above",
@@ -60020,11 +60020,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.224715,
-            "flowInr": 165812370,
+            "targetWeightPp": 0.224664,
+            "flowInr": 165775041,
             "flowCrore": 16.58,
-            "flowShares": 136381,
-            "daysOfAdv": 1.0183,
+            "flowShares": 136351,
+            "daysOfAdv": 1.0181,
             "advQty": 133933,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -60034,7 +60034,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 87272921100,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -60138,7 +60138,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -62783,7 +62783,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -63887,10 +63887,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.194702,
-            "flowInr": 143666436,
-            "flowCrore": 14.37,
-            "flowShares": 133333,
+            "targetWeightPp": 0.194658,
+            "flowInr": 143634092,
+            "flowCrore": 14.36,
+            "flowShares": 133303,
             "daysOfAdv": 0.2149,
             "advQty": 620355,
             "advSource": "munshot-3m-detail",
@@ -63901,7 +63901,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 75616731814,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -65123,7 +65123,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -65258,10 +65258,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.303282,
-            "flowInr": 223785437,
-            "flowCrore": 22.38,
-            "flowShares": 125924,
+            "targetWeightPp": 0.303214,
+            "flowInr": 223735057,
+            "flowCrore": 22.37,
+            "flowShares": 125895,
             "daysOfAdv": 0.2131,
             "advQty": 590779,
             "advSource": "munshot-3m-detail",
@@ -65272,7 +65272,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 117786199161,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -67862,10 +67862,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.133207,
-            "flowInr": 98290766,
+            "targetWeightPp": 0.133177,
+            "flowInr": 98268638,
             "flowCrore": 9.83,
-            "flowShares": 3234313,
+            "flowShares": 3233585,
             "daysOfAdv": 0.2238,
             "advQty": 14451198,
             "advSource": "munshot-3m-detail",
@@ -67876,7 +67876,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 51733910136,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -69528,10 +69528,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.169075,
-            "flowInr": 124756532,
-            "flowCrore": 12.48,
-            "flowShares": 105485,
+            "targetWeightPp": 0.169036,
+            "flowInr": 124728446,
+            "flowCrore": 12.47,
+            "flowShares": 105461,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -69542,7 +69542,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 65663780199,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -70252,11 +70252,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.251031,
-            "flowInr": 185230318,
+            "targetWeightPp": 0.250974,
+            "flowInr": 185188617,
             "flowCrore": 18.52,
-            "flowShares": 553422,
-            "daysOfAdv": 0.8427,
+            "flowShares": 553297,
+            "daysOfAdv": 0.8425,
             "advQty": 656717,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -70266,7 +70266,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 97493274685,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -71937,7 +71937,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -72540,10 +72540,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.184968,
-            "flowInr": 136484072,
+            "targetWeightPp": 0.184926,
+            "flowInr": 136453346,
             "flowCrore": 13.65,
-            "flowShares": 17920,
+            "flowShares": 17916,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -72554,7 +72554,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 71836399662,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -77204,10 +77204,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.092395,
-            "flowInr": 68176327,
+            "targetWeightPp": 0.092374,
+            "flowInr": 68160978,
             "flowCrore": 6.82,
-            "flowShares": 181465,
+            "flowShares": 181424,
             "daysOfAdv": 0.0276,
             "advQty": 6573932,
             "advSource": "munshot-3m-detail",
@@ -77218,7 +77218,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 35883614694,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -78762,7 +78762,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -80410,13 +80410,7 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -80434,16 +80428,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": null,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "fif-floor",
         "methodology": "freefloat",
         "rulesFired": [
@@ -81172,10 +81157,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.336748,
-            "flowInr": 248479589,
-            "flowCrore": 24.85,
-            "flowShares": 1587729,
+            "targetWeightPp": 0.336673,
+            "flowInr": 248423650,
+            "flowCrore": 24.84,
+            "flowShares": 1587372,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -81186,7 +81171,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 130783605811,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -85718,7 +85703,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -87324,7 +87309,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -88428,11 +88413,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.156324,
-            "flowInr": 115348136,
+            "targetWeightPp": 0.156289,
+            "flowInr": 115322168,
             "flowCrore": 11.53,
-            "flowShares": 28722,
-            "daysOfAdv": 0.8635,
+            "flowShares": 28715,
+            "daysOfAdv": 0.8633,
             "advQty": 33262,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -88442,7 +88427,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 60711808343,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -94529,10 +94514,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.419795,
-            "flowInr": 309757656,
-            "flowCrore": 30.98,
-            "flowShares": 1786582,
+            "targetWeightPp": 0.4197,
+            "flowInr": 309687921,
+            "flowCrore": 30.97,
+            "flowShares": 1786180,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -94543,7 +94528,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 163036421993,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -95586,7 +95571,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -96475,7 +96460,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -96610,10 +96595,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.118146,
-            "flowInr": 87177153,
+            "targetWeightPp": 0.118119,
+            "flowInr": 87157527,
             "flowCrore": 8.72,
-            "flowShares": 101902,
+            "flowShares": 101879,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -96624,7 +96609,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 45884422319,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -100353,7 +100338,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -100488,10 +100473,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.152399,
-            "flowInr": 112451717,
-            "flowCrore": 11.25,
-            "flowShares": 490306,
+            "targetWeightPp": 0.152364,
+            "flowInr": 112426401,
+            "flowCrore": 11.24,
+            "flowShares": 490196,
             "daysOfAdv": 0.0742,
             "advQty": 6608099,
             "advSource": "munshot-3m-detail",
@@ -100502,7 +100487,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 59187320420,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -101568,7 +101553,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -105182,7 +105167,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -105317,10 +105302,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.070844,
-            "flowInr": 52274250,
+            "targetWeightPp": 0.070828,
+            "flowInr": 52262482,
             "flowCrore": 5.23,
-            "flowShares": 40679,
+            "flowShares": 40670,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -105331,7 +105316,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 27513788749,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -105443,7 +105428,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -105578,10 +105563,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.129628,
-            "flowInr": 95649726,
+            "targetWeightPp": 0.129599,
+            "flowInr": 95628193,
             "flowCrore": 9.56,
-            "flowShares": 379412,
+            "flowShares": 379326,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -105592,7 +105577,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 50343837546,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -106283,11 +106268,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.13048,
-            "flowInr": 96278157,
+            "targetWeightPp": 0.13045,
+            "flowInr": 96256482,
             "flowCrore": 9.63,
-            "flowShares": 1209069,
-            "daysOfAdv": 0.6497,
+            "flowShares": 1208797,
+            "daysOfAdv": 0.6495,
             "advQty": 1860996,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -106297,7 +106282,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 50674603013,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -106517,10 +106502,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.056698,
-            "flowInr": 41835985,
+            "targetWeightPp": 0.056685,
+            "flowInr": 41826566,
             "flowCrore": 4.18,
-            "flowShares": 203482,
+            "flowShares": 203437,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -106531,7 +106516,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 22019760000,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -110389,10 +110374,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.172492,
-            "flowInr": 127278192,
-            "flowCrore": 12.73,
-            "flowShares": 208653,
+            "targetWeightPp": 0.172453,
+            "flowInr": 127249538,
+            "flowCrore": 12.72,
+            "flowShares": 208606,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -110403,7 +110388,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 66991018864,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -110980,7 +110965,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -111123,10 +111108,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.158748,
-            "flowInr": 117136887,
+            "targetWeightPp": 0.158712,
+            "flowInr": 117110516,
             "flowCrore": 11.71,
-            "flowShares": 309722,
+            "flowShares": 309652,
             "daysOfAdv": 0.017,
             "advQty": 18244078,
             "advSource": "munshot-3m-detail",
@@ -111137,7 +111122,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 61653291069,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -115816,11 +115801,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.10473,
-            "flowInr": 77277819,
+            "targetWeightPp": 0.104706,
+            "flowInr": 77260422,
             "flowCrore": 7.73,
-            "flowShares": 35720,
-            "daysOfAdv": 0.7824,
+            "flowShares": 35712,
+            "daysOfAdv": 0.7822,
             "advQty": 45655,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -115830,7 +115815,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 40674052322,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -118384,7 +118369,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -120058,11 +120043,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.076721,
-            "flowInr": 56610950,
+            "targetWeightPp": 0.076704,
+            "flowInr": 56598205,
             "flowCrore": 5.66,
-            "flowShares": 51176,
-            "daysOfAdv": 0.1494,
+            "flowShares": 51165,
+            "daysOfAdv": 0.1493,
             "advQty": 342626,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -120072,7 +120057,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 29796347524,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -120656,7 +120641,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -121013,10 +120998,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.134407,
-            "flowInr": 99176253,
+            "targetWeightPp": 0.134377,
+            "flowInr": 99153926,
             "flowCrore": 9.92,
-            "flowShares": 164077,
+            "flowShares": 164040,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -121027,7 +121012,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 52199973475,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -121346,7 +121331,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -121500,11 +121485,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.152748,
-            "flowInr": 112709882,
+            "targetWeightPp": 0.152714,
+            "flowInr": 112684508,
             "flowCrore": 11.27,
-            "flowShares": 142006,
-            "daysOfAdv": 0.0994,
+            "flowShares": 141974,
+            "daysOfAdv": 0.0993,
             "advQty": 1429101,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -121514,7 +121499,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 59323201679,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -123411,11 +123396,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.068347,
-            "flowInr": 50431606,
+            "targetWeightPp": 0.068331,
+            "flowInr": 50420252,
             "flowCrore": 5.04,
-            "flowShares": 65825,
-            "daysOfAdv": 0.1815,
+            "flowShares": 65810,
+            "daysOfAdv": 0.1814,
             "advQty": 362770,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -123425,7 +123410,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 26543939679,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -123656,10 +123641,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.052962,
-            "flowInr": 39079291,
+            "targetWeightPp": 0.05295,
+            "flowInr": 39070493,
             "flowCrore": 3.91,
-            "flowShares": 140371,
+            "flowShares": 140339,
             "daysOfAdv": 0.1619,
             "advQty": 866923,
             "advSource": "munshot-3m-detail",
@@ -123670,7 +123655,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 20568814307,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -124009,13 +123994,7 @@
       "yearlyChangePct": -26.28,
       "lastSplitFactor": "10:1",
       "lastSplitDate": "2024-12-16",
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
-      },
+      "asm": null,
       "held": true,
       "funds": {
         "eem": null,
@@ -124054,16 +124033,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": 95.284,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "exit-size-buffer",
         "methodology": "freefloat",
         "rulesFired": [
@@ -124728,7 +124698,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -125329,9 +125299,9 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.118788,
-            "flowInr": 87651150,
-            "flowCrore": 8.77,
+            "targetWeightPp": 0.118761,
+            "flowInr": 87631417,
+            "flowCrore": 8.76,
             "flowShares": null,
             "daysOfAdv": null,
             "advQty": null,
@@ -125343,7 +125313,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 46133903795,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -126346,11 +126316,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.077453,
-            "flowInr": 57151104,
-            "flowCrore": 5.72,
-            "flowShares": 38387,
-            "daysOfAdv": 0.2085,
+            "targetWeightPp": 0.077436,
+            "flowInr": 57138238,
+            "flowCrore": 5.71,
+            "flowShares": 38379,
+            "daysOfAdv": 0.2084,
             "advQty": 184142,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -126360,7 +126330,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 30080649803,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -127401,7 +127371,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -128534,7 +128504,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -128885,10 +128855,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.068796,
-            "flowInr": 50763094,
+            "targetWeightPp": 0.06878,
+            "flowInr": 50751666,
             "flowCrore": 5.08,
-            "flowShares": 3695,
+            "flowShares": 3694,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -128899,7 +128869,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 26718413823,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -129547,10 +129517,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.099021,
-            "flowInr": 73065447,
-            "flowCrore": 7.31,
-            "flowShares": 298470,
+            "targetWeightPp": 0.098999,
+            "flowInr": 73048998,
+            "flowCrore": 7.3,
+            "flowShares": 298403,
             "daysOfAdv": 0.1083,
             "advQty": 2755110,
             "advSource": "munshot-3m-detail",
@@ -129561,7 +129531,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 38456931966,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -129792,10 +129762,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.056018,
-            "flowInr": 41334242,
+            "targetWeightPp": 0.056005,
+            "flowInr": 41324937,
             "flowCrore": 4.13,
-            "flowShares": 72586,
+            "flowShares": 72570,
             "daysOfAdv": 0.0672,
             "advQty": 1079904,
             "advSource": "munshot-3m-detail",
@@ -129806,7 +129776,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 21755675221,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -129910,7 +129880,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -132056,10 +132026,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.046247,
-            "flowInr": 34124986,
+            "targetWeightPp": 0.046237,
+            "flowInr": 34117303,
             "flowCrore": 3.41,
-            "flowShares": 159724,
+            "flowShares": 159688,
             "daysOfAdv": 0.0709,
             "advQty": 2252534,
             "advSource": "munshot-3m-detail",
@@ -132070,7 +132040,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 17961188239,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -133919,11 +133889,11 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.09766,
-            "flowInr": 72061503,
-            "flowCrore": 7.21,
-            "flowShares": 1074903,
-            "daysOfAdv": 0.2216,
+            "targetWeightPp": 0.097638,
+            "flowInr": 72045280,
+            "flowCrore": 7.2,
+            "flowShares": 1074661,
+            "daysOfAdv": 0.2215,
             "advQty": 4851563,
             "advSource": "munshot-3m-detail",
             "aumUsd": 775235535.91,
@@ -133933,7 +133903,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 37928520668,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -135682,7 +135652,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -135828,10 +135798,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.071295,
-            "flowInr": 52607053,
+            "targetWeightPp": 0.071279,
+            "flowInr": 52595210,
             "flowCrore": 5.26,
-            "flowShares": 150241,
+            "flowShares": 150208,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -135842,7 +135812,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 27688954617,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -137619,10 +137589,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.09823,
-            "flowInr": 72481810,
+            "targetWeightPp": 0.098208,
+            "flowInr": 72465492,
             "flowCrore": 7.25,
-            "flowShares": 11019,
+            "flowShares": 11017,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -137633,7 +137603,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 38149742781,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -138104,10 +138074,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.060729,
-            "flowInr": 44810939,
+            "targetWeightPp": 0.060716,
+            "flowInr": 44800851,
             "flowCrore": 4.48,
-            "flowShares": 10376,
+            "flowShares": 10374,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -138118,7 +138088,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 23585583899,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -138431,7 +138401,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": true,
       "funds": {
@@ -138801,10 +138771,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.049783,
-            "flowInr": 36733820,
+            "targetWeightPp": 0.049772,
+            "flowInr": 36725550,
             "flowCrore": 3.67,
-            "flowShares": 133967,
+            "flowShares": 133937,
             "daysOfAdv": 0.0541,
             "advQty": 2477836,
             "advSource": "munshot-3m-detail",
@@ -138815,7 +138785,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 19334310055,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -140573,10 +140543,10 @@
             "fundId": "smin",
             "fundShortName": "India SC",
             "direction": "buy",
-            "targetWeightPp": 0.200434,
-            "flowInr": 147896250,
+            "targetWeightPp": 0.200389,
+            "flowInr": 147862954,
             "flowCrore": 14.79,
-            "flowShares": 1455385,
+            "flowShares": 1455058,
             "daysOfAdv": null,
             "advQty": null,
             "advSource": null,
@@ -140587,7 +140557,7 @@
             "basis": {
               "formula": "company free float ÷ segment total free float",
               "numeratorInr": 77843032851,
-              "denominatorInr": 38837177721488,
+              "denominatorInr": 38845923038371,
               "denominatorMembers": 457,
               "segment": "smallcap"
             },
@@ -143724,13 +143694,7 @@
       "yearlyChangePct": 26.32,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -143748,16 +143712,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -2.304,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -151664,7 +151619,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -156385,7 +156340,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -160712,7 +160667,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -161800,7 +161755,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -163198,7 +163153,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -164423,7 +164378,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -169831,7 +169786,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -171303,7 +171258,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -172773,13 +172728,7 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -172797,16 +172746,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -30.456,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -174262,7 +174202,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -177127,13 +177067,7 @@
       "yearlyChangePct": -11.19,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": {
-        "category": "shortterm",
-        "stage": "Stage I",
-        "survCode": "STASM - I (11)",
-        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
-      },
+      "asm": null,
       "held": false,
       "funds": {
         "eem": null,
@@ -177151,16 +177085,7 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -33.958,
-        "asm": {
-          "stage": "Stage I",
-          "survCode": "STASM - I (11)",
-          "category": "shortterm",
-          "severity": "entry",
-          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
-          "binding": false,
-          "implication": null,
-          "timingNote": null
-        },
+        "asm": null,
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -179941,7 +179866,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -186252,7 +186177,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -188487,7 +188412,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -188898,7 +188823,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -189773,7 +189698,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -191928,7 +191853,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -192986,7 +192911,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -194482,7 +194407,13 @@
       "yearlyChangePct": null,
       "lastSplitFactor": null,
       "lastSplitDate": null,
-      "asm": null,
+      "asm": {
+        "category": "shortterm",
+        "stage": "Stage I",
+        "survCode": "STASM - I (11)",
+        "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+        "asmDate": "18-Sep-2026"
+      },
       "held": false,
       "funds": {
         "eem": null,
@@ -194500,7 +194431,16 @@
       "assessment": {
         "verdict": "stable",
         "distancePct": -46.521,
-        "asm": null,
+        "asm": {
+          "stage": "Stage I",
+          "survCode": "STASM - I (11)",
+          "category": "shortterm",
+          "severity": "entry",
+          "attribution": "the desk's assumption. ASM is NSE's surveillance framework, not an MSCI index rule — MSCI publishes no ASM carve-out from rebalancing.",
+          "binding": false,
+          "implication": null,
+          "timingNote": null
+        },
         "distanceRuleKey": "entry-cutoff",
         "methodology": "freefloat",
         "rulesFired": [
@@ -194685,7 +194625,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -196094,7 +196034,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -196505,7 +196445,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -198698,7 +198638,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -203825,7 +203765,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -209696,7 +209636,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -210128,7 +210068,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -210737,7 +210677,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -214771,7 +214711,7 @@
         "stage": "Stage III",
         "survCode": "LTASM - III (15)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage III",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -216716,7 +216656,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -220195,7 +220135,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -223904,7 +223844,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -227348,7 +227288,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -228544,7 +228484,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -234124,7 +234064,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -238289,7 +238229,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -243354,7 +243294,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -243567,7 +243507,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -245147,7 +245087,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -255315,7 +255255,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -257299,7 +257239,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -257908,7 +257848,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -258517,7 +258457,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -261055,7 +260995,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -261466,7 +261406,7 @@
         "stage": "Stage II",
         "survCode": "LTASM - II (14)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage II",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -263086,7 +263026,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -265032,7 +264972,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -267425,7 +267365,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -272792,7 +272732,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -274975,7 +274915,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -275459,9 +275399,9 @@
       "floatFactorNse": null,
       "floatFactorBse": null,
       "floatGapPct": null,
-      "freeFloatMcapInr": 1326398735773,
+      "freeFloatMcapInr": 1328028718858,
       "freeFloatBasis": "NSE published free-float market cap (no full market cap available, so no factor)",
-      "freeFloatMcapAtCaptureInr": 1326398735773,
+      "freeFloatMcapAtCaptureInr": 1328028718858,
       "prevCloseInr": null,
       "priceDate": null,
       "priceStaleDays": null,
@@ -275530,7 +275470,7 @@
           {
             "key": "desk-exclusion-band",
             "label": "Free float vs the desk's exclusion band",
-            "input": 1326398735773,
+            "input": 1328028718858,
             "threshold": 19435400000,
             "thresholdSource": "desk",
             "result": "above",
@@ -275642,9 +275582,9 @@
       "floatFactorNse": null,
       "floatFactorBse": null,
       "floatGapPct": null,
-      "freeFloatMcapInr": 230755675887,
+      "freeFloatMcapInr": 239460085524,
       "freeFloatBasis": "NSE published free-float market cap (no full market cap available, so no factor)",
-      "freeFloatMcapAtCaptureInr": 230755675887,
+      "freeFloatMcapAtCaptureInr": 239460085524,
       "prevCloseInr": null,
       "priceDate": null,
       "priceStaleDays": null,
@@ -275723,7 +275663,7 @@
           {
             "key": "desk-exclusion-band",
             "label": "Free float vs the desk's exclusion band",
-            "input": 230755675887,
+            "input": 239460085524,
             "threshold": 19634200000,
             "thresholdSource": "desk",
             "result": "above",
@@ -275983,9 +275923,9 @@
       "floatFactorNse": null,
       "floatFactorBse": null,
       "floatGapPct": null,
-      "freeFloatMcapInr": 10314998856,
+      "freeFloatMcapInr": 9686823058,
       "freeFloatBasis": "NSE published free-float market cap (no full market cap available, so no factor)",
-      "freeFloatMcapAtCaptureInr": 10314998856,
+      "freeFloatMcapAtCaptureInr": 9686823058,
       "prevCloseInr": null,
       "priceDate": null,
       "priceStaleDays": null,
@@ -276002,7 +275942,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -276037,7 +275977,7 @@
           {
             "key": "desk-inclusion-band",
             "label": "Free float vs the desk's inclusion band",
-            "input": 10314998856,
+            "input": 9686823058,
             "threshold": 39268400000,
             "thresholdSource": "desk",
             "result": "below",
@@ -276149,9 +276089,9 @@
       "floatFactorNse": null,
       "floatFactorBse": null,
       "floatGapPct": null,
-      "freeFloatMcapInr": 6525273529,
+      "freeFloatMcapInr": 6612277176,
       "freeFloatBasis": "NSE published free-float market cap (no full market cap available, so no factor)",
-      "freeFloatMcapAtCaptureInr": 6525273529,
+      "freeFloatMcapAtCaptureInr": 6612277176,
       "prevCloseInr": null,
       "priceDate": null,
       "priceStaleDays": null,
@@ -276188,7 +276128,7 @@
           {
             "key": "desk-inclusion-band",
             "label": "Free float vs the desk's inclusion band",
-            "input": 6525273529,
+            "input": 6612277176,
             "threshold": 39268400000,
             "thresholdSource": "desk",
             "result": "below",
@@ -276313,7 +276253,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -277080,7 +277020,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
@@ -277616,9 +277556,9 @@
       "floatFactorNse": null,
       "floatFactorBse": null,
       "floatGapPct": null,
-      "freeFloatMcapInr": 10435075495,
+      "freeFloatMcapInr": 11803707963,
       "freeFloatBasis": "NSE published free-float market cap (no full market cap available, so no factor)",
-      "freeFloatMcapAtCaptureInr": 10435075495,
+      "freeFloatMcapAtCaptureInr": 11803707963,
       "prevCloseInr": null,
       "priceDate": null,
       "priceStaleDays": null,
@@ -277655,7 +277595,7 @@
           {
             "key": "desk-inclusion-band",
             "label": "Free float vs the desk's inclusion band",
-            "input": 10435075495,
+            "input": 11803707963,
             "threshold": 39268400000,
             "thresholdSource": "desk",
             "result": "below",
@@ -278500,7 +278440,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "17-Sep-2026"
+        "asmDate": "18-Sep-2026"
       },
       "held": false,
       "funds": {
