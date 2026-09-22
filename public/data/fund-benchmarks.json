@@ -3,7 +3,7 @@
   "note": "The ETF, not the index. An ETF carries tracking error and trades at a premium or discount to NAV, so this is a close PROXY for the index it tracks, never the index itself. MSCI index levels are licensed and this project has no entitlement to them.",
   "returnBasis": "PRICE return, dividends not reinvested — a free-float market cap moves with price, not with a distribution paid out in cash.",
   "currencyNote": "Funds quote in USD. A rupee return is price_usd × usdinr on each date, both halves from the same date. Measured 20 Aug 2026, ignoring this would have put SMIN's 1-year move at -3.62% instead of +5.44% — the wrong sign.",
-  "capturedAt": "2026-09-22T03:39:32.363Z",
+  "capturedAt": "2026-09-22T08:53:54.446Z",
   "asOf": "2026-09-22",
   "range": "2y",
   "fx": {
@@ -2080,7 +2080,7 @@
       },
       {
         "date": "2026-09-22",
-        "close": 95.67250061035156
+        "close": 95.66000366210938
       }
     ]
   },
