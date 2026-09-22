@@ -1414,6 +1414,93 @@ block was a real comparison — so exactly the checks that fail on fresh data pa
 was green through the entire outage. A red daily refresh for two consecutive trading days is the only
 signal that a pipeline has stopped, and it is worth alerting on for that reason.
 
+### 2.34.1 It happened again, three more ways, and the alert §2.34 asked for now exists
+
+The sentence above — *a red daily refresh for two consecutive trading days is the only signal that a
+pipeline has stopped, and it is worth alerting on* — was written and **nothing was built**. Between
+1 and 21 September 2026 `daily-refresh.yml` failed **13 of its 15 scheduled runs** and committed
+nothing for the last four trading days. Every source answered correctly the whole time. The record
+simply stopped moving, and the dashboard sat on 17 September's closes: HDFC Bank rendered
+`713.00, −1.30%` while the market had it at 740.
+
+**Nothing was wrong with the data, and nothing was even wrong with §2.34's checks this time.** Three
+different guards stopped the pipeline, and all three were the same mistake in different files:
+
+| Where | What it demanded | Why it could not hold |
+| --- | --- | --- |
+| `scrape-bse-freefloat.mjs` | the scrip count must not fall | 1,254 on file, 1,253 collected, **every one read cleanly** — BSE had suspended one |
+| `fetch-price-history.mjs` | the scrip count must not fall | 4,863 against 4,860, on a run that fetched all 38 sessions and failed none |
+| `verify-data` 25 | no company carries scrip `542866` or `504346` | BSE decides who is suspended, so BSE decided whether the check passed |
+
+The first two are **§3.8.2's box** — *"counting points is the wrong shrink guard for a rolling
+window"*, *"a guard waived weekly is a guard nobody reads"* — arriving through a **universe that
+churns** instead of a window that rolls. That lesson was applied to `fund-benchmarks.mjs` and to
+nothing else. The third is **§2.34's own rule**, broken as literally as it can be: a check that names
+two scrip codes is a check whose subject is the market.
+
+> ### ⚠ AND THE COUNT GUARD WAS NOT MERELY OVER-SENSITIVE — IT WAS ALSO BLIND
+>
+> The obvious reading is "the guard was too strict". It was also too loose, in the same breath, and
+> that is the better argument for replacing rather than loosening it. A count comparison asks
+> `was > now`, so a run that **loses a scrip it asked for while the universe grows by two** reads as
+> growth and writes silently. The guard fired on every harmless churn and passed the one failure it
+> existed to catch.
+
+**The replacement asks about coverage, anchored on something the run cannot move**: *of the scrips we
+already held AND asked for again, how many came back?* A scrip that left the active master was not
+asked for — that is the master doing its job (§3.8) — so it is **reported and allowed to go**. A
+scrip that was asked for and did not come back is a partial read and still refuses, at any count,
+including when the universe grew.
+
+#### The gap never healed either, and that was a second, quieter failure
+
+`latestTradeDate()` deliberately never consults the stored file, which is right: a build must not
+depend on what it happens to hold. The consequence is that the run after a missed session **jumps**,
+the two files are not adjacent, and the continuity tripwire is skipped with a stated reason — and
+stays skipped. §3.8 already described the repair and described it as something a person does by hand.
+Nobody did. The committed record carried `gapDays: 9, compared: 0`: nine days over which not one row
+was ever checked.
+
+`fetch-bhavcopy.mjs --catch-up` walks the stored file forward one trading day at a time, **re-invoking
+this script per session** so each one gets the identical shape assertion, coverage floor, continuity
+test and shrink guard rather than a second, weaker path written for backfill. Measured closing the
+17→21 September gap: two sessions fetched in order, **1,254 scrips compared at each step, zero
+failures** — the first row-level evidence since 8 September.
+
+A market holiday is the one thing that walk cannot tell from an outage, and there is no holiday
+calendar in this repo to consult. `--skip-if-missing` is how an **intermediate** date says so: BSE
+serves its SPA shell for a session that never happened, the shape probe already recognises that, and
+the step exits 0 having written nothing. It is honoured only alongside an explicit `--date`, which
+only the catch-up driver passes, so an ordinary run can never quietly turn an outage into "the market
+was shut".
+
+#### The alert, and the one distinction it has to make
+
+`scripts/check-freshness.mjs` reads the committed record and fails on any feed past its own
+`staleAfterDays` — **through `isFeedStale`, the same predicate the sources modal draws its STALE badge
+from**, now with one owner in `data/companies.js`. Until this, that comparison had exactly one reader:
+the browser. The screen was correctly telling a portfolio manager that four feeds were out of date
+while every job in the repository reported green.
+
+It runs as the last step of the daily refresh **and** as `freshness-watch.yml` on its own schedule,
+because the step inside a job cannot fire when the job dies in the middle — which is how most of the
+13 failures went.
+
+> ### ⚠ "A JOB HAS STOPPED" AND "A PERSON IS OWED A WORKBOOK" ARE DIFFERENT FACTS
+>
+> Two feeds are refreshed by hand and not by choice. Measured 22 Sep 2026, the iShares SMIN holdings
+> URL returns **HTTP 200, `application/vnd.ms-excel`, and 1,440,151 bytes of `<!DOCTYPE html>`** —
+> §3.8's *"a 200 is not a contract"* from the publisher's side. No workflow can refresh those.
+>
+> So each feed carries `refreshedBy: 'job' | 'hand'`, and `--jobs-only` narrows what the daily refresh
+> **fails** on. It narrows nothing that is **reported**: a hand-dropped feed past its cadence prints
+> just as loudly in both modes, labelled *waiting on a person*. A red that means two different things
+> is a red people learn to wave through, which is §3.8.2's waived guard one level up.
+
+**The thresholds stay the desk's and stay in one place.** Nothing is typed in the script; every number
+comes from `feedRegistry`. And the tripwire asserts a **contract** — every feed is as fresh as its own
+stated cadence — never what the market did, because that is the rule §2.34 exists to state.
+
 ### 2.35 FTSE is a SECOND OPINION, and it is wired so it cannot become an input
 
 The desk asked for FTSE's India book beside MSCI's, on the same rows and columns. It is there —
@@ -2063,6 +2150,21 @@ the universe. It answers for **1,237 of 1,237** scrips against `quote-stats`'s 7
 event rather than the most recent one, and uses the right noun: LICI is a **1:1 bonus**, not the
 "2:1 split" `quote-stats` calls it. The two agree exactly on all seven of the quarter's events.
 
+> ### ⚠ SO THE LOSING SOURCE WAS REMOVED FROM THE RECORD, NOT LEFT BESIDE THE WINNING ONE
+>
+> `build-companies.mjs` went on writing `lastSplitFactor`, `lastSplitDate` and `yearlyChangePct` onto
+> every one of ~1,290 company records from the same monthly Munshot capture — a feed that was **34
+> days old** when this was found. Nothing read them: not a screen, not the drill, not the CSV export,
+> not an assertion. Dead weight would be reason enough; that they were a **worse copy of something
+> already on the record** is the real one. Every comparison in the paragraph above goes the same way —
+> coverage, completeness, vocabulary, and daily against monthly.
+>
+> Two answers to one question, one of them staler and thinner, is how a future author picks the wrong
+> one. **`advQty` and `advSource` stay**, because `daysOfAdv` is the number a trader acts on (§2.16)
+> and nothing else here supplies it. And `reconcile-shares.mjs` still reads the split fields straight
+> from `quote-stats.json`, where they are a corroborating third opinion on a **share count** and are
+> labelled as such — a different job from being a company's action history, and untouched.
+
 `priceFactor` is **ours** — the number a price is *divided* by across the ex-date — and a purpose
 naming something structural without a published ratio (`Right Issue of Equity Shares`, `Spin Off`,
 `Consolidation of Shares`) is `null`, **never `1.0`**. A factor of 1 asserts the action does not move
@@ -2237,8 +2339,10 @@ scripts/
                                    -> public/data/predictions-<review>.json
   build-rebalance.mjs              frozen forecast vs the outcome
                                    -> public/data/rebalance-<review>.json
-  verify-data.mjs                  64 data assertions; no browser, no network
+  verify-data.mjs                  65 data assertions; no browser, no network
   verify-ui.mjs                    42 interface assertions; the served site
+  check-freshness.mjs              is any feed past its OWN cadence? the same predicate
+                                   the STALE badge uses, so CI and the screen agree
   check-nse-asm.mjs                what moved on NSE's ASM list, and the freshness guarantee
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
@@ -2275,7 +2379,9 @@ public/
   data/nse-universe.json           generated — do not hand-edit
   data/bse-freefloat.json          generated — do not hand-edit
   data/prices.json                 generated — the committed EOD price floor
-  data/quote-stats.json            generated — monthly ADV, splits
+  data/quote-stats.json            generated — monthly ADV. Its split fields reach
+                                   share-reconciliation only; the RECORD's action history
+                                   is corporate-actions.json, which is daily and better
   data/share-reconciliation.json   generated — share-count outliers and quarantines
   data/price-history.json          generated — every close in the two MSCI price windows
                                    AND around each of the last four rebalance dates
@@ -2306,6 +2412,10 @@ worker/
 wrangler.jsonc                     Worker config; npx-only, no node_modules here
 .github/workflows/
   daily-refresh.yml                weekdays 20:00 IST — EVERY source → verify → commit
+  freshness-watch.yml              Mon–Sat 22:30 IST — reads only the COMMITTED record and
+                                   fails when the dashboard would show a STALE badge. Separate
+                                   from the refresh because a job that dies mid-way never
+                                   reaches its own last step (§2.34.1)
   weekly-nse-crosscheck.yml        Saturdays 09:30 IST — NSE with 3 patient retries
   asm-refresh.yml                  1st & 16th 09:30 IST — the ASM list, what MOVED on it,
                                    and the only job that FAILS when it goes stale
@@ -2335,7 +2445,8 @@ node scripts/scrape-nse-asm.mjs        # 1 request, the NSE ASM list - THROTTLES
 node scripts/scrape-bse-freefloat.mjs  # ~3,600 requests, ~12 min at concurrency 8
 node scripts/fetch-fund-benchmarks.mjs # 5 requests, 2y of daily closes + USDINR
 node scripts/fetch-ftse-fx.mjs         # 1 request, INR per CAD for the FTSE book
-node scripts/fetch-bhavcopy.mjs        # 1 request, the whole market's closes
+node scripts/fetch-bhavcopy.mjs --catch-up   # the whole market's closes, and every session
+                                       # missed since the stored one, IN ORDER (§2.34.1)
 node scripts/fetch-quote-stats.mjs     # monthly ADV/splits; --concurrency 1 --gap-ms 1200
 node scripts/reconcile-shares.mjs      # share-count outliers -> quarantine list
 node scripts/fetch-corporate-actions.mjs  # ~1,240 requests, ~4 min - BEFORE price history
@@ -2350,8 +2461,10 @@ node scripts/verify-data.mjs           # the data assertions; run before committ
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 64 assertions; no browser, no network
+node scripts/verify-data.mjs           # 65 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
+node scripts/check-freshness.mjs       # is any feed past its own cadence? reads only
+node scripts/check-freshness.mjs --jobs-only  # …failing only on feeds a workflow owns
 node scripts/verify-ui.mjs             # 42 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED

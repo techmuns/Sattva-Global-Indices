@@ -570,11 +570,38 @@ function main() {
       dayChangePct: round(dayChangePct(chosen.price, chosen.prevClose), 4),
 
       // ---- monthly statistics, NSE-sourced where available ----------------
+      //
+      // Average daily volume ONLY, and the source that supplied it. `daysOfAdv`
+      // is the number a trader acts on (§2.16) and nothing else here can supply
+      // it, so this feed earns its place on the record despite being monthly and
+      // usually the second-oldest thing on the page.
+      //
+      // ⚠ THREE MORE FIELDS USED TO RIDE ALONG HERE, AND THEY WERE A STALE
+      //   DUPLICATE OF A DAILY FEED
+      //
+      // `lastSplitFactor`, `lastSplitDate` and `yearlyChangePct` were written
+      // onto all ~1,290 company records from the same monthly Munshot capture and
+      // read by NOTHING — not a screen, not the drill, not the CSV export, not an
+      // assertion. Dead weight would be reason enough to drop them; that they
+      // were a WORSE COPY of something already on the record is the real one.
+      //
+      // §3.8.1 measured the comparison directly. BSE's own published action
+      // history answers for 1,237 of 1,237 scrips against quote-stats' 749,
+      // returns EVERY event rather than only the most recent, uses the right noun
+      // — LICI is a 1:1 bonus, not the "2:1 split" quote-stats calls it — and is
+      // fetched every trading day rather than monthly. corporate-actions.json is
+      // strictly better on coverage, completeness, vocabulary and freshness, and
+      // it is what `relative.js` actually reads when it needs to know whether a
+      // price series crossed an action.
+      //
+      // Carrying a second, staler, thinner answer to the same question beside it
+      // is how a future reader picks the wrong one. `reconcile-shares.mjs` still
+      // reads these fields straight from quote-stats.json, where they are a
+      // corroborating third opinion on a share count and are labelled as such —
+      // that is a different job from being a company's action history, and it is
+      // untouched.
       advQty: stats?.advQty ?? null,
       advSource: stats?.advSource ?? null,
-      yearlyChangePct: stats?.yearlyChangePct ?? null,
-      lastSplitFactor: stats?.lastSplitFactor ?? null,
-      lastSplitDate: stats?.lastSplitDate ?? null,
 
       // ---- NSE Additional Surveillance Measure stage, if any --------------
       // NSE's published surveillance stage, carried through unchanged (tier 1).

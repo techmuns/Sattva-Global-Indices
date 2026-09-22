@@ -1309,7 +1309,7 @@ async function main() {
 
   await suite.check({
     id: 25,
-    what: 'InvITs and REITs are in the universe, and a suspended scrip still is not',
+    what: 'InvITs and REITs are in the universe, and the four the funds hold are priced',
     clone: deepClone,
     run: (c) => {
       // BSE's `segment=Equity` filter excludes GROUP=IF entirely. Fetching the
@@ -1334,22 +1334,74 @@ async function main() {
       }
       empty(missing, 'every REIT the funds hold is resolved, held and priced', (m) => m);
 
-      // And the guard that stops us fetching a scrip the active master does not
-      // carry must still hold. Colab Platforms and RRP Semiconductor are
-      // SUSPENDED on BSE, and BSE answers for both with a clean-looking factor
-      // and Category "Listed" — the 3.8 trap, live.
-      const SUSPENDED = ['542866', '504346'];
-      const wrongly = c.companies.filter((x) => SUSPENDED.includes(x.bseScripCode));
-      empty(wrongly, 'a suspended scrip is never fetched, however willingly BSE answers for it',
-        (x) => `${x.name} is carrying suspended scrip ${x.bseScripCode}`);
-
       const priced = c.companies.filter((x) => x.instrumentKind === 'invit-reit' && x.freeFloatMcapInr !== null);
       return `${invits.length} InvIT/REIT scrips in the master · ${priced.length} priced in the record · `
-        + `all 4 held REITs resolved · ${SUSPENDED.length} suspended codes still excluded`;
+        + 'all 4 held REITs resolved';
     },
     sabotage: (c) => {
       // The failure this check exists for: the master goes back to equity-only.
       c.master.scrips = c.master.scrips.filter((s) => s.instrumentKind !== 'invit-reit');
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 65,
+    what: 'nothing is ever read for a scrip the active master does not carry',
+    clone: deepClone,
+    run: (c) => {
+      // BSE answers for a SUSPENDED or DELISTED scrip with a clean-looking factor
+      // and Category "Listed", and the active master is the only thing that says
+      // otherwise (§3.8). This is the assertion that the master is actually being
+      // believed.
+      //
+      // ⚠ IT USED TO NAME TWO SCRIP CODES, AND THAT MADE IT A CHECK ABOUT THE MARKET
+      //
+      // It lived inside check 25 as `SUSPENDED = ['542866', '504346']` — Colab
+      // Platforms and RRP Semiconductor, the two companies that happened to be
+      // suspended on BSE when it was written on 20 Aug 2026. §2.34 is explicit
+      // that an assertion must be about the code, the arithmetic or the contract
+      // and never about what the numbers happened to be, and a pair of scrip
+      // codes is as literal a breach of that as the suite has had: BSE decides
+      // who is suspended, so BSE decided whether this check passed.
+      //
+      // It went red on 15 and 21 Sep 2026 and took the whole daily refresh with
+      // it — verify-data gates the commit step, so the dashboard sat on 17
+      // September's closes because of a fact about two companies nobody was
+      // looking at.
+      //
+      // The rule those two codes stood in for needs no list: no company may carry
+      // a BSE scrip code the active master does not carry. It holds for ANY code,
+      // there is nothing to maintain, and it catches the same failure — a frozen
+      // reading from a scrip BSE will still answer for — whichever company it
+      // arrives on.
+      const activeCodes = new Set(c.master.scrips.map((s) => String(s.scripCode)));
+      const wrongly = c.companies.filter(
+        (x) => x.bseScripCode != null && !activeCodes.has(String(x.bseScripCode)),
+      );
+      empty(wrongly, 'no company carries a scrip code the active master does not',
+        (x) => `${x.name} is carrying ${x.bseScripCode}, which is not in the active master`);
+
+      // The other half of the same rule: a code the SEED named and the master
+      // rejected stays RECORDED — visible with its reason rather than silently
+      // dropped (§2.3) — and is never promoted into the working scrip code.
+      const seedLeaks = c.companies.filter(
+        (x) => x.seedBseScripCode != null && (x.bseScripCode != null || x.noBseReason == null),
+      );
+      empty(seedLeaks, 'a seed code the master rejected stays recorded, unfetched and explained',
+        (x) => `${x.name}: seed code ${x.seedBseScripCode} leaked into bseScripCode or lost its reason`);
+
+      const rejected = c.companies.filter((x) => x.seedBseScripCode != null).length;
+      return `every scrip code on ${c.companies.length} companies checked against the master's `
+        + `${activeCodes.size} active codes · ${rejected} seed code(s) recorded but not fetched`;
+    },
+    sabotage: (c) => {
+      // The mistake a future author actually makes: believe the seed's BSE code
+      // for a company the active master rejected, which is how a suspended
+      // scrip's frozen figures walk into the record looking perfectly healthy.
+      const victim = c.companies.find((x) => x.seedBseScripCode != null)
+        ?? c.companies.find((x) => x.bseScripCode != null);
+      if (!victim) throw new Error('no company to sabotage');
+      victim.bseScripCode = victim.seedBseScripCode ?? '999999';
     },
   }, ctx);
 

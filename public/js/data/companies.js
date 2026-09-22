@@ -334,6 +334,7 @@ export function feedRegistry(asOf = {}) {
       // feed being unchanged means something went wrong rather than nothing
       // moved. Every one is the desk's own number, not anybody's standard.
       cadence: 'replaced by hand when new workbooks are downloaded',
+      refreshedBy: 'hand',
       staleAfterDays: 45,
     },
     {
@@ -347,6 +348,7 @@ export function feedRegistry(asOf = {}) {
       // choice on the names where the two exchanges disagree is frozen on a
       // stale NSE figure, which is the thing worth flagging.
       cadence: 'attempted every trading day, guaranteed weekly',
+      refreshedBy: 'job',
       staleAfterDays: 12,
     },
     {
@@ -357,6 +359,7 @@ export function feedRegistry(asOf = {}) {
       // The primary source. It runs every trading day, so more than a long
       // weekend without one means the job is broken.
       cadence: 'every trading day',
+      refreshedBy: 'job',
       staleAfterDays: 4,
     },
     {
@@ -365,6 +368,7 @@ export function feedRegistry(asOf = {}) {
       raw: asOf.bhavcopyTradeDate ?? null,
       detail: "the exchange's own trade date for the committed end-of-day bhavcopy",
       cadence: 'every trading day',
+      refreshedBy: 'job',
       staleAfterDays: 4,
     },
     // ⚠ THESE TWO WERE MISSING, AND THEY ARE THE STALE ONES.
@@ -390,6 +394,7 @@ export function feedRegistry(asOf = {}) {
       // exchange pipeline behind it. Past about three days the bands are being
       // floated by a segment move that is no longer current.
       cadence: 'attempted every trading day, allowed to fail',
+      refreshedBy: 'job',
       staleAfterDays: 3,
     },
     {
@@ -398,6 +403,7 @@ export function feedRegistry(asOf = {}) {
       raw: asOf.quoteStatsCapturedAt ?? null,
       detail: 'average daily volume and corporate-action flags, captured monthly from a rate-limited third party',
       cadence: 'monthly, on the 1st',
+      refreshedBy: 'job',
       staleAfterDays: 40,
     },
     // The two reference feeds. They decide WHO IS IN the universe and how a
@@ -410,6 +416,7 @@ export function feedRegistry(asOf = {}) {
       raw: asOf.bseScripMasterCapturedAt ?? null,
       detail: 'the active-equity scrip list the whole scrape universe is built from — a code not in it is never fetched',
       cadence: 'every trading day',
+      refreshedBy: 'job',
       staleAfterDays: 4,
     },
     {
@@ -418,6 +425,7 @@ export function feedRegistry(asOf = {}) {
       raw: asOf.nseUniverseCapturedAt ?? null,
       detail: 'the ISIN-to-NSE-symbol bridge from niftyindices — the only thing an NSE symbol is ever asserted from',
       cadence: 'every trading day, guaranteed weekly',
+      refreshedBy: 'job',
       staleAfterDays: 9,
     },
     {
@@ -435,6 +443,7 @@ export function feedRegistry(asOf = {}) {
       // here, the two could drift and the screen would say "stale" while every
       // workflow still reported success.
       cadence: ASM_REFRESH.cadenceLabel,
+      refreshedBy: 'job',
       staleAfterDays: ASM_REFRESH.staleAfterDays,
     },
     {
@@ -443,10 +452,56 @@ export function feedRegistry(asOf = {}) {
       raw: asOf.ftseHoldings ?? null,
       detail: "Vanguard's own as-at date for its FTSE Emerging Markets holdings — a second opinion beside MSCI, and the oldest input here",
       cadence: FTSE_BOOK.cadence,
+      refreshedBy: 'hand',
       staleAfterDays: FTSE_BOOK.staleAfterDays,
     },
   ];
   return feeds.map((feed) => ({ ...feed, date: parseFeedDate(feed.raw) }));
+}
+
+/**
+ * The fallback for a feed that carries no threshold of its own.
+ *
+ * A single 14-day threshold is what this project used while the pipeline was
+ * monthly, and it would let a daily source sit broken for a fortnight without
+ * saying anything — which is why every feed above names its own. This is only
+ * the floor for one that does not.
+ *
+ * Every one of them is the desk's own number, stated as ours on screen rather
+ * than implied to be anybody's standard.
+ */
+export const DEFAULT_STALE_AFTER_DAYS = 14;
+
+/** The staleness threshold in force for one feed: its own, or the fallback. */
+export const staleAfterDaysFor = (feed) => feed.staleAfterDays ?? DEFAULT_STALE_AFTER_DAYS;
+
+/** How old a feed is in days, or null when it carries no date at all. */
+export function feedAgeDays(feed, now = new Date()) {
+  const date = feed.date ?? feed.asOfDate ?? null;
+  if (!date) return null;
+  return (now.getTime() - date.getTime()) / 86400000;
+}
+
+/**
+ * Is this feed past its own threshold?
+ *
+ * ⚠ ONE OWNER, BECAUSE A TRIPWIRE THAT DISAGREES WITH THE BADGE IS WORSE THAN NONE
+ *
+ * The sources modal has always drawn a STALE badge from this comparison, and
+ * nothing else read it — so the screen could tell a reader a feed was stale
+ * while every job went green. That is exactly what happened: the daily refresh
+ * failed on 13 of 15 scheduled runs between 1 and 21 Sep 2026, the dashboard
+ * correctly showed BSE free float, the bhavcopy, the scrip master and the
+ * benchmarks as STALE, and no job anywhere was red about it.
+ *
+ * `scripts/check-freshness.mjs` now fails on this same predicate, so CI goes red
+ * exactly when the screen starts telling readers a feed is out of date. Neither
+ * can drift from the other, because there is only one of it.
+ */
+export function isFeedStale(feed, now = new Date()) {
+  const days = feedAgeDays(feed, now);
+  if (days === null) return false; // no date is "missing", a different state from stale
+  return days > staleAfterDaysFor(feed);
 }
 
 export function freshness() {

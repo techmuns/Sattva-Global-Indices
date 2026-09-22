@@ -1,0 +1,68 @@
+# Is the record the dashboard serves actually current?
+#
+# ---------------------------------------------------------------------------
+# WHY THIS IS A SEPARATE JOB AND NOT A STEP IN THE REFRESH
+# ---------------------------------------------------------------------------
+# daily-refresh.yml ends with the same check, and that step cannot fire when the
+# job dies before reaching it — which is precisely the failure worth alerting on.
+# Between 1 and 21 Sep 2026 that job failed on 13 of 15 scheduled runs, and on
+# most of them it died in the middle: the BSE float scrape refused to write on a
+# one-scrip universe drift, the price-history fetch refused on a three-scrip
+# drift, verify-data went red on two suspended scrip codes. Every one of those
+# stopped the job long before its final step, so a self-check inside it would
+# have been just as silent.
+#
+# So the watch runs on its own schedule, reads only what is COMMITTED, and needs
+# neither network nor the pipeline to have run at all. It answers one question:
+# would a portfolio manager opening the dashboard right now be shown a STALE
+# badge? If yes, this is red — by the same predicate the badge itself uses
+# (`isFeedStale` in public/js/data/companies.js), so the two cannot drift apart.
+#
+# ---------------------------------------------------------------------------
+# IT ASSERTS A CONTRACT, NOT WHAT THE MARKET DID
+# ---------------------------------------------------------------------------
+# §2.34's rule binds this job: an assertion must be about the code, the
+# arithmetic or the contract, never about what the numbers happened to be. This
+# one tests that every feed is as fresh as its OWN stated cadence — thresholds
+# read from the feed registry, none typed here or in the script. It makes no
+# claim about prices moving, and it does not try to distinguish a market holiday
+# from a missed run: every threshold already carries a weekend's slack, and a
+# second unverifiable opinion about which days are sessions would be worse than
+# the occasional honest red.
+name: Freshness watch
+
+on:
+  schedule:
+    # 17:00 UTC = 22:30 IST, about two hours after the daily refresh is scheduled
+    # and well past the tail of a slow run. Mon–Sat: Saturday catches a Friday
+    # refresh that never landed, which is otherwise invisible until Monday night.
+    - cron: '0 17 * * 1-6'
+  workflow_dispatch:
+
+concurrency:
+  group: freshness-watch
+  cancel-in-progress: true
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # No network, no build, no dependencies — it reads the committed record and
+      # the feed registry, and nothing else.
+      - name: Every feed against its own cadence
+        run: node scripts/check-freshness.mjs
+
+      - name: What a red run here means
+        if: failure()
+        run: |
+          echo "::error title=The record has stopped moving::One or more feeds are past the cadence"\
+               "they claim. The dashboard is showing a STALE badge on each of them right now — this"\
+               "job and that badge read the same predicate. A stale feed means the job that writes it"\
+               "has stopped, NOT that the market was quiet: check the owning workflow named in the"\
+               "step log above before assuming nothing happened."

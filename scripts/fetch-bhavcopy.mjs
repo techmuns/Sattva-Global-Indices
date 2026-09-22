@@ -178,6 +178,21 @@ async function main() {
       // must not be walked past.
       const sessionMissing = !probe.ok && probe.problems.some((p) => /not CSV|HTML/i.test(p));
 
+      // An INTERMEDIATE session in a --catch-up walk is allowed to be absent:
+      // India's trading holidays are not published as data anywhere this repo
+      // reads, so "BSE has no file for this date" is the only way to learn one
+      // happened. Exiting 0 having written nothing lets the walk continue to the
+      // next session. This is honoured ONLY alongside an explicit --date, which
+      // only the catch-up driver passes, so an ordinary scheduled run can never
+      // turn a genuine outage into "the market was shut".
+      if (sessionMissing && explicit && args.includes('--skip-if-missing')) {
+        process.stdout.write(
+          `  ${candidate} has no bhavcopy — a market holiday. Nothing written, and the walk `
+          + 'continues to the next session.\n\n',
+        );
+        return;
+      }
+
       if (probe.ok || !sessionMissing || attempt >= maxStepBack) {
         text = response.text;
         contentType = response.contentType;
@@ -466,7 +481,128 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  process.stderr.write(`\nUnhandled failure: ${error?.stack || error}\n\n`);
-  process.exit(1);
-});
+/**
+ * ---------------------------------------------------------------------------
+ * CATCH-UP: RECOVERY IS SEQUENTIAL, NEVER A JUMP
+ * ---------------------------------------------------------------------------
+ * `latestTradeDate()` deliberately never consults the stored file, because a
+ * build must not depend on what it happens to already hold. The consequence is
+ * that a run after a missed session JUMPS to the newest one: the intervening
+ * closes are never fetched, the two files are not adjacent, and the continuity
+ * tripwire — the only row-level check that can see a stale row inside a
+ * correctly-dated file — is skipped with a stated reason and stays skipped.
+ *
+ * §3.8 already names the repair and describes it as something a person does by
+ * hand: "Fetching `--date` for each missing session in order keeps every pair
+ * adjacent, so the tripwire actually runs: 31 Aug, 1, 2 and 3 Sep 2026 were
+ * repaired that way." Nothing did it automatically, so every outage left a
+ * permanent hole. The committed record shows what that costs: prices.json
+ * carried `gapDays: 9`, `compared: 0` — nine days across which no row was ever
+ * checked, because the missed sessions were never fetched.
+ *
+ * --catch-up walks the stored file forward one trading day at a time. Each date
+ * is fetched by RE-INVOKING THIS SCRIPT, so every session gets the identical
+ * shape assertion, continuity test, coverage floor and shrink guard rather than
+ * a second, weaker path written for backfill — the §2.38 rule about one
+ * implementation, applied to a script instead of a workbook reader.
+ *
+ * A date with no bhavcopy is a market holiday, and there is no published holiday
+ * calendar in this repo to consult. `--skip-if-missing` is how an intermediate
+ * date says so: BSE serves its SPA shell for a session that does not exist, the
+ * shape probe already recognises that, and the step exits 0 having written
+ * nothing. It is ONLY honoured with an explicit --date from this driver, so an
+ * ordinary run can never quietly turn an outage into "a holiday".
+ */
+const CATCH_UP_MAX_SESSIONS = 15;
+
+async function catchUp() {
+  const args = process.argv.slice(2);
+  const at = args.indexOf('--catch-up');
+  if (at === -1) return false;
+
+  // `--catch-up` takes an OPTIONAL session count, so the token after it is only
+  // consumed when it actually parses as a number — otherwise `--catch-up
+  // --allow-shrink` would silently swallow the next flag.
+  const limitRaw = Number(args[at + 1]);
+  const hasLimit = args[at + 1] !== undefined && Number.isFinite(limitRaw) && limitRaw > 0;
+  const maxSessions = hasLimit
+    ? Math.min(CATCH_UP_MAX_SESSIONS, Math.round(limitRaw))
+    : CATCH_UP_MAX_SESSIONS;
+  const passthrough = args.filter((_, i) => i !== at && !(hasLimit && i === at + 1));
+
+  const explicit = args.indexOf('--date') >= 0 ? args[args.indexOf('--date') + 1] : null;
+  const target = explicit ?? latestTradeDate();
+  const previous = readJson(OUT_PATH);
+  const stored = previous?.tradeDate ?? null;
+
+  if (!stored) {
+    process.stdout.write('\n  --catch-up: no stored price file, so there is nothing to catch up from.\n');
+    return false;
+  }
+  if (stored >= target) {
+    process.stdout.write(
+      `\n  --catch-up: the stored file is already ${stored} and the target is ${target}. Nothing to walk.\n`,
+    );
+    return false;
+  }
+
+  // Every trading day strictly after the stored one, up to and including the
+  // target. Weekends are skipped here; holidays are discovered by asking.
+  const wanted = [];
+  for (let d = nextTradingDay(stored); d <= target; d = nextTradingDay(d)) {
+    wanted.push(d);
+    if (wanted.length > maxSessions) break;
+  }
+
+  if (wanted.length <= 1) return false; // already adjacent — the ordinary path is correct
+
+  if (wanted.length > maxSessions) {
+    process.stderr.write(
+      `\n  --catch-up: the stored file is ${stored} and the target is ${target} — more than `
+      + `${maxSessions} sessions apart.\n  That is not a missed run, it is an abandoned record. `
+      + 'Re-run with a larger --catch-up N if you mean it.\n\n',
+    );
+    process.exit(1);
+  }
+
+  process.stdout.write(
+    `\n  --catch-up: the stored file is ${stored}, the target is ${target}. `
+    + `Fetching ${wanted.length} session(s) IN ORDER so every pair stays adjacent and the\n`
+    + '              continuity tripwire actually runs on each one:\n'
+    + `                ${wanted.join(', ')}\n`,
+  );
+
+  const { spawnSync } = await import('node:child_process');
+  const self = fileURLToPath(import.meta.url);
+  const carried = passthrough.filter((a) => a !== '--date' && a !== explicit);
+
+  for (const date of wanted) {
+    const isTarget = date === wanted[wanted.length - 1];
+    const argv = [self, '--date', date, ...carried];
+    // Only an intermediate session may be absent-and-forgiven. The target is the
+    // day the dashboard is about to claim, so it fails loudly like any other run.
+    if (!isTarget) argv.push('--skip-if-missing');
+    process.stdout.write(`\n${'─'.repeat(72)}\n  catch-up ${date}\n${'─'.repeat(72)}\n`);
+    const result = spawnSync(process.execPath, argv, { stdio: 'inherit' });
+    if (result.status !== 0) {
+      process.stderr.write(`\n  catch-up stopped at ${date} (exit ${result.status}). `
+        + 'The sessions before it are written and the record is further forward than it was.\n\n');
+      process.exit(result.status ?? 1);
+    }
+  }
+  return true;
+}
+
+/** One trading day later, skipping forward over weekends. YYYY-MM-DD. */
+function nextTradingDay(date) {
+  const d = new Date(`${date}T00:00:00Z`);
+  do { d.setUTCDate(d.getUTCDate() + 1); } while (d.getUTCDay() === 0 || d.getUTCDay() === 6);
+  return d.toISOString().slice(0, 10);
+}
+
+catchUp()
+  .then((handled) => (handled ? undefined : main()))
+  .catch((error) => {
+    process.stderr.write(`\nUnhandled failure: ${error?.stack || error}\n\n`);
+    process.exit(1);
+  });
