@@ -209,6 +209,28 @@ function attachConsole(page, bucket, options) {
     const text = msg.text();
     bucket[bucketFor(url, text)].push(`${url ?? '(no url)'} :: ${text.slice(0, 160)}`);
   });
+  // ⚠ A SABOTAGE'S OWN THROW LANDS HERE, AND IT MUST BE CLEANED UP BY THE
+  // SABOTAGE THAT PLANTED IT — not filtered out by this handler.
+  //
+  // Check 22's sabotage injects `throw new Error("deliberate sabotage")` to
+  // prove the check can go red, and that entry used to stay in `real` for the
+  // rest of the run. So EVERY green --prove run in both CI jobs closed with
+  // "1 from our own code" while the application had produced no error at all.
+  // Measured 22 Sep 2026: `--only=22` reports 0 without --prove and 1 with it;
+  // the full suite reports 0 across all 42 checks without it. A counter that is
+  // never zero on a green run is a counter people stop reading — §3.8.2's
+  // guard waived weekly, wearing the harness's hat.
+  //
+  // The obvious fix is to route a throw to `induced` while a sabotage is in
+  // flight. It was written that way first and it is WRONG: this check's
+  // SUBJECT is a console error, so suppressing the planted one makes the check
+  // survive its own sabotage — CANNOT FAIL, which the harness duly reported.
+  // A check whose subject is X cannot have X filtered out from under it.
+  //
+  // So the bucket stays honest and the responsibility sits with the sabotage:
+  // whatever it plants, its `restore` removes. Check 62 asserts the result at
+  // the end of the run, so a sabotage that forgets is caught rather than
+  // quietly inflating the count for everything after it.
   page.on('pageerror', (error) => { bucket.real.push(`pageerror :: ${error.message.slice(0, 160)}`); });
   page.on('requestfailed', (request) => {
     const url = request.url();
@@ -243,6 +265,10 @@ async function main() {
     workerNote = `no Worker (${String(error.message).slice(0, 60)})`;
   }
 
+  // The console buckets, filled by attachConsole below and read by checks 22
+  // and 62. Declared before the Suite only so both can see them.
+  const errors = { real: [], filtered: [], designed: [], induced: [], inducing: false };
+
   // 150 s is far above any healthy check here (the slowest is ~12 s) and far
   // below the point at which a stalled run looks like a working one.
   const suite = new Suite('verify-ui', { requireLive, prove, only, timeoutMs: 150000 });
@@ -262,7 +288,6 @@ async function main() {
     acceptDownloads: true,
   });
   const page = await context.newPage();
-  const errors = { real: [], filtered: [], designed: [], induced: [], inducing: false };
   attachConsole(page, errors, { base, hasWorker });
 
   /** Wait for the streaming fill to finish. Never a sleep. */
@@ -465,7 +490,11 @@ async function main() {
 
   await suite.check({
     id: 22,
-    what: 'the shell renders with zero console errors beyond the two CDN families',
+    // Scoped deliberately: this one is about FIRST PAINT, and check 62 carries
+    // the same assertion over the whole run. Two checks, because "the shell
+    // loaded clean" and "nothing logged an error anywhere" fail for different
+    // reasons and a reader wants to know which.
+    what: 'the shell renders at FIRST PAINT with zero console errors beyond the two CDN families',
     run: async (c) => {
       const shell = await c.page.evaluate(() => ({
         header: Boolean(document.querySelector('[data-status-slot]')),
@@ -489,7 +518,16 @@ async function main() {
       // the pageerror listener. Nothing about the page's own work is timed.
       await new Promise((r) => setTimeout(r, 50));
     },
-    restore: restoreByReload,
+    // THE SABOTAGE CLEARS UP AFTER ITSELF. Reloading the page does not empty
+    // the bucket — it accumulates across the whole run by design, which is what
+    // lets check 62 read it at the end. Leaving the planted throw in it made
+    // every green --prove run report one application error that never happened.
+    // Removed by its own message, so a real pageerror occurring in the same
+    // window is still kept.
+    restore: async (c) => {
+      c.errors.real = c.errors.real.filter((e) => !e.includes('deliberate sabotage'));
+      await restoreByReload(c);
+    },
   }, ctx);
 
   await suite.check({
@@ -4181,7 +4219,62 @@ async function main() {
     restore: restoreByReload,
   }, ctx);
 
+  /* ── the run's own console record ───────────────────────────────────────*/
+  suite.section('What the whole run logged');
+
+  // ⚠ CHECK 22 ASSERTS THIS AT THE FIRST MOMENT OF THE RUN, AND ONLY THERE
+  //
+  // 22 is the first check in the file: it loads the shell and demands an empty
+  // `errors.real`. That is a real assertion about first paint and it is blind
+  // to everything after it. Forty-one checks then drive uploads, exports,
+  // reloads, column drags, baseline switches and the live poller, and a console
+  // error thrown by any of them was accumulated, never asserted on, and
+  // surfaced only as a digit in the summary line — where, until check 22's
+  // restore learned to clear up after itself, it was never zero on a --prove
+  // run anyway and so could not be read as a signal.
+  //
+  // This check is last for that reason: it is the same assertion over the whole
+  // run rather than over its first second. It is cheap because the bucket is
+  // already there; what it adds is that somebody is finally reading it.
+  //
+  // Measured 22 Sep 2026 before it existed: 0 real errors across all 42 checks
+  // without --prove, and 1 with it — which was check 22's own injected throw.
+  await suite.check({
+    id: 62,
+    what: 'not one console error from our own code across the ENTIRE run, not just at first paint',
+    run: async (c) => {
+      empty(
+        c.errors.real,
+        'a console error from our own code is a failure wherever in the run it happens',
+        (e) => e,
+      );
+      return `${c.errors.real.length} from our own code across the ${suite.counts.total} checks already run · `
+        + `${c.errors.filtered.length} CDN · ${c.errors.designed.length} designed probes · `
+        + `${c.errors.induced.length} the harness caused on purpose`;
+    },
+    // A direct push rather than a thrown page error, for two reasons: it names
+    // exactly the bucket the check reads, and it is removable by its own prefix
+    // — which is the discipline this check exists to enforce on everyone else's
+    // sabotage, so it had better hold for its own.
+    sabotage: async (c) => { c.errors.real.push('sabotage :: a planted console error'); },
+    restore: async (c) => {
+      c.errors.real = c.errors.real.filter((e) => !e.startsWith('sabotage :: '));
+    },
+  }, ctx);
+
   await browser.close();
+
+  // A COUNT WITHOUT ITS CONTENT IS NOT ACTIONABLE, AND THIS ONE WAS READ IN CI.
+  // "1 from our own code" on a green run sent a reader hunting for a defect
+  // with nothing to go on — no message, no url, no check to look in. Where the
+  // bucket is non-empty the lines themselves are printed, the same way every
+  // failure here names what broke rather than that something did. Check 62
+  // fails the run on exactly this list, so the print is the diagnosis beside
+  // the red, not a substitute for it.
+  const realErrorLines = errors.real.length
+    ? ['', 'The console errors attributed to our own code, in full:',
+       ...errors.real.map((e) => `  ${e}`)]
+    : [];
 
   process.exit(suite.report([
     `Mode: ${hasWorker ? 'Worker present — the live block runs' : 'static floor — the live block skips, which is the point of running it here'}`,
@@ -4189,6 +4282,7 @@ async function main() {
       + `${errors.designed.length} designed no-Worker probe(s) on /api/quotes · `
       + `${errors.induced.length} induced by the harness cutting that route on purpose · `
       + `${errors.real.length} from our own code`,
+    ...realErrorLines,
   ]));
 }
 

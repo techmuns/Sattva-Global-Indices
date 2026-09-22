@@ -689,6 +689,37 @@ of which had been reporting a tick:
 **A check that cannot fail is not a check.** Before adding one, break the thing it tests and confirm
 it goes red; if you cannot make it fail, say so in the report rather than counting it.
 
+> ### ⚠ AND A SABOTAGE THAT DOES NOT CLEAN UP POISONS EVERY REPORT AFTER IT
+>
+> `--prove` breaks things on purpose, so the wreckage is the harness's own. Where a sabotage writes
+> into state that OUTLIVES the check — not the DOM, which the restore reloads, but a bucket that
+> accumulates across the whole run — the restore has to remove what it planted, or every later
+> reading is inflated by it.
+>
+> Measured 22 Sep 2026, the first time anything read the line: check 22 injects
+> `throw new Error("deliberate sabotage")` to prove it can go red, that entry stayed in the console
+> bucket, and **every green `--prove` run in both CI jobs closed by reporting `1 from our own code`
+> while the application had produced no console error at all.** `--only=22` gives 0 without `--prove`
+> and 1 with it; the full suite gives **0 across all 42 checks that then existed** without it. A
+> number that is wrong and looks authoritative (§2), arriving from the instrument rather than the
+> data.
+>
+> **The obvious fix is the wrong one, and it was written first.** Routing a throw to the
+> harness-caused bucket while a sabotage is in flight makes check 22 survive its own sabotage —
+> CANNOT FAIL, which the harness immediately reported. **A check whose subject is X cannot have X
+> filtered out from under it.** So the bucket stays honest and the sabotage owns its mess.
+
+> ### ⚠ AND A BUCKET NOBODY ASSERTS ON IS NOT A CHECK EITHER
+>
+> Check 22 is the FIRST check in the file and asserts the console bucket is empty *at first paint*.
+> The other forty-one then drive uploads, exports, reloads, column drags, baseline switches and the
+> live poller, and an error thrown by any of them was accumulated, never asserted on, and surfaced
+> only as a digit in the summary — a digit which, because of the bug above, was never zero anyway.
+>
+> **Check 62 is the same assertion over the whole run**, last in the file, and the summary now prints
+> the offending lines rather than counting them: a bare `1 from our own code` sent a reader hunting
+> for a defect with no message, no url and no check to look in.
+
 ---
 
 ---
@@ -2403,7 +2434,7 @@ scripts/
   build-rebalance.mjs              frozen forecast vs the outcome
                                    -> public/data/rebalance-<review>.json
   verify-data.mjs                  65 data assertions; no browser, no network
-  verify-ui.mjs                    42 interface assertions; the served site
+  verify-ui.mjs                    43 interface assertions; the served site
   check-freshness.mjs              is any feed past its OWN cadence? the same predicate
                                    the STALE badge uses, so CI and the screen agree
   check-nse-asm.mjs                what moved on NSE's ASM list, and the freshness guarantee
@@ -2528,7 +2559,7 @@ node scripts/verify-data.mjs           # 65 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
 node scripts/check-freshness.mjs       # is any feed past its own cadence? reads only
 node scripts/check-freshness.mjs --jobs-only  # …failing only on feeds a workflow owns
-node scripts/verify-ui.mjs             # 42 assertions vs http://127.0.0.1:8080
+node scripts/verify-ui.mjs             # 43 assertions vs http://127.0.0.1:8080
 node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live   # vs wrangler dev
 node scripts/verify-data.mjs --only=14,21   # while iterating; the summary says FILTERED
 
