@@ -475,7 +475,8 @@ async function main() {
       for (const [part, present] of Object.entries(shell)) ok(present, `the ${part} must render`);
       empty(c.errors.real, 'a console error from our own code is a failure', (e) => e);
       return `${c.errors.filtered.length} CDN failures filtered (Tailwind / Google Fonts) and `
-        + `${c.errors.designed.length} designed no-Worker probe(s) on /api/quotes, classified by response URL; `
+        + `${c.errors.designed.length} designed probe(s) on /api/quotes or /api/ftse, classified by response URL `
+        + `(with a Worker present only /api/ftse's unbound-store 501 qualifies); `
         + `${c.errors.real.length} from our own code`;
     },
     sabotage: async (c) => {
@@ -3124,6 +3125,7 @@ async function main() {
             notAttempted: first.notAttempted ?? [],
             reason: first.reason ?? null,
             detail: first.detail ?? null,
+            remedy: first.remedy ?? null,
           },
           second: { ok: second.ok, cache: second.cacheState },
         };
@@ -3202,7 +3204,11 @@ async function main() {
       const notAttempted = result.first.notAttempted.map((n) => (typeof n === 'string' ? n : n.symbol));
       const accountedFor = new Set([...failedSymbols, ...notAttempted]);
       const unaccounted = requested.filter((sym) => !accountedFor.has(sym));
-      empty(unaccounted, 'every requested symbol must be accounted for, in failed[] or notAttempted[] — a dropped symbol is an absence reported as nothing',
+      empty(unaccounted,
+        'every requested symbol must be accounted for, in failed[] or notAttempted[] — a dropped symbol '
+        + `is an absence reported as nothing [envelope said ${JSON.stringify(result.first.reason)}`
+        + `${result.first.detail ? `: ${result.first.detail}` : ''}`
+        + `${result.first.remedy ? ` · remedy: ${result.first.remedy}` : ''}]`,
         (sym) => sym);
 
       // A reason is what distinguishes the two lists: `failed` is a claim about
