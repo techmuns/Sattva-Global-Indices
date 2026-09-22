@@ -428,18 +428,77 @@ async function main() {
     process.exit(1);
   }
 
+  // ---- the shrink guard, anchored on what this run cannot move -----------
+  //
+  // ⚠ COUNTING SCRIPS IS THE WRONG GUARD, AND IT STOPPED THE PIPELINE FOR DAYS
+  //
+  // This used to compare raw totals: `previous.scripCount > scrips.length` and
+  // refuse. But the scrape universe is `held ∪ large ∪ seeded`, all three
+  // derived from BSE's ACTIVE master — and that master churns every day as BSE
+  // suspends, delists and lists scrips. A universe one scrip smaller than
+  // yesterday is the ordinary state of a live exchange, not a partial read.
+  //
+  // Measured on 16 Sep 2026: 1,254 on file, 1,253 collected, every one of them
+  // read cleanly — `failed[] = 0`, `1,253 of 1,253`. The guard refused anyway,
+  // and because this is a HARD step in daily-refresh.yml the job died before it
+  // ever reached the bhavcopy fetch. No prices, no rebuild, no commit. The same
+  // shape then fired in fetch-price-history.mjs on the 18th, and between them
+  // the dashboard sat on 17 September's closes while every source answered fine.
+  //
+  // This is exactly the mistake §3.8.2 already named for fund-benchmarks.mjs —
+  // "counting points is the wrong shrink guard for a rolling window", "a guard
+  // waived weekly is a guard nobody reads" — arriving through a churning
+  // universe instead of a rolling window. The lesson did not travel to the other
+  // writers; it does now.
+  //
+  // What must never shrink is COVERAGE OF WHAT WE ASKED FOR, not a count. So the
+  // question is anchored on the previous file — which this run cannot move — and
+  // asks only: of the scrips we already held AND asked for again, how many came
+  // back? A scrip we did not ask for was dropped from the universe by the
+  // master, which is the master doing its job (§3.8: never scrape a code the
+  // active master does not carry), and it is REPORTED rather than treated as a
+  // gap. A scrip we asked for and did not get is a partial read, and still
+  // refuses — at any count, including when the universe grew.
   if (!limit && existsSync(OUT_PATH)) {
     try {
       const previous = JSON.parse(readFileSync(OUT_PATH, 'utf8'));
-      if (Number.isFinite(previous.scripCount) && previous.scripCount > scrips.length && !allowShrink) {
-        process.stderr.write(
-          `\nREFUSING TO WRITE: the existing snapshot has ${num(previous.scripCount)} scrips and this run\n` +
-            `collected ${num(scrips.length)}. A partial read must not replace a good file.\n` +
-            'Re-run; pass --allow-shrink only if the universe genuinely shrank.\n\n',
+      const attempted = new Set(target.map((s) => s.scripCode));
+      const collected = new Set(scrips.map((s) => s.scripCode));
+      const heldBefore = previous.scrips ?? [];
+
+      const lost = heldBefore.filter((s) => attempted.has(s.scripCode) && !collected.has(s.scripCode));
+      const departed = heldBefore.filter((s) => !attempted.has(s.scripCode));
+
+      if (departed.length > 0) {
+        process.stdout.write(
+          `\n${num(departed.length)} scrip(s) left the universe since the last run — not a gap, `
+          + "and not fetched: the active master no longer carries them.\n",
         );
+        for (const s of departed.slice(0, 10)) {
+          process.stdout.write(`  ${String(s.scripCode).padEnd(8)} ${s.name ?? ''}\n`);
+        }
+        if (departed.length > 10) process.stdout.write(`  … and ${num(departed.length - 10)} more\n`);
+      }
+
+      if (lost.length > 0 && !allowShrink) {
+        process.stderr.write(
+          `\nREFUSING TO WRITE: ${num(lost.length)} scrip(s) we already held were asked for again\n`
+          + 'and did not come back. That is a partial read, whatever the totals say.\n\n',
+        );
+        for (const s of lost.slice(0, 15)) {
+          const why = failed.find((f) => f.scripCode === s.scripCode);
+          process.stderr.write(`  ${String(s.scripCode).padEnd(8)} ${(s.name ?? '').padEnd(38)} ${why ? why.reason : 'no reason recorded'}\n`);
+        }
+        if (lost.length > 15) process.stderr.write(`  … and ${num(lost.length - 15)} more\n`);
+        process.stderr.write('\nRe-run; pass --allow-shrink only if these scrips are genuinely gone.\n\n');
         process.exit(1);
       }
-    } catch { /* an unreadable previous file does not block a good one */ }
+    } catch (error) {
+      // An unreadable previous file does not block a good one — but say so,
+      // because a silently skipped guard is a guard that is not running.
+      if (!(error instanceof SyntaxError)) throw error;
+      process.stdout.write('\nThe previous snapshot could not be parsed, so the coverage guard did not run.\n');
+    }
   }
 
   const payload = {

@@ -160,13 +160,26 @@ jobs:
                "absence with its own stated reason. The dashboard's freshness registry carries this"\
                "feed, so the staleness is visible on the sources page rather than invisible."
 
-      # ---- prices, then the record ---------------------------------------
+      # ---- prices, then the record: CATCH UP, never jump ------------------
+      #
+      # `latestTradeDate()` deliberately never consults the stored file, so a run
+      # after a missed session jumps straight to the newest one and the sessions
+      # in between are never fetched. The two files are then not adjacent, the
+      # row-level continuity tripwire is skipped with a stated reason, and it
+      # stays skipped — the hole is permanent. Measured on the committed record
+      # before this change: `gapDays: 9`, `compared: 0`.
+      #
+      # §3.8 already described the repair and described it as manual. --catch-up
+      # walks the stored file forward one trading day at a time, re-invoking the
+      # script per session so every one of them gets the identical shape, coverage
+      # and continuity guards. Measured on the 17->21 Sep gap: two sessions
+      # fetched in order, 1,254 scrips compared at each step, zero failures.
       - name: BSE end-of-day prices
         run: |
           if [ -n "${{ github.event.inputs.date }}" ]; then
             node scripts/fetch-bhavcopy.mjs --date "${{ github.event.inputs.date }}"
           else
-            node scripts/fetch-bhavcopy.mjs
+            node scripts/fetch-bhavcopy.mjs --catch-up
           fi
 
       # ---- the rebalance baselines ---------------------------------------
@@ -247,3 +260,24 @@ jobs:
           done
           echo "::error title=Push failed::Five attempts, all rejected. The data is built and verified but not committed."
           exit 1
+
+      # ---- did any of that actually make the record current? --------------
+      #
+      # ⚠ EVERY STEP ABOVE CAN PASS WHILE THE DASHBOARD SHOWS STALE
+      #
+      # This job's steps each answer "did my fetch work". None of them answers
+      # "is the record the reader sees current", and for four trading days in
+      # September 2026 the answer to the second was no while nothing anywhere was
+      # red about it. The sources modal was drawing STALE badges on four feeds and
+      # its predicate had exactly one reader — the browser.
+      #
+      # check-freshness reads the SAME predicate the badge does, from the same
+      # owner, so this goes red exactly when the screen starts telling a portfolio
+      # manager a feed is out of date. It runs last because a stale feed the
+      # earlier steps could not fix is still worth failing on, and it is not
+      # `continue-on-error`: that is the whole point.
+      #
+      # It cannot catch a run that dies before reaching it — freshness-watch.yml
+      # is the job for that, and it is scheduled separately for that reason.
+      - name: Is the committed record actually current?
+        run: node scripts/check-freshness.mjs --jobs-only

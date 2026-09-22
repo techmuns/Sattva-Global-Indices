@@ -586,14 +586,47 @@ async function run() {
     scrips,
   };
 
-  // A writer never replaces a good snapshot with a smaller one.
-  if (existsSync(OUT_PATH) && !args.allowShrink) {
+  // ---- the shrink guard, anchored on what this run cannot move -----------
+  //
+  // ⚠ THIS COUNTED SCRIPS, AND A THREE-SCRIP DRIFT STOPPED THE PIPELINE
+  //
+  // It used to be `payload.scripCount < previous.scripCount` -> refuse. The
+  // universe here is BSE's ACTIVE master, which churns daily, so the count drifts
+  // on perfectly good data. Measured on 18 Sep 2026: 4,863 on file against 4,860
+  // in a run that fetched all 38 sessions, failed none, and passed all fifteen of
+  // its own checks — refused anyway, and because this is a HARD step the daily
+  // refresh died right there. Same failure as the one in scrape-bse-freefloat.mjs
+  // two days earlier, same cause, and the same one §3.8.2 already wrote up for
+  // fund-benchmarks.mjs.
+  //
+  // What must never shrink is COVERAGE, not a count — and here the thing being
+  // covered is unusually easy to reason about, because these are CLOSED windows.
+  // A close in April 2026 is an immutable fact: a scrip we held for a past
+  // session must still be there unless the master stopped carrying it. So the
+  // question anchored on the previous file is: of the scrips we already held that
+  // the master STILL carries, how many came back? A scrip the master has dropped
+  // is reported and allowed to go — it cannot be re-fetched and nothing in the
+  // record points at it any more. One the master still carries and we lost is a
+  // partial read, and still refuses at any count.
+  if (existsSync(OUT_PATH)) {
     const previous = JSON.parse(readFileSync(OUT_PATH, 'utf8'));
-    const was = previous.scripCount ?? 0;
-    if (payload.scripCount < was) {
+    const heldBefore = Object.keys(previous.scrips ?? {});
+    const lost = heldBefore.filter((code) => known.has(code) && !(code in scrips));
+    const departed = heldBefore.filter((code) => !known.has(code));
+
+    if (departed.length > 0) {
+      process.stdout.write(
+        `\n  ${num(departed.length)} scrip(s) left the active master since the last capture — `
+        + 'not a gap, and not fetchable: '
+        + `${departed.slice(0, 8).join(', ')}${departed.length > 8 ? ', …' : ''}\n`,
+      );
+    }
+    if (lost.length > 0 && !args.allowShrink) {
       process.stderr.write(
-        `\nRefusing to shrink: ${num(was)} scrips on file, ${num(payload.scripCount)} in this run.\n`
-        + 'Pass --allow-shrink if the universe genuinely got smaller.\n\n',
+        `\nRefusing to write: ${num(lost.length)} scrip(s) the master still carries were on file\n`
+        + 'and did not come back. That is a partial read, whatever the totals say.\n'
+        + `  ${lost.slice(0, 15).join(', ')}${lost.length > 15 ? `, … and ${num(lost.length - 15)} more` : ''}\n\n`
+        + 'Pass --allow-shrink only if these scrips are genuinely gone.\n\n',
       );
       process.exit(1);
     }

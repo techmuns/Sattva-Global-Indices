@@ -64,11 +64,75 @@ jobs:
       # tickers it served minutes earlier when pushed, so the script refuses to
       # write below its coverage floor. A failure here must not block the float
       # refresh, which is the part that matters.
-      - name: Munshot quote statistics (ADV, splits)
+      # ⚠ A SOFT STEP THAT SAYS NOTHING IS HOW A FEED REACHES 34 DAYS OLD
+      #
+      # This was `continue-on-error` with no warning branch at all, and it failed
+      # silently on the 1 Sep 2026 run: the job reported success, quote-stats.json
+      # stayed at its 19 August capture, and nothing anywhere said so. The
+      # benchmarks step two blocks down was given exactly this treatment after
+      # exactly this failure — "a soft-failing step whose staleness nothing tracks
+      # is how an outage becomes an absence" — and the lesson was not carried here.
+      #
+      # It is still soft: a rate-limited third party must not block the corporate
+      # actions and price windows behind it. But a soft failure now SAYS SO, and
+      # the freshness watch (§2.34.1) fails once the feed crosses its own 40-day
+      # threshold, so a silent miss can no longer run indefinitely.
+      #
+      # The step no longer claims to supply splits. It does still fetch them, and
+      # they still reach share-reconciliation — but they were removed from the
+      # company record, because corporate-actions.json answers the same question
+      # daily, for 1,237 of 1,237 scrips against this feed's 749, with the right
+      # nouns (§3.8.1). ADV is what the record keeps this feed for.
+      # ⚠ AND THE REASON IT FAILED ON 1 SEP WAS A SECRET THAT IS NOT SET
+      #
+      # Measured from that run's own log: `token: ABSENT`, 856 symbols came back
+      # "not_found", `coverage 29.6% of fetchable companies (floor 80%)`, and the
+      # script correctly refused to write. continue-on-error then reported the
+      # step as SUCCESS and nothing said a word, so quote-stats.json has carried
+      # its 19 August capture ever since.
+      #
+      # The script tolerates a missing token by design — CLAUDE.md §3.8 records
+      # that /stock-data/batch answers unauthenticated — so "ABSENT" is a line in
+      # a log rather than a failure, and it scrolls past. This step makes it a
+      # warning of its own, BEFORE the hour-long fetch, because "the secret is
+      # not configured" and "the upstream throttled us" need completely different
+      # people to act and the log does not distinguish them at a glance.
+      - name: Is the upstream token configured?
+        env:
+          MUNS_TOKEN: ${{ secrets.MUNS_TOKEN }}
+        run: |
+          if [ -z "$MUNS_TOKEN" ]; then
+            echo "::warning title=MUNS_TOKEN is not configured::This repository has no MUNS_TOKEN secret,"\
+                 "so the quote-statistics fetch runs unauthenticated. The 1 Sep 2026 run did exactly that"\
+                 "and resolved 29.6% of companies against an 80% floor, so it wrote nothing and"\
+                 "quote-stats.json has been frozen at its 19 August capture since. Add the secret under"\
+                 "Settings -> Secrets and variables -> Actions. It is a one-time setup; nothing here"\
+                 "needs changing afterwards."
+          else
+            echo "MUNS_TOKEN is configured."
+          fi
+
+      - name: Munshot quote statistics (average daily volume)
+        id: quotestats
         continue-on-error: true
         env:
           MUNS_TOKEN: ${{ secrets.MUNS_TOKEN }}
-        run: node scripts/fetch-quote-stats.mjs --concurrency 1 --gap-ms 1200
+        # pipefail is load-bearing: without it the step's exit code is tee's,
+        # always 0, and the 'if failure' branch below could never fire.
+        run: |
+          set -o pipefail
+          node scripts/fetch-quote-stats.mjs --concurrency 1 --gap-ms 1200 2>&1 | tee /tmp/quotestats.log
+
+      - name: Say what actually stopped the quote statistics
+        if: steps.quotestats.outcome == 'failure'
+        run: |
+          REASON=$(grep -m1 -E 'REFUSING TO WRITE|Refusing to write|Could not read|coverage' /tmp/quotestats.log \
+                   || echo 'no reason line found — read the step log above')
+          echo "::warning title=Quote statistics not written::${REASON}"
+          echo "::warning title=What this means::quote-stats.json is unchanged, so every daysOfAdv on"\
+               "the dashboard is measured against the PREVIOUS capture's average daily volume. The"\
+               "freshness registry carries this feed at 40 days, so freshness-watch.yml goes red once"\
+               "it crosses that — this warning is the earlier signal, not the only one."
 
       # ---- the benchmark series must not fall behind the stats -------------
       # Every relative reading is a stock leg minus an index leg struck on the

@@ -8,7 +8,10 @@
 
 import { escapeHtml } from '../core/dom.js';
 import { shortDate, relativeTime, tickAge, num } from '../core/format.js';
-import { sourceRegistry, freshness, coverage, ftse, ftseOriginState } from '../data/companies.js';
+import {
+  sourceRegistry, freshness, coverage, ftse, ftseOriginState,
+  DEFAULT_STALE_AFTER_DAYS, isFeedStale,
+} from '../data/companies.js';
 import * as quotes from '../data/quotes.js';
 import { openModal } from './screener.js';
 
@@ -37,10 +40,12 @@ const STATUS_STYLE = {
  * Every one of these is the desk's own number, stated as ours on screen rather
  * than implied to be anybody's standard.
  */
-const DEFAULT_STALE_AFTER_DAYS = 14;
-
-/** The threshold for one feed: its own, or the fallback. */
-const staleAfterFor = (source) => source.staleAfterDays ?? DEFAULT_STALE_AFTER_DAYS;
+// DEFAULT_STALE_AFTER_DAYS and the predicate below live in data/companies.js,
+// beside feedRegistry, because scripts/check-freshness.mjs fails CI on the same
+// comparison this modal draws its STALE badge from. Two copies could disagree,
+// and the disagreement would be invisible: the screen would say stale while
+// every job stayed green — which is precisely what happened through September
+// 2026 when nothing but the screen was reading it.
 
 function statusFor(source, now) {
   if (source.status === 'live') {
@@ -52,8 +57,7 @@ function statusFor(source, now) {
     return 'off';
   }
   if (source.status === 'missing' || !source.asOfDate) return 'missing';
-  const days = (now.getTime() - source.asOfDate.getTime()) / 86400000;
-  return days > staleAfterFor(source) ? 'stale' : 'ok';
+  return isFeedStale(source, now) ? 'stale' : 'ok';
 }
 
 /**
@@ -140,7 +144,7 @@ export function headerStatus(now = new Date()) {
   return {
     label: `Last close · BSE · ${closeLabel}`,
     detail: withOldest(marketOpen ? 'Market open, no live quote yet' : 'Market closed'),
-    tone: oldest && (now.getTime() - oldest.date.getTime()) / 86400000 > staleAfterFor(oldest) ? 'caution' : 'positive',
+    tone: oldest && isFeedStale(oldest, now) ? 'caution' : 'positive',
   };
 }
 
