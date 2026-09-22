@@ -560,6 +560,25 @@ certain each is:
 `daysOfAdv` is the number a trader acts on. Where `advQty` is unknown it is **`null`** and renders an
 em dash — never zero, never "instant".
 
+> ### ⚠ TWO ACCOUNTING LISTS COME BACK FROM THE WORKER, AND HALF OF ONE WAS BEING DROPPED
+>
+> `/api/quotes` answers with **`failed[]`** — we asked and did not get it, with a reason per symbol —
+> and **`notAttempted[]`** — we never asked, because the request budget ran out. The Worker keeps them
+> apart deliberately and says why: *"recording it in `failed[]` would report our own budget as a fact
+> about the symbol — the same class of error as rendering a missing value as zero."*
+>
+> `quotes.js` carried `failed[]` through on the failure branch, with a comment about not reporting a
+> failure without its parts, and **dropped `notAttempted[]`**. When the budget expires EVERY symbol
+> lands in that list and `failed[]` is empty — so a caller saw a batch in which nothing failed,
+> nothing resolved, and the symbols had simply vanished. §2.4's absence, arriving through the half of
+> the accounting nobody copied.
+>
+> `verify-ui` 39 had the matching error from the other side: it asserted every requested symbol was in
+> **`failed[]`**, which the Worker could only satisfy by committing the §2.3 error its own comment
+> forbids. Measured on the first run of that job, 22 Sep 2026: **7 of 7 symbols "unaccounted", all 7
+> sitting in the list the check did not read.** Both lists now count as accounting and the split is
+> reported, because *we asked and got nothing* and *we never asked* are different facts about a company.
+
 #### ⚠ NSE ASM qualifies a forced flow; it never suppresses it and never moves the verdict
 
 A trade-implying verdict on a company under NSE's Additional Surveillance Measure is the desk's one
@@ -1785,6 +1804,24 @@ different.
   which is a worse default than the feature being off. With no binding the route answers **501** and
   says what to configure, and the panel says the book reached nobody else — in those words. What it
   must never do is fail in a way that reads as *nothing has been uploaded* (§2.4).
+
+> ### ⚠ AND THAT DESIGNED 501 FAILED A CHECK THE FIRST TIME ANYTHING RAN IT
+>
+> `verify-ui` 22 forbids any console error from our own code, and classifies the designed no-Worker
+> probes on `/api/quotes` and `/api/ftse` out of it. That classifier short-circuits on
+> `if (hasWorker) return false` — right for quotes, where a failing route with a Worker present is
+> exactly the fault it looks like, and **wrong for `/api/ftse`**, whose 501 is the documented answer
+> for an unbound KV *whether or not* a Worker is running.
+>
+> Nothing in the page can suppress the line: the browser logs a failed resource for any non-2xx fetch
+> whether or not JS handles it. So the alternatives were classifying it or shipping a fake KV id —
+> and the second is the thing this section exists to forbid. The rule is now per route, and still
+> narrow: this origin, that path, and **only 501**. A 500 or a 403 there is a real fault.
+>
+> It had never fired because **the job that runs it had never run**: `verify.yml`'s Worker job is
+> gated on `MUNS_TOKEN`, which was not a repository secret, so it reported SKIPPED on every push
+> since it was written. The check was honest about that — a SKIP is not a pass — and one secret
+> turned two latent defects into red CI on the same run.
 
 ## 3. Facts about the data that will cost you an hour if you rediscover them
 

@@ -473,8 +473,16 @@ async function handleQuotes(request, env, ctx) {
     // answers unauthenticated requests, but shipping that as the design would
     // make the token optional by accident — and the day it stops being optional
     // the failure would look like an outage.
+    // Every symbol goes in `notAttempted` and none in `failed`, and that split
+    // is the whole point: with no token nothing was ever asked about these
+    // companies, so there is no fact about any of them to report. Saying
+    // "failed" here would blame the symbols for our own missing configuration —
+    // the §2.4 error this envelope previously committed by naming NEITHER list
+    // and dropping all of them.
     const response = failure('no-token', 'MUNS_TOKEN is not configured on this Worker', {
-      maxAge: FAILURE_TTL_SECONDS, request,
+      maxAge: FAILURE_TTL_SECONDS,
+      request,
+      extra: { failed: [], notAttempted: asked, requested: asked.length },
     });
     ctx.waitUntil(cache.put(cacheKey, response.clone()));
     return response;
@@ -483,7 +491,27 @@ async function handleQuotes(request, env, ctx) {
   const result = await fetchAll(asked, token);
 
   if (result.fatal) {
-    const response = failure(result.fatal.state, result.fatal.detail, { maxAge: FAILURE_TTL_SECONDS, request });
+    // ⚠ THE FATAL ENVELOPE USED TO THROW AWAY THE ACCOUNTING IT WAS HANDED.
+    //
+    // `fetchAll` pushes EVERY symbol of an unauthorised chunk into `failed[]`
+    // with its reason ("unauthorised: upstream HTTP 401"), and this line called
+    // `failure()` with no `extra` — so the default `failed: []` won and
+    // `notAttempted` was absent entirely. A rejected token therefore answered
+    // with a named reason, a remedy, and NO symbols: every company the caller
+    // asked about simply vanished from the reply.
+    //
+    // That is the §2.4 absence, in the one state where the per-symbol record is
+    // least interesting and the DENOMINATOR matters most — a reader seeing
+    // "unauthorised" should still be able to see it was about all seven of the
+    // symbols they asked for, not some unstated subset. It is the same mistake
+    // quotes.js made dropping `notAttempted` and verify-ui 39 made demanding
+    // `failed`, and it went unseen for the same reason: the job that exercises
+    // this path had never run.
+    const response = failure(result.fatal.state, result.fatal.detail, {
+      maxAge: FAILURE_TTL_SECONDS,
+      request,
+      extra: { failed: result.failed, notAttempted: result.notAttempted, requested: asked.length },
+    });
     ctx.waitUntil(cache.put(cacheKey, response.clone()));
     return response;
   }
