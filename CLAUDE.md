@@ -1501,6 +1501,32 @@ because the step inside a job cannot fire when the job dies in the middle — wh
 comes from `feedRegistry`. And the tripwire asserts a **contract** — every feed is as fresh as its own
 stated cadence — never what the market did, because that is the rule §2.34 exists to state.
 
+#### And one feed was stale for a reason no code can fix: a secret that is not set
+
+`quote-stats.json` has carried its **19 August** capture since, and the monthly job reported success
+every time. Read from that run's own log:
+
+```
+token: ABSENT (the batch endpoint currently answers unauthenticated)
+WARNING: 856 symbols came back "not_found".
+coverage 29.6% of fetchable companies (floor 80%)
+REFUSING TO WRITE public/data/quote-stats.json — only 29.6% of fetchable companies resolved.
+```
+
+The script did the right thing at every step — §3.8's `not_found`-under-load trap is real, and a
+half-populated statistics file is worse than none. What failed is that **`continue-on-error` reports a
+failed step's `conclusion` as `success`**, and that step had no `id` and no outcome branch, so an hour
+of work ending in a refusal looked identical to an hour of work ending in a write. The benchmarks step
+directly below it had been given exactly this treatment after exactly this failure; the lesson stopped
+there. Both now say what stopped them.
+
+**`MUNS_TOKEN` is not configured as a repository secret**, which is also why `verify.yml`'s Worker job
+shows SKIPPED rather than green. The script tolerates its absence by design — §3.8 records that
+`/stock-data/batch` answers unauthenticated — so "ABSENT" is a line in a log that scrolls past. The
+monthly job now warns on it **before** the hour-long fetch, because *the secret is not configured* and
+*the upstream throttled us* need different people to act and the log does not tell them apart at a
+glance. Setting the secret once is the whole fix; nothing in the workflow changes afterwards.
+
 ### 2.35 FTSE is a SECOND OPINION, and it is wired so it cannot become an input
 
 The desk asked for FTSE's India book beside MSCI's, on the same rows and columns. It is there —

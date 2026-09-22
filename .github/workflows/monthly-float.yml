@@ -83,6 +83,35 @@ jobs:
       # company record, because corporate-actions.json answers the same question
       # daily, for 1,237 of 1,237 scrips against this feed's 749, with the right
       # nouns (§3.8.1). ADV is what the record keeps this feed for.
+      # ⚠ AND THE REASON IT FAILED ON 1 SEP WAS A SECRET THAT IS NOT SET
+      #
+      # Measured from that run's own log: `token: ABSENT`, 856 symbols came back
+      # "not_found", `coverage 29.6% of fetchable companies (floor 80%)`, and the
+      # script correctly refused to write. continue-on-error then reported the
+      # step as SUCCESS and nothing said a word, so quote-stats.json has carried
+      # its 19 August capture ever since.
+      #
+      # The script tolerates a missing token by design — CLAUDE.md §3.8 records
+      # that /stock-data/batch answers unauthenticated — so "ABSENT" is a line in
+      # a log rather than a failure, and it scrolls past. This step makes it a
+      # warning of its own, BEFORE the hour-long fetch, because "the secret is
+      # not configured" and "the upstream throttled us" need completely different
+      # people to act and the log does not distinguish them at a glance.
+      - name: Is the upstream token configured?
+        env:
+          MUNS_TOKEN: ${{ secrets.MUNS_TOKEN }}
+        run: |
+          if [ -z "$MUNS_TOKEN" ]; then
+            echo "::warning title=MUNS_TOKEN is not configured::This repository has no MUNS_TOKEN secret,"\
+                 "so the quote-statistics fetch runs unauthenticated. The 1 Sep 2026 run did exactly that"\
+                 "and resolved 29.6% of companies against an 80% floor, so it wrote nothing and"\
+                 "quote-stats.json has been frozen at its 19 August capture since. Add the secret under"\
+                 "Settings -> Secrets and variables -> Actions. It is a one-time setup; nothing here"\
+                 "needs changing afterwards."
+          else
+            echo "MUNS_TOKEN is configured."
+          fi
+
       - name: Munshot quote statistics (average daily volume)
         id: quotestats
         continue-on-error: true
