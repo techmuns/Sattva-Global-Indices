@@ -229,17 +229,58 @@ jobs:
               });
           "
 
+      # ⚠ A STEP `env:` DOES NOT REACH THE WORKER, AND THE COMMENT HERE SAID IT DID
+      #
+      # This read "the secret reaches the Worker through the environment, never a
+      # file", set MUNS_TOKEN in the step's env, and started wrangler. The token
+      # reaches the wrangler PROCESS that way and stops there: under
+      # `wrangler dev --local` the Worker's `env` bindings come from
+      # wrangler.jsonc `vars`, from `.dev.vars`, or from `--var`. The host
+      # process environment is not injected as a binding, so `env.MUNS_TOKEN`
+      # was undefined and /api/quotes answered `no-token` — its own name for
+      # "nobody configured me".
+      #
+      # It was invisible because this job is gated on the secret existing, so it
+      # had never run. The first time it did, on 22 Sep 2026, it reported:
+      #
+      #   envelope said "no-token": MUNS_TOKEN is not configured on this Worker
+      #
+      # which is the Worker being exactly honest about a state the workflow put
+      # it in. `--var` is the other option and is wrong for a secret: it is a
+      # plain-text var and wrangler prints its bindings on startup, straight into
+      # a public build log. `.dev.vars` is the mechanism CLAUDE.md §5 already
+      # names for precisely this, it is gitignored, and it is removed below
+      # whatever the outcome.
       - name: Start wrangler dev
         env:
           MUNS_TOKEN: ${{ secrets.MUNS_TOKEN }}
         run: |
-          # The secret reaches the Worker through the environment, never a file.
+          # printf with the value as an argument to a SHELL BUILTIN, not to an
+          # external command, so it never appears in a process listing; '%s'
+          # keeps it exact and umask 077 keeps the file to this user.
+          umask 077
+          printf 'MUNS_TOKEN=%s\n' "$MUNS_TOKEN" > .dev.vars
           npx --yes wrangler@latest dev --port 8787 --ip 127.0.0.1 --local &
           for i in $(seq 1 60); do
             curl -fsS -o /dev/null http://127.0.0.1:8787/api/health && break
             sleep 2
           done
           curl -fsS http://127.0.0.1:8787/api/health
+
+      # The Worker must actually be holding the token, not merely be running.
+      # /api/health reports it without ever echoing the value, and a false here
+      # means the live block is about to test the no-token path and call it live.
+      - name: The Worker must be holding the token
+        run: |
+          CONFIGURED=$(curl -fsS http://127.0.0.1:8787/api/health \
+            | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).tokenConfigured===true)}catch{console.log('false')}})")
+          if [ "$CONFIGURED" != "true" ]; then
+            echo "::error title=The Worker has no token::/api/health reports tokenConfigured=false, so /api/quotes will answer"\
+                 "'no-token' and the live block would be testing the unconfigured path while calling itself live."\
+                 "Check that the MUNS_TOKEN repository secret exists and that .dev.vars was written above."
+            exit 1
+          fi
+          echo "the Worker reports tokenConfigured=true"
 
       - name: verify-ui --require-live
         run: NODE_PATH="$(npm root -g)" node scripts/verify-ui.mjs http://127.0.0.1:8787 --require-live
@@ -250,8 +291,16 @@ jobs:
       - name: verify-ui --prove (the live block included)
         run: NODE_PATH="$(npm root -g)" node scripts/verify-ui.mjs http://127.0.0.1:8787 --prove
 
+      # Always, so a failure above cannot leave a token on the runner's disk for
+      # whatever runs next. `.dev.vars` is gitignored, so it never shows in
+      # `git status --porcelain` and the check below cannot catch it for us.
+      - name: Remove the local secret file
+        if: always()
+        run: rm -f .dev.vars
+
       - name: The token must not have reached the repo or the served site
         run: |
+          if [ -f .dev.vars ]; then echo "::error::.dev.vars survived the run"; exit 1; fi
           test -z "$(git status --porcelain)" || { echo "::error::the run left files behind"; git status --porcelain; exit 1; }
           if grep -rq "MUNS_TOKEN" public/; then
             echo "::error::public/ names the token"

@@ -473,8 +473,16 @@ async function handleQuotes(request, env, ctx) {
     // answers unauthenticated requests, but shipping that as the design would
     // make the token optional by accident — and the day it stops being optional
     // the failure would look like an outage.
+    // Every symbol goes in `notAttempted` and none in `failed`, and that split
+    // is the whole point: with no token nothing was ever asked about these
+    // companies, so there is no fact about any of them to report. Saying
+    // "failed" here would blame the symbols for our own missing configuration —
+    // the §2.4 error this envelope previously committed by naming NEITHER list
+    // and dropping all of them.
     const response = failure('no-token', 'MUNS_TOKEN is not configured on this Worker', {
-      maxAge: FAILURE_TTL_SECONDS, request,
+      maxAge: FAILURE_TTL_SECONDS,
+      request,
+      extra: { failed: [], notAttempted: asked, requested: asked.length },
     });
     ctx.waitUntil(cache.put(cacheKey, response.clone()));
     return response;
