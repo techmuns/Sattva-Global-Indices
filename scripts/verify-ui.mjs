@@ -135,13 +135,45 @@ function isCdnNoise(url) {
 const NO_WORKER_STATUSES = /\b(404|405|501)\b/;
 const NO_WORKER_ROUTES = new Set(['/api/quotes', '/api/ftse']);
 
+/**
+ * ⚠ AND `/api/ftse` HAS A DESIGNED 501 WITH A WORKER PRESENT TOO.
+ *
+ * The rule above — "against `wrangler dev` a failing /api/* is a genuine error"
+ * — is right for `/api/quotes` and wrong for `/api/ftse`, and the difference is
+ * in §2.38: the shared FTSE store's KV binding is DELIBERATELY absent from
+ * wrangler.jsonc, because inventing a namespace id would break `wrangler deploy`
+ * for everyone who has not created one. With no binding the route answers 501
+ * and names what to configure, and the dashboard keeps an uploaded book in the
+ * uploader's own browser and says so. That is the designed state, not a fault.
+ *
+ * Nothing in the page can suppress the console line: the browser logs a failed
+ * resource for any non-2xx fetch whether or not JS handles it. So the choice is
+ * between classifying it here and making `wrangler.jsonc` ship a fake KV id —
+ * and the second is the thing §2.38 exists to forbid.
+ *
+ * This was invisible until 22 Sep 2026 because the Worker job had never once
+ * run: it is gated on MUNS_TOKEN, which was not a repository secret, so it
+ * reported SKIPPED on every push since it was written.
+ *
+ * Still deliberately narrow: this origin, that one path, and ONLY 501. A 500 or
+ * a 403 on /api/ftse is a real fault and still fails assertion 22, and
+ * /api/quotes is untouched — with a Worker present, a failing quote route is
+ * exactly the error it looks like.
+ */
+const FTSE_UNBOUND_STORE_STATUS = /\b501\b/;
+
 function isDesignedNoWorkerProbe(url, text, { base, hasWorker }) {
-  if (hasWorker || !url) return false;
+  if (!url) return false;
+  let pathname;
   try {
     const parsed = new URL(url);
     if (`${parsed.protocol}//${parsed.host}` !== new URL(base).origin) return false;
     if (!NO_WORKER_ROUTES.has(parsed.pathname)) return false;
+    pathname = parsed.pathname;
   } catch { return false; }
+  if (hasWorker) {
+    return pathname === '/api/ftse' && FTSE_UNBOUND_STORE_STATUS.test(text ?? '');
+  }
   return NO_WORKER_STATUSES.test(text ?? '');
 }
 
@@ -3087,6 +3119,9 @@ async function main() {
             resolved: Object.keys(first.quotes ?? {}).length,
             quotes: first.quotes ?? {},
             failed: first.failed ?? [],
+            // The Worker's OTHER accounting list. Kept apart from failed[] on
+            // purpose — see the assertion below.
+            notAttempted: first.notAttempted ?? [],
             reason: first.reason ?? null,
             detail: first.detail ?? null,
           },
@@ -3144,13 +3179,41 @@ async function main() {
       ok(result.first.reason, 'a failure must carry a named reason, not an empty one', JSON.stringify(result.first.reason));
       equal(Object.keys(result.first.quotes).length, 0, 'a failed batch must carry no quotes at all');
       const requested = [...result.symbols, 'ZZQXNOTREAL'];
-      const unaccounted = requested.filter((sym) => !failedSymbols.includes(sym));
-      empty(unaccounted, 'every requested symbol must be accounted for in failed[] — a dropped symbol is an absence reported as nothing',
+
+      // ⚠ THERE ARE TWO ACCOUNTING LISTS, AND DEMANDING ONE FORCES A LIE.
+      //
+      // This asserted every requested symbol was in `failed[]`, and that is not
+      // the contract — it is the opposite of it. The Worker keeps `failed` and
+      // `notAttempted` apart deliberately, and says why in `fetchAll`: "NOT
+      // ATTEMPTED IS NOT FAILED. A symbol we never asked about has no result,
+      // and recording it in failed[] would report our own budget as a fact about
+      // the symbol — the same class of error as rendering a missing value as
+      // zero." When the request budget expires, EVERY symbol lands in
+      // `notAttempted`, so the old assertion could only be satisfied by the
+      // Worker committing the §2.3 error it was written to avoid.
+      //
+      // It went red the first time this job ever ran, on exactly that state: 7
+      // of 7 "unaccounted", all 7 sitting in the list the check did not read.
+      //
+      // What the check actually means — and what its own sentence says — is that
+      // nothing may be DROPPED. So both lists count as accounting, and the split
+      // is reported rather than flattened, because "we asked and got nothing"
+      // and "we never asked" are different facts about a company.
+      const notAttempted = result.first.notAttempted.map((n) => (typeof n === 'string' ? n : n.symbol));
+      const accountedFor = new Set([...failedSymbols, ...notAttempted]);
+      const unaccounted = requested.filter((sym) => !accountedFor.has(sym));
+      empty(unaccounted, 'every requested symbol must be accounted for, in failed[] or notAttempted[] — a dropped symbol is an absence reported as nothing',
         (sym) => sym);
+
+      // A reason is what distinguishes the two lists: `failed` is a claim about
+      // the symbol and must say what went wrong. `notAttempted` is a claim about
+      // our own budget and correctly carries no per-symbol reason at all — the
+      // envelope's own reason covers it.
       const reasonless = result.first.failed.filter((f) => !(typeof f === 'object' && f.reason));
       empty(reasonless, 'every failure must name its reason', (f) => JSON.stringify(f));
       return `UPSTREAM DEGRADED (${result.first.reason}: ${result.first.detail}) — the documented not_found-under-load trap. `
-        + `live → hit still correct; all ${requested.length} symbols accounted for in failed[] with reasons; 0 quotes fabricated. `
+        + `live → hit still correct; all ${requested.length} symbols accounted for `
+        + `(${failedSymbols.length} failed with reasons, ${notAttempted.length} not attempted); 0 quotes fabricated. `
         + 'Resolution assertions could not run against an upstream that is refusing everything.';
     },
     sabotage: async (c) => {

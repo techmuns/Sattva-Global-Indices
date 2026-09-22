@@ -169,7 +169,10 @@ export async function fetchQuotes(symbols) {
       return { ok: false, reason: 'no-worker', detail: 'this deployment serves static files only' };
     }
     if (!response.ok) {
-      return { ok: false, reason: 'upstream', detail: `worker returned HTTP ${response.status}`, failed: [] };
+      return {
+        ok: false, reason: 'upstream', detail: `worker returned HTTP ${response.status}`,
+        failed: [], notAttempted: [],
+      };
     }
 
     const cacheState = response.headers.get('x-siflows-cache');
@@ -181,12 +184,29 @@ export async function fetchQuotes(symbols) {
       // "something upstream" broke, during exactly the outage the per-symbol
       // detail exists to describe. A failure is not an absence, and a failure
       // reported without its parts is most of the way back to one.
+      //
+      // ⚠ AND notAttempted[] IS ONE OF THOSE PARTS. IT WAS BEING DROPPED.
+      //
+      // The Worker keeps two lists on purpose, and its own comment says why:
+      // "NOT ATTEMPTED IS NOT FAILED. A symbol we never asked about has no
+      // result, and recording it in failed[] would report our own budget as a
+      // fact about the symbol." When the request budget expires, EVERY symbol
+      // lands in `notAttempted` and `failed` is empty — so a caller reading only
+      // `failed` sees a batch in which nothing failed and nothing resolved, and
+      // the symbols have simply vanished. That is the §2.4 absence this branch
+      // was written to prevent, arriving through the half of the accounting
+      // nobody carried across.
+      //
+      // Measured 22 Sep 2026, the first time the live job ever ran: all seven
+      // requested symbols unaccounted for, because all seven were in the list
+      // this line did not copy.
       return {
         ok: false,
         reason: json?.reason ?? 'upstream',
         detail: json?.detail ?? null,
         remedy: json?.remedy ?? null,
         failed: Array.isArray(json?.failed) ? json.failed : [],
+        notAttempted: Array.isArray(json?.notAttempted) ? json.notAttempted : [],
         cacheState,
       };
     }
