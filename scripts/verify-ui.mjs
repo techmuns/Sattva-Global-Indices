@@ -1612,28 +1612,69 @@ async function main() {
       // already, and went red at "0 of 60 rows moved" the moment the timing
       // shifted — so the signal has to be one only the switch can produce.
       const other = before.options.find((o) => o !== before.baseline);
-      await c.page.evaluate((value) => window.__setBaseline(value), other);
-      const after = await c.page.evaluate(read);
 
-      equal(after.baseline, other, 'the picker switched to the baseline asked for');
-      equal(JSON.stringify(after.keys), JSON.stringify(before.keys),
-        'the SAME rows are on screen — a baseline changes what is measured, never which companies are in view');
-
+      // ⚠ THE RESTORE MUST BE IN A `finally`, AND THE COMPARISON MUST BE BY COMPANY
+      //
+      // Both of these were exposed the first time the live block ever ran — the
+      // job is gated on MUNS_TOKEN, and until 22 Sep 2026 there was no token, so
+      // no quote ever landed and the table never moved under its own feet.
+      //
+      // 1. The restore sat at the END of run(), so any failing assertion threw
+      //    past it and left the baseline overridden for the rest of the suite.
+      //    Check 53 reads the DEFAULT view and went red with "expected 2026-08,
+      //    got 2026-05" — a second failure manufactured entirely by the first.
+      //    `restore:` is no help: the harness only calls it around a --prove
+      //    sabotage, never after a plain failure. So it is a `finally`.
+      //
+      // 2. Everything here was compared BY POSITION — `before.legs[i]` against
+      //    `after.legs[i]`. A live quote landing between the two reads changes a
+      //    free-float market cap, and the repaint the switch performs re-sorts on
+      //    it, so index i is a DIFFERENT COMPANY in the two reads. Measured on
+      //    that first run: identical membership, three adjacent rows rotated —
+      //    which failed the row assertion and, far worse, would have compared one
+      //    company's verdict against another's in the assertion that verdicts
+      //    never move. That is the load-bearing claim of §2.12.1, and it was one
+      //    re-sort away from being answered about the wrong rows.
+      //
+      // So the reading is keyed by company. Order is not the contract — this
+      // check's own sentence is "never which COMPANIES are in view" — and a
+      // table that re-sorts when live prices arrive is correct behaviour, not a
+      // fault to be asserted away.
       let legsMoved = 0;
-      let verdictsMoved = 0;
-      for (let i = 0; i < before.keys.length; i += 1) {
-        if (before.legs[i] !== after.legs[i]) legsMoved += 1;
-        if (before.verdicts[i] !== after.verdicts[i]) verdictsMoved += 1;
-      }
-      ok(legsMoved > before.keys.length * 0.8,
-        'nearly every row\'s three columns move — otherwise the picker is decoration',
-        `${legsMoved} of ${before.keys.length} rows moved`);
-      equal(verdictsMoved, 0,
-        'and NOT ONE verdict moved — the reading is evidence beside a verdict, never an input to one');
+      let after;
+      let blank;
+      try {
+        await c.page.evaluate((value) => window.__setBaseline(value), other);
+        after = await c.page.evaluate(read);
+
+        equal(after.baseline, other, 'the picker switched to the baseline asked for');
+        equal(JSON.stringify([...after.keys].sort()), JSON.stringify([...before.keys].sort()),
+          'the SAME rows are on screen — a baseline changes what is measured, never which companies are in view');
+
+        const legsOf = (r) => new Map(r.keys.map((k, i) => [k, r.legs[i]]));
+        const verdictOf = (r) => new Map(r.keys.map((k, i) => [k, r.verdicts[i]]));
+        const beforeLegs = legsOf(before);
+        const afterLegs = legsOf(after);
+        const beforeVerdicts = verdictOf(before);
+        const afterVerdicts = verdictOf(after);
+
+        const movedVerdicts = [];
+        for (const key of before.keys) {
+          if (beforeLegs.get(key) !== afterLegs.get(key)) legsMoved += 1;
+          if (beforeVerdicts.get(key) !== afterVerdicts.get(key)) {
+            movedVerdicts.push(`${key}: ${beforeVerdicts.get(key)} -> ${afterVerdicts.get(key)}`);
+          }
+        }
+        ok(legsMoved > before.keys.length * 0.8,
+          'nearly every row\'s three columns move — otherwise the picker is decoration',
+          `${legsMoved} of ${before.keys.length} rows moved`);
+        empty(movedVerdicts,
+          'and NOT ONE verdict moved — the reading is evidence beside a verdict, never an input to one',
+          (m) => m);
 
       // Absences must stay stated under the new baseline too: a company not yet
       // listed on an older rebalance date is a different absence, not a blank.
-      const blank = await c.page.evaluate(() => {
+      blank = await c.page.evaluate(() => {
         const heads = [...document.querySelectorAll('thead th')].map((h) => h.textContent.trim());
         const di = heads.findIndex((h) => /vs index/.test(h));
         let bad = 0;
@@ -1650,11 +1691,13 @@ async function main() {
         return { bad, dashes };
       });
       equal(blank.bad, 0, 'under the new baseline every absence is still an em dash with a stated reason');
+      } finally {
+        // Whatever happened above, the rest of the suite sees the shipped state.
+        await c.page.evaluate((value) => window.__setBaseline(value), before.baseline);
+      }
 
-      // Back to the default, so the rest of the suite sees the shipped state.
-      await c.page.evaluate((value) => window.__setBaseline(value), before.baseline);
-
-      return `${before.baseline} -> ${other}: ${legsMoved} of ${before.keys.length} rows re-measured, `
+      return `${before.baseline} -> ${other}: ${legsMoved} of ${before.keys.length} rows re-measured `
+        + `(keyed by company, so a live tick re-sorting the table cannot compare one against another), `
         + `0 verdicts moved, ${blank.dashes} absences still stated`;
     },
     // Wire the verdict to the reading — the change 2.12.1 forbids and the one a
