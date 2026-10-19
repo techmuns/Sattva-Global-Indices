@@ -36,9 +36,29 @@
 # file in place and the build carries on with it. weekly-nse-crosscheck.yml
 # retries with far more patience once a week.
 #
-# Everything else is hard: a failure there stops the job rather than committing a
-# degraded file. A dashboard serving yesterday's numbers under today's date is
-# worse than one that visibly failed.
+# ---------------------------------------------------------------------------
+# ⚠ ONE SOURCE FAILING MUST NOT STOP THE OTHERS. IT DID, FOR FOUR WEEKS.
+# ---------------------------------------------------------------------------
+# This header used to say "everything else is hard: a failure there stops the
+# job". From 23 Sep to 19 Oct 2026 BSE's edge began refusing our requests (see
+# BROWSER_HEADERS in scripts/lib/bse.mjs) and the scrip master — the FIRST hard
+# step — failed every run. Every step behind it was skipped: NSE, which was
+# answering; Yahoo, which was answering; the bhavcopy, which was answering. One
+# source's outage became eight stale feeds, and the dashboard sat on 21 Sep.
+#
+# "A dashboard serving yesterday's numbers under today's date" cannot happen
+# here, because no feed is ever stamped with today's date by another feed's
+# success: every file carries its OWN capture date, the sources strip shows each
+# one, and check-freshness fails on each one against its own cadence. So a
+# source that fails now keeps its last good file and ages honestly, and every
+# source that answered still lands.
+#
+# Each source is therefore its own step with `continue-on-error` and an `id`.
+# The one exception is a GROUP that must move together: corporate actions,
+# the bhavcopy and the per-stock history (see that section). The build, the
+# suite and the commit run on whatever arrived, and the LAST step turns the run
+# red and names every source that did not refresh — the same red as before, but
+# it no longer costs the sources that worked.
 name: Daily refresh
 
 on:
@@ -74,7 +94,13 @@ jobs:
           node-version: '22'
 
       # ---- identity and universe ----------------------------------------
+      # Soft since Oct 2026: the master is reference data that moves a few
+      # scrips a week, and the float scrape below reads whatever master is on
+      # disk. Its own cadence in the freshness registry still fails the run if
+      # it stops for longer than that.
       - name: BSE scrip master
+        id: master
+        continue-on-error: true
         run: node scripts/fetch-bse-master.mjs
 
       - name: Import the desk's universe seed
@@ -116,9 +142,37 @@ jobs:
                "nse-asm.json is unchanged and the build carries the last good surveillance list."\
                "ASM status is marked unknown, not 'clear', when the feed is truly unavailable."
 
-      # ---- BSE: the primary source. Hard. --------------------------------
+      # ---- iShares holdings, from BlackRock's own export -----------------
+      # Was refreshed by hand: the old download URL started serving HTML, and
+      # that was read as a datacentre block. It was a retired URL. fetch-ishares
+      # writes only a workbook newer than the committed one, and only after the
+      # shape checks every iShares book must pass, re-measuring the importer's
+      # table in the same write. If the import then refuses, the group is put
+      # back exactly as committed.
+      - name: iShares holdings (BlackRock)
+        id: ishares
+        continue-on-error: true
+        run: node scripts/fetch-ishares.mjs
+
+      - name: Import the iShares workbooks
+        id: ishares_import
+        if: steps.ishares.outcome == 'success'
+        continue-on-error: true
+        run: node scripts/import-ishares.mjs
+
+      - name: Put the iShares group back if the import refused
+        if: steps.ishares_import.outcome == 'failure'
+        run: |
+          git checkout -- scripts/fixtures/ishares-eem.xls scripts/fixtures/ishares-smin.xls \
+            scripts/fixtures/ishares-eems.xls scripts/fixtures/ishares-expected.json public/data/msci-funds.json
+          echo "::warning title=iShares not applied::A fresh workbook downloaded but the importer refused it."\
+               "The committed holdings stand; read the import step's log for the check that failed."
+
+      # ---- BSE: the primary source. Soft per step, never silent. ---------
       - name: BSE per-scrip free float
+        id: float
         if: github.event.inputs.skip-float != 'true'
+        continue-on-error: true
         run: node scripts/scrape-bse-freefloat.mjs
 
       # ---- how the segments themselves moved ------------------------------
@@ -174,14 +228,7 @@ jobs:
       # script per session so every one of them gets the identical shape, coverage
       # and continuity guards. Measured on the 17->21 Sep gap: two sessions
       # fetched in order, 1,254 scrips compared at each step, zero failures.
-      - name: BSE end-of-day prices
-        run: |
-          if [ -n "${{ github.event.inputs.date }}" ]; then
-            node scripts/fetch-bhavcopy.mjs --date "${{ github.event.inputs.date }}"
-          else
-            node scripts/fetch-bhavcopy.mjs --catch-up
-          fi
-
+      #
       # ---- the rebalance baselines ---------------------------------------
       #
       # ⚠ THESE TWO USED TO RUN ONLY IN monthly-float.yml, AND THAT MADE THE
@@ -202,15 +249,48 @@ jobs:
       # mismatch one layer down.
       #
       # Measured cost: actions ~4 min over ~1,240 scrips, history ~1 min over 38
-      # sessions. Both inside the 45-minute budget. Both HARD: a soft failure
-      # here leaves the relative columns measuring against stale action data,
-      # which is the one combination that produces a confident wrong number
-      # rather than a stated absence.
+      # sessions. Both inside the 45-minute budget. Never soft ALONE: a price
+      # that moves without its actions leaves the relative columns measuring
+      # against stale action data, which is the one combination that produces a
+      # confident wrong number rather than a stated absence.
+      #
+      # ⚠ THE THREE MOVE TOGETHER OR NOT AT ALL.
+      #
+      # Corporate actions now run FIRST, and the bhavcopy and the history run
+      # only if they succeeded: a price that advanced past an ex-date the
+      # actions file has not seen is the confident wrong number this section
+      # exists to prevent. If any of the three fails, all three are put back
+      # exactly as committed, so the record never pairs today's closes with
+      # last week's actions. The group then ages as one, honestly.
       - name: BSE corporate actions
+        id: actions
+        continue-on-error: true
         run: node scripts/fetch-corporate-actions.mjs
 
+      - name: BSE end-of-day prices
+        id: prices
+        if: steps.actions.outcome == 'success'
+        continue-on-error: true
+        run: |
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            node scripts/fetch-bhavcopy.mjs --date "${{ github.event.inputs.date }}"
+          else
+            # An explicit N, so a multi-week outage heals once BSE answers (see fetch-bhavcopy.mjs).
+            node scripts/fetch-bhavcopy.mjs --catch-up 60
+          fi
+
       - name: Per-stock price history across the review windows and rebalance baselines
+        id: history
+        if: steps.prices.outcome == 'success'
+        continue-on-error: true
         run: node scripts/fetch-price-history.mjs
+
+      - name: Put the price group back if any of it failed
+        if: steps.history.outcome != 'success'
+        run: |
+          git checkout -- public/data/corporate-actions.json public/data/prices.json public/data/price-history.json
+          echo "::warning title=Prices not advanced::Corporate actions, the bhavcopy or the price history did"\
+               "not complete, so all three are as committed. Read the first failing step of the three."
 
       - name: Rebuild the company record
         run: node scripts/build-companies.mjs
@@ -221,15 +301,16 @@ jobs:
         run: node scripts/verify-data.mjs
 
       - name: Commit if anything changed
+        id: commit
         run: |
-          if git diff --quiet -- public/data; then
+          if git diff --quiet -- public/data scripts/fixtures; then
             echo "No change in public/data — nothing to commit."
             exit 0
           fi
           git config user.name  "sattva-bot"
           git config user.email "tech@muns.io"
           TRADE_DATE=$(node -e "console.log(require('./public/data/prices.json').tradeDate)")
-          git add public/data
+          git add public/data scripts/fixtures/ishares-*.xls scripts/fixtures/ishares-expected.json
           git commit -m "Daily refresh for ${TRADE_DATE}"
 
           # REBASE AND RETRY, because a bare `git push` loses the whole run.
@@ -280,4 +361,40 @@ jobs:
       # It cannot catch a run that dies before reaching it — freshness-watch.yml
       # is the job for that, and it is scheduled separately for that reason.
       - name: Is the committed record actually current?
+        if: ${{ !cancelled() }}
         run: node scripts/check-freshness.mjs --jobs-only
+
+      # ---- and say, by name, every source that did not refresh ------------
+      #
+      # `continue-on-error` reports a failed step's conclusion as success, so
+      # without this the run would be green on a day BSE refused us — §2.34.1's
+      # quote-stats lesson. The outcomes are read here, after the commit, so the
+      # sources that answered have already landed when this turns the run red.
+      - name: Which sources did not refresh
+        if: ${{ !cancelled() }}
+        env:
+          MASTER: ${{ steps.master.outcome }}
+          ISHARES: ${{ steps.ishares.outcome }}
+          ISHARES_IMPORT: ${{ steps.ishares_import.outcome }}
+          FLOAT: ${{ steps.float.outcome }}
+          ACTIONS: ${{ steps.actions.outcome }}
+          PRICES: ${{ steps.prices.outcome }}
+          HISTORY: ${{ steps.history.outcome }}
+          COMMIT: ${{ steps.commit.outcome }}
+        run: |
+          failed=""
+          for pair in "BSE scrip master:$MASTER" "iShares download:$ISHARES" "iShares import:$ISHARES_IMPORT" \
+                      "BSE free float:$FLOAT" "BSE corporate actions:$ACTIONS" "BSE bhavcopy:$PRICES" \
+                      "price history:$HISTORY"; do
+            name="${pair%%:*}"; outcome="${pair##*:}"
+            if [ "$outcome" = "failure" ]; then failed="$failed${failed:+, }$name"; fi
+          done
+          if [ -n "$failed" ]; then
+            if [ "$COMMIT" = "success" ]; then landed="every other source refreshed and was committed."
+            else landed="and NOTHING was committed: the build or the suite stopped the run, read those steps."; fi
+            echo "::error title=Did not refresh::$failed — $landed"\
+                 "Each failed source keeps its last good file and its STALE badge. If BSE is among them,"\
+                 "run scripts/probe-bse-reach.mjs before assuming an IP block."
+            exit 1
+          fi
+          echo "Every source refreshed."

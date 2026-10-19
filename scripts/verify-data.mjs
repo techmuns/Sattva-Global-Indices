@@ -201,6 +201,8 @@ const deepClone = (ctx) => { const c = clone(ctx); c.companies = c.companiesFile
 
 /* ── the funds, by id ──────────────────────────────────────────────────────*/
 const FUND_IDS = ['eem', 'smin', 'eems'];
+/** The committed workbooks' measured figures — the same table import-ishares.mjs is held to. */
+const ISHARES_EXPECTED = readJson('scripts/fixtures/ishares-expected.json').funds;
 const heldBy = (company, fundId) => company.funds?.[fundId] != null;
 
 /* ══════════════════════════════════════════════════════════════════════════*/
@@ -216,19 +218,18 @@ async function main() {
 
   await suite.check({
     id: 1,
-    what: 'India equity rows 168 / 453 / 414 and weight sums 11.360 / 99.442 / 21.271',
+    what: `msci-funds.json reproduces the committed workbooks: India equity rows ${
+      FUND_IDS.map((id) => ISHARES_EXPECTED[id].indiaEquityRows).join(' / ')} and weight sums ${
+      FUND_IDS.map((id) => ISHARES_EXPECTED[id].indiaWeightPct3dp).join(' / ')}`,
     clone: deepClone,
     run: (c) => {
-      // Re-measured on 2026-09-03 when EEM and SMIN were refreshed for the
-      // August review. EEMS was not re-downloaded and is unchanged. These
-      // describe the COMMITTED WORKBOOKS, never the funds in general — a fresh
-      // download legitimately moves every one of them, and the response is to
-      // re-measure in the same commit, never to loosen the check.
-      const EXPECT = {
-        eem: { rows: 168, weight: '11.360' },
-        smin: { rows: 453, weight: '99.442' },
-        eems: { rows: 414, weight: '21.271' },
-      };
+      // These describe the COMMITTED WORKBOOKS, never the funds in general — a
+      // fresh download legitimately moves every one of them, and the response is
+      // to re-measure in the same commit, never to loosen the check. The figures
+      // are read from scripts/fixtures/ishares-expected.json, the ONE table the
+      // importer is held to and fetch-ishares.mjs re-measures beside the files,
+      // so a refreshed workbook cannot leave this suite holding a second,
+      // older copy of the same table.
       const measured = {};
       for (const id of FUND_IDS) {
         const fund = c.funds.funds.find((f) => f.id === id);
@@ -236,8 +237,9 @@ async function main() {
         const rows = fund.holdings.length;
         const weight = fund.holdings.reduce((sum, h) => sum + (h.weightPct ?? 0), 0).toFixed(3);
         measured[id] = { rows, weight };
-        equal(rows, EXPECT[id].rows, `${id}: India equity row count`);
-        equal(weight, EXPECT[id].weight, `${id}: India weight sum (3dp)`);
+        equal(rows, ISHARES_EXPECTED[id].indiaEquityRows, `${id}: India equity row count`);
+        equal(weight, ISHARES_EXPECTED[id].indiaWeightPct3dp, `${id}: India weight sum (3dp)`);
+        equal(fund.asOf, ISHARES_EXPECTED[id].holdingsAsOf, `${id}: holdings date`);
       }
       return FUND_IDS.map((id) => `${id} ${measured[id].rows} rows / ${measured[id].weight}%`).join('  ·  ');
     },
@@ -3303,10 +3305,25 @@ async function main() {
       const source = c.asm.companies;
       ok(source.length > 3, 'the ASM snapshot has enough rows to test against', String(source.length));
 
+      // ⚠ EVERY ROW THIS CHECK TOUCHES MUST CARRY AN ISIN NO OTHER ROW DOES.
+      //
+      // It used rows 0, 1 and the last, by position. On 19 Oct 2026 NSE's list
+      // carried AAATECH twice under one ISIN (two spellings of the name), row 1
+      // was one of the pair, and the ISIN-keyed differ — correctly — saw the
+      // untouched twin and reported no reclassification. The differ was right
+      // and the check went red: §2.34's hostage, an outcome decided by what NSE
+      // published rather than by the code. So the three roles are drawn from
+      // rows whose ISIN is unique in the snapshot.
+      const isinCount = new Map();
+      for (const r of source) isinCount.set(r.isin, (isinCount.get(r.isin) ?? 0) + 1);
+      const solo = source.map((r, i) => (r.isin && isinCount.get(r.isin) === 1 ? i : -1)).filter((i) => i >= 0);
+      ok(solo.length >= 3, 'the ASM snapshot has three rows with an ISIN of their own', String(solo.length));
+      const [respellAt, moveAt, dropAt] = [solo[0], solo[1], solo[solo.length - 1]];
+
       // --- the trap: same ISINs, one symbol spelt differently ---------------
       const before = { companies: source.map((r) => ({ ...r })) };
       const after = { companies: source.map((r) => ({ ...r })) };
-      after.companies[0].symbol = `${after.companies[0].symbol ?? 'X'}.RESPELT`;
+      after.companies[respellAt].symbol = `${after.companies[respellAt].symbol ?? 'X'}.RESPELT`;
 
       const quiet = diff(before, after);
       ok(quiet.comparable, 'two real snapshots are comparable', JSON.stringify(quiet.reason));
@@ -3319,10 +3336,15 @@ async function main() {
       // A differ that always answered "nothing changed" would sail through the
       // assertions above. §3.8.1: a detector that finds nothing is
       // indistinguishable from a broken one, so make it find something.
+      // The new stage is chosen to DIFFER from whatever the row holds today, for
+      // the same reason: a typed stage the row already has would move nothing.
       const moved = { companies: source.map((r) => ({ ...r })) };
-      moved.companies[1].survCode = 'LTASM - IV (16)';
-      moved.companies[1].stage = 'Stage IV';
-      const dropped = moved.companies.pop();
+      const target = moved.companies[moveAt].stage === 'Stage IV'
+        ? { survCode: 'LTASM - I (13)', stage: 'Stage I' }
+        : { survCode: 'LTASM - IV (16)', stage: 'Stage IV' };
+      moved.companies[moveAt].survCode = target.survCode;
+      moved.companies[moveAt].stage = target.stage;
+      const [dropped] = moved.companies.splice(dropAt, 1);
       moved.companies.push({
         isin: 'INE000TEST01', symbol: 'TESTCO', companyName: 'Test Co',
         category: 'longterm', stage: 'Stage I', survCode: 'LTASM - I (13)', survDesc: 'x', asmDate: null,

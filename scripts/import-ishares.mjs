@@ -6,6 +6,8 @@
  *
  * Zero dependencies. Reads scripts/fixtures/ishares-{eem,smin,eems}.xls, which are
  * SpreadsheetML 2003 despite the .xls extension (see scripts/lib/spreadsheetml.mjs).
+ * They are refreshed by scripts/fetch-ishares.mjs, which downloads BlackRock's
+ * own export and re-measures ishares-expected.json in the same commit.
  *
  * WHAT THIS SCRIPT REFUSES TO DO
  *
@@ -23,7 +25,7 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import {
@@ -40,77 +42,34 @@ const FIXTURES = join(HERE, 'fixtures');
 const OUT_PATH = join(REPO, 'public', 'data', 'msci-funds.json');
 
 /**
- * EXPECTED describes THE THREE WORKBOOKS COMMITTED IN scripts/fixtures/.
+ * EXPECTED describes THE THREE WORKBOOKS COMMITTED IN scripts/fixtures/, and it
+ * lives beside them in ishares-expected.json.
  *
- * ⚠ THE THREE ARE NO LONGER AS OF THE SAME DAY, and that is a fact about the
- * record rather than a defect here. EEM and SMIN were re-downloaded after the
- * August 2026 review took effect and are as of 2026-08-31; EEMS was not
- * supplied and is still as of 2026-08-17. `holdingsAsOf` is therefore checked
- * per fund, `msci-funds.json` carries a date per fund, and everything
- * downstream reads the OLDEST of them as the record's freshness — a fresh EEM
- * does not make a fortnight-old EEMS current (CLAUDE.md §2.10).
+ * ⚠ THE THREE NEED NOT BE AS OF THE SAME DAY, and that is a fact about the
+ * record rather than a defect here. `holdingsAsOf` is checked per fund,
+ * `msci-funds.json` carries a date per fund, and everything downstream reads the
+ * OLDEST of them as the record's freshness — a fresh EEM does not make a
+ * fortnight-old EEMS current (CLAUDE.md §2.10).
  *
- * These are NOT invariants of the funds. A workbook refreshed next month will
- * legitimately move every count and every weight in this table. When you drop
- * in fresh fixtures, the correct response to a failure here is to re-measure
- * and update this table in the same commit as the new .xls files — never to
- * loosen the check. This table was last re-measured on 2026-09-03, from the
- * script's own refusal message.
+ * These are NOT invariants of the funds. A workbook refreshed next week will
+ * legitimately move every count and every weight. The response to a failure
+ * here is to re-measure in the same commit as the new .xls files — never to
+ * loosen the check. scripts/fetch-ishares.mjs does exactly that, and only after
+ * a download has passed measureWorkbook()'s structural checks, which hold for
+ * ANY iShares book (the same split §2.38 made for the FTSE upload).
  *
  * `declaredSecurities` is cross-checked against the value the workbook itself
  * prints in its "Number of Securities (excluding cash and derivatives)" row, so
  * that line is verified against the file rather than merely asserted about it.
+ *
+ * It moved out of this file in Oct 2026 so that a bot commit refreshing the
+ * workbooks never has to rewrite JavaScript; verify-data check 1 reads it too,
+ * so the importer and the suite cannot hold two different tables.
  */
-const EXPECTED = {
-  // Re-downloaded after the August 2026 review took effect.
-  eem: {
-    name: 'iShares MSCI Emerging Markets ETF',
-    holdingsAsOf: '2026-08-31',
-    declaredSecurities: 1189,
-    sharesOutstanding: 464850000,
-    dataRows: 1283,
-    indiaRows: 169,
-    indiaEquityRows: 168,
-    indiaWeightPct3dp: '11.360',
-    onNse: 166,
-    onBse: 2,
-    tickerNone: 0,
-    hasTypeColumn: true,
-  },
-  smin: {
-    name: 'iShares MSCI India Small-Cap ETF',
-    holdingsAsOf: '2026-08-31',
-    declaredSecurities: 453,
-    sharesOutstanding: 10750000,
-    dataRows: 477,
-    indiaRows: 454,
-    indiaEquityRows: 453,
-    indiaWeightPct3dp: '99.442',
-    onNse: 446,
-    onBse: 7,
-    tickerNone: 3,
-    hasTypeColumn: false,
-  },
-  // NOT re-downloaded for the August review. Still the pre-rebalance file, and
-  // every surface that shows it has to say so rather than let a fresh sibling
-  // imply it is current.
-  eems: {
-    name: 'iShares MSCI Emerging Markets Small-Cap ETF',
-    holdingsAsOf: '2026-08-17',
-    declaredSecurities: 1693,
-    sharesOutstanding: 5000000,
-    dataRows: 1725,
-    indiaRows: 415,
-    indiaEquityRows: 414,
-    indiaWeightPct3dp: '21.271',
-    onNse: 407,
-    onBse: 7,
-    tickerNone: 2,
-    hasTypeColumn: false,
-  },
-};
+export const EXPECTED_PATH = join(FIXTURES, 'ishares-expected.json');
+const EXPECTED = JSON.parse(readFileSync(EXPECTED_PATH, 'utf8')).funds;
 
-const FUNDS = [
+export const FUNDS = [
   { id: 'eem', shortName: 'EM', fixture: 'ishares-eem.xls' },
   { id: 'smin', shortName: 'India SC', fixture: 'ishares-smin.xls' },
   { id: 'eems', shortName: 'EM SC', fixture: 'ishares-eems.xls' },
@@ -193,10 +152,18 @@ function fundNameFrom(rows, headerRowIndex) {
   return null;
 }
 
-function loadFund(fund) {
+/**
+ * Read one iShares workbook and run the checks that hold for ANY iShares book:
+ * it is SpreadsheetML, it has the sheets and columns, every row has a number,
+ * the exchanges account for every India row, and the BSE-code tickers are the
+ * BSE rows. Nothing here compares against a measured figure — that is
+ * loadFund()'s job for the committed fixtures, and fetch-ishares.mjs's shape
+ * and shrink guards for a fresh download.
+ *
+ * @returns {{ fund, checks, diagnostics, record, measured }}
+ */
+export function measureWorkbook(xml, fund) {
   const checks = new CheckList(fund.id);
-  const expected = EXPECTED[fund.id];
-  const xml = readFileSync(join(FIXTURES, fund.fixture), 'utf8');
 
   checks.assert(
     xml.includes('urn:schemas-microsoft-com:office:spreadsheet'),
@@ -209,7 +176,7 @@ function loadFund(fund) {
   const historical = workbook.sheet('Historical');
   checks.assert(holdings !== null, 'has a Holdings sheet', 'missing');
   checks.assert(historical !== null, 'has a Historical sheet', 'missing');
-  if (!holdings || !historical) return { fund, checks, diagnostics: null, record: null };
+  if (!holdings || !historical) return { fund, checks, diagnostics: null, record: null, measured: null };
 
   // ---- Holdings preamble -------------------------------------------------
   const headerRowIndex = findRowByFirstCell(holdings.rows, 'Ticker');
@@ -218,7 +185,7 @@ function loadFund(fund) {
     'found the header row by its "Ticker" cell',
     'no row on the Holdings sheet begins with "Ticker"',
   );
-  if (headerRowIndex < 0) return { fund, checks, diagnostics: null, record: null };
+  if (headerRowIndex < 0) return { fund, checks, diagnostics: null, record: null, measured: null };
 
   const preamble = preambleMap(holdings.rows, headerRowIndex);
   const name = fundNameFrom(holdings.rows, headerRowIndex);
@@ -229,15 +196,13 @@ function loadFund(fund) {
   );
   const sharesOutstanding = declaredNumber(preamble.get('Shares Outstanding'));
 
-  checks.equal(name, expected.name, 'fund name');
-  checks.equal(asOf, expected.holdingsAsOf, 'Fund Holdings as of');
+  checks.assert(name !== null, 'the workbook names its fund', 'no fund-name row above the header');
+  checks.assert(asOf !== null, '"Fund Holdings as of" parses',
+    `got ${JSON.stringify(cellText(preamble.get('Fund Holdings as of')))}`);
   checks.assert(inceptionDate !== null, 'inception date parses', `got ${JSON.stringify(cellText(preamble.get('Inception Date')))}`);
-  checks.equal(
-    declaredSecurities,
-    expected.declaredSecurities,
-    'workbook\'s own "Number of Securities (excluding cash and derivatives)"',
-  );
-  checks.equal(sharesOutstanding, expected.sharesOutstanding, 'Shares Outstanding');
+  checks.assert(declaredSecurities !== null && declaredSecurities > 0,
+    'the workbook\'s own "Number of Securities (excluding cash and derivatives)" parses', String(declaredSecurities));
+  checks.assert(sharesOutstanding !== null && sharesOutstanding > 0, 'Shares Outstanding parses', String(sharesOutstanding));
 
   // ---- Holdings table ----------------------------------------------------
   const { headers, records } = tableFromHeaderRow(holdings.rows, headerRowIndex);
@@ -248,13 +213,10 @@ function loadFund(fund) {
       `headers are: ${headers.filter(Boolean).join(', ')}`,
     );
   }
-  checks.equal(headers.includes('Type'), expected.hasTypeColumn, 'presence of the "Type" column');
-  checks.equal(records.length, expected.dataRows, 'total data rows');
 
   const indiaRows = records.filter((r) => cellText(r.get('Location')) === 'India');
   const indiaEquity = indiaRows.filter((r) => cellText(r.get('Asset Class')) === 'Equity');
-  checks.equal(indiaRows.length, expected.indiaRows, 'India rows (all asset classes)');
-  checks.equal(indiaEquity.length, expected.indiaEquityRows, 'India equity rows');
+  checks.assert(indiaEquity.length > 0, 'the book holds India equity at all', 'no India equity rows');
 
   // ---- Money ------------------------------------------------------------
   // AUM is computed over EVERY row in the workbook, not the India slice. Flow
@@ -303,23 +265,31 @@ function loadFund(fund) {
   });
 
   checks.equal(nonNumericWeightRows.length, 0, 'every India equity row has a numeric weight');
-  checks.equal(weightSum.toFixed(3), expected.indiaWeightPct3dp, 'India equity weight sum (3 dp)');
 
   const onNse = exchangeCounts.get('National Stock Exchange Of India') ?? 0;
   const onBse = exchangeCounts.get('Bse Ltd') ?? 0;
-  checks.equal(onNse, expected.onNse, 'India equity rows on NSE');
-  checks.equal(onBse, expected.onBse, 'India equity rows on BSE');
-  checks.equal(
-    onNse + onBse,
-    expected.indiaEquityRows,
-    'NSE + BSE accounts for every India equity row',
-  );
-  checks.equal(tickerKindCounts.none, expected.tickerNone, 'India equity rows with ticker "--"');
-  checks.equal(
-    tickerKindCounts['bse-code'],
-    expected.onBse,
-    'numeric (BSE scrip code) tickers match the BSE exchange count',
-  );
+
+  // ⚠ WHAT HOLDS FOR ANY BOOK, AND WHAT ONLY HELD FOR THE OLD ONES.
+  //
+  // These two used to be equalities — NSE + BSE = every India row, and numeric
+  // tickers = BSE rows — and every committed workbook satisfied them. The first
+  // books fetched automatically (16 Oct 2026) did not, for reasons that are
+  // facts about the market: a demerged entity listed on BSE with no ticker yet
+  // (HEG Graphite, `--`), a rights entitlement on BSE (OLAELECR), and a holding
+  // whose exchange BlackRock prints as `--` (TVS Holdings under an old code).
+  // Every such row was always KEPT and handed to the resolver, which states a
+  // reason for what it cannot place; the equalities only ever decided whether a
+  // book was allowed in at all (§2.34).
+  //
+  // What protects identity is one direction of each: an exchange we do not
+  // recognise must not appear, and an all-digit ticker must be a BSE row, or it
+  // would be resolved as a scrip code it is not. The exact counts for the
+  // committed fixtures are still pinned by ishares-expected.json.
+  const unlistedRows = indiaEquity.filter((r) => ['', '-', '--'].includes(cellText(r.get('Exchange'))));
+  checks.equal(onNse + onBse + unlistedRows.length, indiaEquity.length,
+    'every India equity row is on NSE, on BSE, or printed with no exchange');
+  const digitsOffBse = holdingsOut.filter((h) => h.tickerKind === 'bse-code' && h.exchange !== 'Bse Ltd');
+  checks.equal(digitsOffBse.length, 0, 'every numeric (BSE scrip code) ticker is a BSE row');
 
   // ---- Historical: NAV ---------------------------------------------------
   const historicalHeaderIndex = findRowByFirstCell(historical.rows, 'As Of');
@@ -401,7 +371,50 @@ function loadFund(fund) {
     ],
   };
 
-  return { fund, checks, diagnostics, record };
+  const measured = {
+    name,
+    holdingsAsOf: asOf,
+    declaredSecurities,
+    sharesOutstanding,
+    dataRows: records.length,
+    indiaRows: indiaRows.length,
+    indiaEquityRows: indiaEquity.length,
+    indiaWeightPct3dp: weightSum.toFixed(3),
+    onNse,
+    onBse,
+    tickerNone: tickerKindCounts.none,
+    hasTypeColumn: headers.includes('Type'),
+  };
+
+  return { fund, checks, diagnostics, record, measured };
+}
+
+/** The labels the committed-fixture comparison reports each measured figure under. */
+const EXPECTED_LABELS = {
+  name: 'fund name',
+  holdingsAsOf: 'Fund Holdings as of',
+  declaredSecurities: 'workbook\'s own "Number of Securities (excluding cash and derivatives)"',
+  sharesOutstanding: 'Shares Outstanding',
+  dataRows: 'total data rows',
+  indiaRows: 'India rows (all asset classes)',
+  indiaEquityRows: 'India equity rows',
+  indiaWeightPct3dp: 'India equity weight sum (3 dp)',
+  onNse: 'India equity rows on NSE',
+  onBse: 'India equity rows on BSE',
+  tickerNone: 'India equity rows with ticker "--"',
+  hasTypeColumn: 'presence of the "Type" column',
+};
+
+/** The committed workbook, measured AND held to the figures measured from it. */
+function loadFund(fund) {
+  const xml = readFileSync(join(FIXTURES, fund.fixture), 'utf8');
+  const result = measureWorkbook(xml, fund);
+  if (!result.measured) return result;
+  const expected = EXPECTED[fund.id];
+  for (const [key, label] of Object.entries(EXPECTED_LABELS)) {
+    result.checks.equal(result.measured[key], expected?.[key], label);
+  }
+  return result;
 }
 
 function main() {
@@ -488,8 +501,9 @@ function main() {
     for (const result of failed) result.checks.print();
     process.stderr.write(
       '\nThese values describe the workbooks committed in scripts/fixtures/. If you\n' +
-        'replaced them with a fresh download, re-measure and update the EXPECTED table\n' +
-        'in this script in the same commit as the new fixtures. Do not loosen the check.\n',
+        'replaced them by hand, re-measure scripts/fixtures/ishares-expected.json in the\n' +
+        'same commit as the new fixtures — or let scripts/fetch-ishares.mjs do both.\n' +
+        'Do not loosen the check.\n',
     );
     process.exit(1);
   }
@@ -517,4 +531,5 @@ function main() {
   );
 }
 
-main();
+// Importable by fetch-ishares.mjs for measureWorkbook(); runs only as a script.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) main();

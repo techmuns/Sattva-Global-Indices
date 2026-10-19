@@ -1577,6 +1577,59 @@ monthly job now warns on it **before** the hour-long fetch, because *the secret 
 *the upstream throttled us* need different people to act and the log does not tell them apart at a
 glance. Setting the secret once is the whole fix; nothing in the workflow changes afterwards.
 
+### 2.34.2 Four weeks stale with the alarm ringing: one source took down every feed, and nobody heard
+
+From 22 Sep to 19 Oct 2026 the dashboard showed **eight of ten feeds STALE** — BSE free float, the
+bhavcopy, the scrip master, the benchmarks, both NSE feeds, iShares and FTSE — and §2.34.1's alert
+fired correctly every evening. Nothing moved. There were four independent causes, and the lesson is
+in how they compounded.
+
+| Cause | What it did | Fix |
+| --- | --- | --- |
+| BSE's edge began scoring the header set (§3.8) | `fetch-bse-master.mjs`: `HTTP 403 after 4 retries`, every run from 23 Sep | `BROWSER_HEADERS`, one owner in `lib/bse.mjs`; `probe-bse-reach.mjs` |
+| The scrip master was the daily refresh's **first hard step** | NSE, Yahoo and the bhavcopy all answered — and all were skipped, daily | every source its own soft step; one red step at the end names what did not refresh |
+| NSE renamed `HEG` → `HEGAM` (same ISIN) | the weekly NSE job fetched everything, then the build refused on the dated seed's old symbol, four weeks running | a seed symbol no ISIN claims is a rename, reported; one claimed by **another** ISIN still stops the build |
+| iShares' download URL was retired | read on 22 Sep as "BlackRock serves a datacentre IP HTML", so the feed was labelled `hand` | `fetch-ishares.mjs` reads BlackRock's current export daily; `refreshedBy: 'job'` |
+
+**The rule this adds to §2.34: a source's failure costs that source, never its neighbours.** Every
+feed carries its own capture date, the sources strip shows each one, and `check-freshness` fails on
+each against its own cadence — so a feed that did not refresh keeps its last good file and ages
+honestly, and there is no "today's date on yesterday's numbers" to protect against by stopping the
+whole job. The one exception is a group whose members are only correct **together**: corporate
+actions, the bhavcopy and the per-stock history run in that order, each only if the last succeeded,
+and if any of them fails all three are put back as committed (§3.8.1 is why).
+
+**And the second rule: a red that nobody reads is not an alert.** `freshness-watch.yml` was red for
+25 consecutive evenings. A scheduled workflow's failure mail goes to whoever last edited its cron.
+The watch now (1) **re-runs the workflow that owns a stale feed** — a transient is the common case,
+and one more run is the repair — and (2) keeps **one open issue labelled `stale-data`**, commented
+each evening with the report and closed by the first evening every feed is current. Neither is a new
+opinion about staleness: both read the same `isFeedStale` the badge does.
+
+> ### ⚠ "BLOCKED FROM A DATACENTRE IP" WAS WRONG TWICE. MEASURE FROM A SECOND NETWORK FIRST.
+>
+> BSE's 403 and BlackRock's HTML were both first read as IP blocks, and that conclusion is what made
+> one look unfixable and the other look like a person's job. Both were reproduced from a residential
+> line in minutes, and both turned out to be about the **request**, not the network. Before writing
+> "a server cannot reach X" anywhere in this file, reproduce it from somewhere that is not a server.
+
+> ### ⚠ A FRESH WORKBOOK IS HELD TO SHAPE, NOT TO A TABLE MEASURED FROM THE OLD ONE
+>
+> `import-ishares.mjs` pins every count in the committed workbooks, and that table now lives beside
+> them in `scripts/fixtures/ishares-expected.json` — read by the importer **and** verify-data check 1,
+> so there is one copy. A download cannot be judged by it (every figure legitimately moves), so
+> `fetch-ishares.mjs` holds it to `measureWorkbook()`'s structural checks, the fund's own name and
+> column set, an as-of date that never goes backwards, and a shrink floor — §2.38's split for the
+> FTSE upload — and only then writes the workbook and re-measures its table **in the same write**.
+>
+> The first fresh books also showed two "structural" equalities were facts about the old files:
+> *NSE + BSE = every India row* and *numeric tickers = BSE rows*. HEG Graphite (a demerged entity on
+> BSE with no ticker yet), an Ola Electric rights entitlement on BSE (`OLAELECR`) and TVS Holdings
+> under a retired code with no exchange printed broke both. What protects identity is one direction
+> of each — no unrecognised exchange, and every all-digit ticker on BSE — and the resolver now lets a
+> **name-only** match yield to a ticker match on the same ISIN within a fund, keeping the second
+> instrument unresolved with its reason instead of attaching it to the parent's ISIN.
+
 ### 2.35 FTSE is a SECOND OPINION, and it is wired so it cannot become an input
 
 The desk asked for FTSE's India book beside MSCI's, on the same rows and columns. It is there —
@@ -2012,10 +2065,26 @@ the figure as ours (tier 2), so nothing downstream can mistake it for something 
 
 ### 3.8 BSE is the opposite of NSE in every respect
 
-`api.bseindia.com` has **no bot protection**. A browser `user-agent` and `referer:
-https://www.bseindia.com/` are the whole requirement — no cookie warming, no TLS fingerprint
-problem, no throttling observed over thousands of requests. It is the only source that covers the
-whole listed universe rather than 261 names.
+`api.bseindia.com` needs no cookie warming, has no TLS-fingerprint problem, and has shown no
+throttling over thousands of requests. It is the only source that covers the whole listed universe
+rather than 261 names. **It does screen the request's header set**, and that is new.
+
+> ### ⚠ Since about 23 Sep 2026, a `user-agent` and a `referer` are a 403
+>
+> This section used to say they were "the whole requirement". From about 23 Sep 2026 every such
+> request got Akamai's `403 Access Denied` — from a GitHub runner **and from a residential Airtel
+> line**, while bseindia.com's own pages loaded the same endpoints with 200 in a browser. It was
+> never an IP block, and the API was never withdrawn. Measured 19 Oct 2026 on `StockTrading` for
+> 500325: UA + referer → 403; + origin, accept, accept-language → 403; the full set a browser sends
+> (`sec-ch-ua*`, `sec-fetch-*` included) → 200 with real `MktCapFF`; the full set minus `referer` →
+> a 301 to a data-sales page. Dropping any one other header still answered 200, so the edge scores
+> the **set**. It lives once, as `BROWSER_HEADERS` in `scripts/lib/bse.mjs`, and every API caller
+> sends it; `scripts/probe-bse-reach.mjs` checks every endpoint the pipeline reads in seconds.
+> The **download** host (`www.bseindia.com/download`, the bhavcopy) is a different edge and still
+> takes a UA and a referer — but it intermittently emits header lines with leading whitespace that
+> Node's `fetch()` rejects outright, so both bhavcopy readers go through curl (`bseDownloadText`).
+>
+> The cost of not knowing this was four weeks: see §2.34.2.
 
 | Endpoint | What it gives |
 | --- | --- |
@@ -2415,6 +2484,8 @@ scripts/
   lib/recompute.mjs                free-float recompute, passive drift, flow primitives
   import-universe.mjs              Screener seed → public/data/universe.json
   fetch-fund-benchmarks.mjs        SMIN/EEMS/EEM + USDINR → public/data/fund-benchmarks.json
+  fetch-ishares.mjs                BlackRock's own export → scripts/fixtures/ishares-*.xls,
+                                   re-measuring fixtures/ishares-expected.json in the same write
   import-ishares.mjs               3 workbooks → public/data/msci-funds.json
   import-ftse.mjs                  Vanguard FTSE EM workbook → public/data/ftse-funds.json
   scrape-nse-freefloat.mjs         NSE pre-open → public/data/nse-freefloat.json
@@ -2440,8 +2511,10 @@ scripts/
   check-nse-asm.mjs                what moved on NSE's ASM list, and the freshness guarantee
   check-naive-join.mjs             the pre-resolver baseline; writes nothing
   probe-liveness.mjs               is the quote feed live? reports, writes nothing
+  probe-bse-reach.mjs              does every BSE endpoint answer, with the headers we send?
   probe-chunk-size.mjs             largest safe upstream batch; reports only
-  fixtures/ishares-{eem,smin,eems}.xls    the committed input workbooks
+  fixtures/ishares-{eem,smin,eems}.xls    the committed input workbooks (fetched daily)
+  fixtures/ishares-expected.json          what they measure — the importer's table, and verify-data's
   fixtures/screener-universe.csv          the desk's >₹2,000 Cr seed list
   fixtures/vanguard-ftse-em-allcap.xlsx   the FTSE EM holdings book (struck in CAD)
   fixtures/bhavcopy-spa-shell.html       BSE's SPA shell, served with HTTP 200
@@ -2529,6 +2602,7 @@ site works with no build and no network. Never hand-edit them; change the script
 Refresh order — later scripts read what earlier ones write:
 
 ```bash
+node scripts/fetch-ishares.mjs         # 3 requests; writes only a workbook newer than committed
 node scripts/import-ishares.mjs        # workbooks; no network
 node scripts/import-ftse.mjs           # the Vanguard FTSE EM workbook; no network
 node scripts/import-universe.mjs       # the desk's >Rs2,000 Cr seed list; no network

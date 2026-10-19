@@ -30,7 +30,8 @@ const STATUS_STYLE = {
  * There is no single answer, because the feeds do not share a cadence. BSE's
  * float scrape and the bhavcopy run every trading day; NSE is attempted daily
  * and allowed to fail because its edge throttles a datacentre IP, with a weekly
- * job as the guarantee; the iShares workbooks are replaced by hand.
+ * job as the guarantee; the iShares workbooks are fetched from BlackRock every
+ * trading day; the FTSE book is uploaded by the desk.
  *
  * A single 14-day threshold — which is what this file used while the pipeline
  * was monthly — would let the daily sources sit broken for a fortnight without

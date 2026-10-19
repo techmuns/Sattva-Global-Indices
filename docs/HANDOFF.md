@@ -33,12 +33,16 @@ needs no network. Change the script, re-run, commit the output. Never hand-edit.
 
 - **Gives**: holdings for three ETFs — EM (`eem`), India Small-Cap (`smin`), EM Small-Cap (`eems`):
   ticker, name, sector, market value, weight, quantity, price, exchange, FX rate.
-- **Cadence**: whenever BlackRock publish. The workbooks are committed under `scripts/fixtures/`;
-  `import-ishares.mjs` reads them with no network at all.
-- **Coverage**: India equity rows **165 / 461 / 414**, weight sums **11.315% / 99.729% / 21.271%**.
-- **Fails**: `import-ishares.mjs` refuses to write if any count or weight drifts from the `EXPECTED`
-  table in the script. That table describes *the committed fixtures*, not the funds in general — when
-  you drop in fresh workbooks, re-measure and update it **in the same commit**. Never loosen it.
+- **Cadence**: every trading day. `fetch-ishares.mjs` downloads BlackRock's own export (the product
+  page's `get-fund-document … component=fundDownload`, portfolio ids 239637 / 239660 / 239642) into
+  `scripts/fixtures/`; `import-ishares.mjs` then reads them with no network at all.
+- **Coverage**: whatever the committed workbooks hold — the counts live in
+  `scripts/fixtures/ishares-expected.json`.
+- **Fails**: `import-ishares.mjs` refuses to write if any count or weight drifts from
+  `ishares-expected.json`. That table describes *the committed fixtures*, not the funds in general.
+  `fetch-ishares.mjs` re-measures it **in the same write** as a fresh workbook, and only after the
+  download passes the checks that hold for any iShares book (CLAUDE.md §2.34.2). By hand: re-measure
+  in the same commit. Never loosen it.
 
 ### NSE pre-open — free float for the largest names
 
@@ -60,8 +64,11 @@ needs no network. Change the script, re-run, commit the output. Never hand-edit.
   hold. That floor is safe by construction: free float can never exceed full market cap, so nothing
   below it can be an inclusion candidate. **978 of the 978** active scrips above the desk's ₹3,500 Cr
   entry band are covered.
-- **Fails**: no bot protection and no throttling observed over thousands of requests. The danger is
-  not failure but **silent success on the wrong thing** — see traps 5 and 6.
+- **Fails**: no throttling observed over thousands of requests, but the edge **screens the header
+  set**: since about 23 Sep 2026 a bare UA + referer is a 403 from any network. Every caller sends
+  `BROWSER_HEADERS` from `scripts/lib/bse.mjs`; `node scripts/probe-bse-reach.mjs` says in seconds
+  whether each endpoint still answers. Beyond that, the danger is not failure but **silent success on
+  the wrong thing** — see traps 5 and 6.
 
 ### BSE bhavcopy — daily closes
 

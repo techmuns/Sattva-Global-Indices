@@ -333,9 +333,15 @@ export function feedRegistry(asOf = {}) {
       // cannot serve them all. `staleAfterDays` is the point past which THIS
       // feed being unchanged means something went wrong rather than nothing
       // moved. Every one is the desk's own number, not anybody's standard.
-      cadence: 'replaced by hand when new workbooks are downloaded',
-      refreshedBy: 'hand',
-      staleAfterDays: 45,
+      //
+      // Fetched from BlackRock's own export every trading day since Oct 2026
+      // (scripts/fetch-ishares.mjs). It was 'hand' because the old download URL
+      // was retired, and that read as a datacentre block. BlackRock dates a
+      // workbook to the prior US session, so a week covers a holiday weekend on
+      // either side of the Pacific; past it, the job has stopped.
+      cadence: "every trading day, from BlackRock's own holdings export",
+      refreshedBy: 'job',
+      staleAfterDays: 7,
     },
     {
       id: 'nse',

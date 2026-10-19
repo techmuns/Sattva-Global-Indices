@@ -1,4 +1,4 @@
-# Is the record the dashboard serves actually current?
+# Is the record the dashboard serves actually current? And if not, act on it.
 #
 # ---------------------------------------------------------------------------
 # WHY THIS IS A SEPARATE JOB AND NOT A STEP IN THE REFRESH
@@ -17,6 +17,23 @@
 # would a portfolio manager opening the dashboard right now be shown a STALE
 # badge? If yes, this is red — by the same predicate the badge itself uses
 # (`isFeedStale` in public/js/data/companies.js), so the two cannot drift apart.
+#
+# ---------------------------------------------------------------------------
+# ⚠ A RED RUN NOBODY READS IS NOT AN ALERT. THIS ONE WAS RED FOR 25 DAYS.
+# ---------------------------------------------------------------------------
+# From 22 Sep to 17 Oct 2026 this job failed every evening, correctly, and
+# nothing happened: a scheduled workflow's failure mail goes to whoever last
+# edited its cron, and the record sat on 21 Sep. So a stale record now does two
+# things a red X never did:
+#
+#   1. It RETRIES the job that owns the feed. Most stale feeds are a job that
+#      failed on a transient — a throttle, an edge hiccup, a push race — and
+#      one more run is the whole repair. A feed refreshed by hand is never
+#      "retried"; there is no job to run.
+#   2. It keeps ONE open issue labelled `stale-data`, updated each evening with
+#      the report, and closes it the first evening every feed is current. An
+#      issue reaches every watcher of the repository and sits in its issue list
+#      until it is resolved — an alert that does not scroll away.
 #
 # ---------------------------------------------------------------------------
 # IT ASSERTS A CONTRACT, NOT WHAT THE MARKET DID
@@ -43,10 +60,18 @@ concurrency:
   group: freshness-watch
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  actions: write   # to re-run the workflow that owns a stale feed
+  issues: write    # to keep the one `stale-data` issue current
+
 jobs:
   watch:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -56,13 +81,72 @@ jobs:
       # No network, no build, no dependencies — it reads the committed record and
       # the feed registry, and nothing else.
       - name: Every feed against its own cadence
-        run: node scripts/check-freshness.mjs
+        id: all
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          node scripts/check-freshness.mjs 2>&1 | tee /tmp/freshness.txt
+
+      # The same check narrowed to feeds a workflow owns: exit 1 means a JOB has
+      # stopped, which is the case one more run can fix.
+      - name: Is a job-owned feed stale?
+        id: jobs
+        if: steps.all.outcome == 'failure'
+        continue-on-error: true
+        run: node scripts/check-freshness.mjs --jobs-only > /dev/null
+
+      - name: Re-run the workflows that own the stale feeds
+        if: steps.jobs.outcome == 'failure'
+        run: |
+          # Owners as check-freshness prints them. A workflow already running is
+          # queued behind its own concurrency group, never run twice at once.
+          gh workflow run daily-refresh.yml --ref "${GITHUB_REF_NAME}"
+          echo "Dispatched daily-refresh.yml."
+          if grep -qE '^  NSE (pre-open session|index universe) +\[a job owns this' /tmp/freshness.txt; then
+            gh workflow run weekly-nse-crosscheck.yml --ref "${GITHUB_REF_NAME}"
+            echo "Dispatched weekly-nse-crosscheck.yml."
+          fi
+          if grep -qE '^  Munshot quote statistics +\[a job owns this' /tmp/freshness.txt; then
+            gh workflow run monthly-float.yml --ref "${GITHUB_REF_NAME}"
+            echo "Dispatched monthly-float.yml."
+          fi
+
+      - name: Keep one stale-data issue open while anything is stale
+        if: steps.all.outcome == 'failure' && github.ref_name == 'main'
+        run: |
+          gh label create stale-data --color B60205 \
+            --description "A dashboard feed is past its own cadence" --force > /dev/null
+          {
+            echo "The dashboard is showing a **STALE** badge on at least one feed. Report from"
+            echo "[this run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}):"
+            echo
+            echo '```'
+            cat /tmp/freshness.txt
+            echo '```'
+            echo
+            echo "Feeds a job owns have been re-run automatically. A feed marked *waiting on a person*"
+            echo "needs someone to act. This issue closes itself the first evening every feed is current."
+          } > /tmp/issue.md
+          number=$(gh issue list --label stale-data --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body-file /tmp/issue.md
+          else
+            gh issue create --title "Dashboard data is stale" --label stale-data --body-file /tmp/issue.md
+          fi
+
+      - name: Close the stale-data issue once every feed is current
+        if: steps.all.outcome == 'success' && github.ref_name == 'main'
+        run: |
+          for number in $(gh issue list --label stale-data --state open --json number --jq '.[].number'); do
+            gh issue close "$number" --comment "Every feed is within its own cadence again (run ${GITHUB_RUN_ID})."
+          done
 
       - name: What a red run here means
-        if: failure()
+        if: steps.all.outcome == 'failure'
         run: |
           echo "::error title=The record has stopped moving::One or more feeds are past the cadence"\
                "they claim. The dashboard is showing a STALE badge on each of them right now — this"\
                "job and that badge read the same predicate. A stale feed means the job that writes it"\
                "has stopped, NOT that the market was quiet: check the owning workflow named in the"\
                "step log above before assuming nothing happened."
+          exit 1
