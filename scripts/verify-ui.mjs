@@ -1450,11 +1450,26 @@ async function main() {
           delta: heads.findIndex((h) => /vs index/.test(h)),
         };
         if (ix.index < 0 || ix.stock < 0 || ix.delta < 0) return { ix, heads };
+        // \u26a0 `<0.1%` IS AN INTERVAL, NOT 0.1.
+        //
+        // \u00a72.20 renders a real value too small for one decimal as `<0.1` (or
+        // `>-0.1`), never as a zero. Read as the number it prints, that cell
+        // carries up to 0.1 of error rather than the 0.05 the tolerance below
+        // allows \u2014 and on 19 Oct 2026 BHEL's +0.023% stock leg, read as 0.1,
+        // turned this check red on correct arithmetic. It passed before only
+        // because no stock had happened to sit in that sliver (\u00a72.34). The
+        // interval's midpoint carries the same \u00b10.05 as any rounded cell, so it
+        // is what is compared. Digit grouping is dropped for the same reason: a
+        // leg past 999.9% would otherwise read as its first group.
         const numberIn = (cell) => {
-          const text = cell?.innerText?.trim() ?? '';
+          const text = (cell?.innerText?.trim() ?? '').replace(/,/g, '');
           if (!text || text.startsWith('\u2014')) return null;
           const match = text.match(/[+-]?\d+(?:\.\d+)?/);
-          return match ? Number(match[0]) : null;
+          if (!match) return null;
+          const value = Number(match[0]);
+          if (text.startsWith('<')) return value / 2;
+          if (text.startsWith('>-')) return value / 2;
+          return value;
         };
         let compared = 0;
         let separable = 0;
