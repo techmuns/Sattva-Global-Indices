@@ -4140,6 +4140,8 @@ async function main() {
         button: Boolean(document.querySelector('[data-upload-ftse]')),
         rows: window.__sattva.data.all().filter((x) => x.ftse).length,
         asOf: window.__sattva.data.ftse()?.asOf ?? null,
+        resolved: window.__sattva.data.ftse()?.resolved ?? null,
+        indiaRows: window.__sattva.data.ftse()?.indiaRows ?? null,
         verdicts: window.__sattva.verdictTally(),
       }));
       ok(before.button, 'the dashboard carries an upload control', 'no [data-upload-ftse] in the header');
@@ -4170,11 +4172,23 @@ async function main() {
 
       // ---- every count with its denominator (§2.5) ------------------------
       ok(/651 of 6,339/.test(report.text), 'the India slice is stated against the whole book', report.text.slice(0, 400));
-      ok(/638 of 651/.test(report.text), 'and the resolved rows against the rows attempted',
+      // ⚠ THE RESOLVED COUNT BELONGS TO THE RECORD, NOT TO THIS FILE.
+      //
+      // It was typed as 638 of 651, and on 19 Oct 2026 the refreshed record
+      // joined 636: HEG Advanced Materials demerged and no longer prices
+      // against July's book, two companies left the universe, Triveni Power
+      // Transmission listed. Same book, same code — a different market (§2.34).
+      // What must hold is that uploading the committed book reproduces exactly
+      // what the record states, so the expectation is read from the record.
+      const fmt = (n) => Number(n).toLocaleString('en-US');
+      ok(Number.isInteger(before.resolved) && Number.isInteger(before.indiaRows),
+        'the record states its own FTSE join', JSON.stringify({ resolved: before.resolved, indiaRows: before.indiaRows }));
+      ok(new RegExp(`${fmt(before.resolved)} of ${fmt(before.indiaRows)}`).test(report.text),
+        'and the resolved rows against the rows attempted, as the record states them',
         (report.text.match(/Resolved[^\n]*/) ?? [''])[0]);
 
       // ---- rows that could not be placed keep their reason (§2.3, §2.4) ---
-      ok(/13 row\(s\) could not be placed/.test(report.text),
+      ok(new RegExp(`${before.indiaRows - before.resolved} row\\(s\\) could not be placed`).test(report.text),
         'unresolvable rows are named rather than dropped',
         report.text.slice(-400));
 
