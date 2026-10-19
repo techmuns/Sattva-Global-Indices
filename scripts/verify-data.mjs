@@ -21,7 +21,7 @@
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, posix } from 'node:path';
 
 import { Suite, parseArgs, ok, equal, empty, fail } from './lib/assert.mjs';
 import { assertBhavcopyShape, parseBhavcopy, assertContinuity, continuityRecord } from './lib/bhavcopy.mjs';
@@ -67,12 +67,12 @@ function loadSources() {
   const files = [];
   const walk = (dir) => {
     for (const name of readdirSync(join(ROOT, dir))) {
-      const rel = join(dir, name);
+      const rel = posix.join(dir, name);   // '/' on every OS — SCAN_EXCLUDE and the path lookups below match on it
       const abs = join(ROOT, rel);
       if (statSync(abs).isDirectory()) { walk(rel); continue; }
       if (!/\.(js|mjs)$/.test(name)) continue;
       if (SCAN_EXCLUDE.some((re) => re.test(rel))) continue;
-      files.push({ path: relative('.', rel), text: readFileSync(abs, 'utf8') });
+      files.push({ path: rel, text: readFileSync(abs, 'utf8') });
     }
   };
   for (const root of SCAN_ROOTS) walk(root);
