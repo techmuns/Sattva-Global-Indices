@@ -37,6 +37,11 @@ exactly the code that produced the book already on screen — nothing is applied
 the report and pressed Apply. See **Share an uploaded FTSE book** below for the one-time setup that
 makes an upload reach every reader rather than the uploader's browser.
 
+FTSE is now the **only** feed a person refreshes: Vanguard builds that export in the browser, so
+there is no file a job can fetch. Everything else — iShares holdings included — is fetched by a
+workflow, and when any of it goes stale `freshness-watch.yml` re-runs the owning workflow and keeps
+one open issue labelled `stale-data` until it is current again (CLAUDE.md §2.34.2).
+
 **2. Read how much of a verdict rests on the cutoff.** Every verdict turns on a size cutoff MSCI does
 not publish in advance, so each row now says how many of the defensible cutoffs produce it — a count
 of scenarios with its denominator, never a probability. `Holds at 3 of 6` means the answer changes

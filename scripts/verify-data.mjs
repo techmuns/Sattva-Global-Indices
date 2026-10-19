@@ -201,6 +201,8 @@ const deepClone = (ctx) => { const c = clone(ctx); c.companies = c.companiesFile
 
 /* ── the funds, by id ──────────────────────────────────────────────────────*/
 const FUND_IDS = ['eem', 'smin', 'eems'];
+/** The committed workbooks' measured figures — the same table import-ishares.mjs is held to. */
+const ISHARES_EXPECTED = readJson('scripts/fixtures/ishares-expected.json').funds;
 const heldBy = (company, fundId) => company.funds?.[fundId] != null;
 
 /* ══════════════════════════════════════════════════════════════════════════*/
@@ -216,19 +218,18 @@ async function main() {
 
   await suite.check({
     id: 1,
-    what: 'India equity rows 168 / 453 / 414 and weight sums 11.360 / 99.442 / 21.271',
+    what: `msci-funds.json reproduces the committed workbooks: India equity rows ${
+      FUND_IDS.map((id) => ISHARES_EXPECTED[id].indiaEquityRows).join(' / ')} and weight sums ${
+      FUND_IDS.map((id) => ISHARES_EXPECTED[id].indiaWeightPct3dp).join(' / ')}`,
     clone: deepClone,
     run: (c) => {
-      // Re-measured on 2026-09-03 when EEM and SMIN were refreshed for the
-      // August review. EEMS was not re-downloaded and is unchanged. These
-      // describe the COMMITTED WORKBOOKS, never the funds in general — a fresh
-      // download legitimately moves every one of them, and the response is to
-      // re-measure in the same commit, never to loosen the check.
-      const EXPECT = {
-        eem: { rows: 168, weight: '11.360' },
-        smin: { rows: 453, weight: '99.442' },
-        eems: { rows: 414, weight: '21.271' },
-      };
+      // These describe the COMMITTED WORKBOOKS, never the funds in general — a
+      // fresh download legitimately moves every one of them, and the response is
+      // to re-measure in the same commit, never to loosen the check. The figures
+      // are read from scripts/fixtures/ishares-expected.json, the ONE table the
+      // importer is held to and fetch-ishares.mjs re-measures beside the files,
+      // so a refreshed workbook cannot leave this suite holding a second,
+      // older copy of the same table.
       const measured = {};
       for (const id of FUND_IDS) {
         const fund = c.funds.funds.find((f) => f.id === id);
@@ -236,8 +237,9 @@ async function main() {
         const rows = fund.holdings.length;
         const weight = fund.holdings.reduce((sum, h) => sum + (h.weightPct ?? 0), 0).toFixed(3);
         measured[id] = { rows, weight };
-        equal(rows, EXPECT[id].rows, `${id}: India equity row count`);
-        equal(weight, EXPECT[id].weight, `${id}: India weight sum (3dp)`);
+        equal(rows, ISHARES_EXPECTED[id].indiaEquityRows, `${id}: India equity row count`);
+        equal(weight, ISHARES_EXPECTED[id].indiaWeightPct3dp, `${id}: India weight sum (3dp)`);
+        equal(fund.asOf, ISHARES_EXPECTED[id].holdingsAsOf, `${id}: holdings date`);
       }
       return FUND_IDS.map((id) => `${id} ${measured[id].rows} rows / ${measured[id].weight}%`).join('  ·  ');
     },

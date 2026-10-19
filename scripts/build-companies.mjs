@@ -216,18 +216,29 @@ function main() {
 
   const index = buildIndex(master, nseUniverse, new Set(nseFloatBySymbol.keys()), universeSeed);
 
-  // Two files now name an NSE symbol for an ISIN. Where both speak they must
-  // agree: a disagreement means one of them has the wrong company attached to
-  // that ISIN, and every float reading keyed on the symbol would then belong to
-  // somebody else. Nothing downstream could see it, so it stops the build.
+  // Two files now name an NSE symbol for an ISIN. Where the seed's symbol is
+  // claimed by a DIFFERENT ISIN on the exchange's own list, one of them has the
+  // wrong company attached, and every float reading keyed on the symbol would
+  // belong to somebody else. Nothing downstream could see it, so it stops the
+  // build. A seed symbol no ISIN claims any more is an exchange rename the dated
+  // seed cannot follow — nse-universe already wins, so it is printed, not fatal
+  // (see seedSymbolConflicts for the four weeks that cost).
   const symbolConflicts = seedSymbolConflicts(index);
+  const crossWired = symbolConflicts.filter((c) => c.kind === 'cross-wired');
+  const renamed = symbolConflicts.filter((c) => c.kind === 'renamed');
   checks.assert(
-    symbolConflicts.length === 0,
-    'nse-universe.json and the seed list name the same NSE symbol for every shared ISIN',
-    symbolConflicts.slice(0, 6)
+    crossWired.length === 0,
+    'no seed symbol is claimed by a different ISIN on the NSE universe',
+    crossWired.slice(0, 6)
       .map((c) => `${c.isin} ${c.name}: nse-universe says ${c.fromNseUniverse}, seed says ${c.fromSeed}`)
       .join(' | '),
   );
+  for (const c of renamed) {
+    process.stdout.write(
+      `NOTE  NSE renamed ${c.fromSeed} -> ${c.fromNseUniverse} (${c.isin} ${c.name}); `
+      + 'the seed predates it and nse-universe is used.\n',
+    );
+  }
   const { resolved, unresolved, collisions, methodCounts } = resolveAll(funds.funds, index);
 
   // A collision means one of two rows in the same fund is the wrong company.

@@ -6,7 +6,7 @@
  *   node scripts/fetch-corporate-actions.mjs
  *   node scripts/fetch-corporate-actions.mjs --limit 20   probe; WRITES NOTHING
  *
- * Zero dependencies. `api.bseindia.com` has no bot protection — 3.8.
+ * Zero dependencies. `api.bseindia.com` screens headers — see BROWSER_HEADERS in lib/bse.mjs.
  *
  * ---------------------------------------------------------------------------
  * WHY: A RAW CLOSE ACROSS A BONUS ISSUE IS A COLLAPSE THAT NEVER HAPPENED
@@ -79,13 +79,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { renderTable, num } from './lib/report.mjs';
+import { BROWSER_HEADERS, USER_AGENT } from './lib/bse.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
 const OUT_PATH = join(REPO, 'public/data/corporate-actions.json');
 
 const API = 'https://api.bseindia.com/BseIndiaAPI/api';
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const CONCURRENCY = 4;
 const GAP_MS = 250;
 
@@ -231,7 +231,9 @@ export function readPurpose(purpose) {
 async function fetchScrip(scripCode) {
   try {
     const response = await fetch(`${API}/DefaultData/w?scripcode=${encodeURIComponent(scripCode)}`, {
-      headers: { 'user-agent': UA, referer: 'https://www.bseindia.com/', accept: 'application/json' },
+      // BSE's edge scores the header set (lib/bse.mjs) — a UA and a referer alone
+      // have been a 403 since Sep 2026.
+      headers: { ...BROWSER_HEADERS, 'user-agent': USER_AGENT },
       signal: AbortSignal.timeout(30000),
     });
     if (!response.ok) return { ok: false, reason: `HTTP ${response.status}` };

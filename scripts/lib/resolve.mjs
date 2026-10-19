@@ -237,7 +237,7 @@ export function buildIndex(bseMaster, nseUniverse, nseFreeFloatSymbols, universe
   // and neither silently wins. nse-universe stays authoritative because it is the
   // exchange's own index membership; the seed only fills gaps; and where both
   // name a symbol for one ISIN they MUST agree — seedSymbolConflicts() reports
-  // any that do not, and the build refuses to write on a conflict.
+  // any that do not, and the build refuses to write on a cross-wired one.
   const seedByIsin = new Map();
   const seedBySymbol = new Map();
   for (const row of universeSeed?.companies ?? []) {
@@ -263,17 +263,44 @@ export function buildIndex(bseMaster, nseUniverse, nseFreeFloatSymbols, universe
 
 /**
  * Every ISIN for which the NSE universe and the seed list name DIFFERENT NSE
- * symbols. Expected to be empty; a non-empty result means one of the two files
- * has the wrong company and the build must not proceed on either.
+ * symbols, each classified by `kind`:
+ *
+ *   'cross-wired' — the seed's symbol belongs to a DIFFERENT ISIN in the NSE
+ *                   universe. One file has the wrong company attached, and every
+ *                   float reading keyed on that symbol would belong to somebody
+ *                   else. The build must not proceed.
+ *   'renamed'     — the seed's symbol is claimed by no ISIN in the NSE universe.
+ *                   Same ISIN, same company, and the exchange has renamed its
+ *                   code (HEG -> HEGAM, Oct 2026). The seed is a dated Screener
+ *                   export and cannot follow a rename; nse-universe already wins
+ *                   in nseSymbolEntryForIsin(), so this is REPORTED, not fatal.
+ *
+ * ⚠ WHY A RENAME MUST NOT STOP THE BUILD
+ *
+ * It did, for four weekly cross-checks running (26 Sep – 17 Oct 2026): NSE
+ * answered, every fetch succeeded, and the build refused on `HEG` vs `HEGAM`
+ * while the record sat still. A guard whose trigger is something the MARKET did
+ * — a company renaming itself — is §2.34's hostage-taker. The guard still fires
+ * on the thing it exists for: two ISINs claiming one symbol.
  */
 export function seedSymbolConflicts(index) {
+  const isinsBySymbol = new Map();
+  for (const [isin, hits] of index.nseByIsin) {
+    for (const hit of hits) {
+      const key = normaliseTicker(hit.symbol);
+      if (!isinsBySymbol.has(key)) isinsBySymbol.set(key, new Set());
+      isinsBySymbol.get(key).add(isin);
+    }
+  }
   const conflicts = [];
   for (const [isin, row] of index.seedByIsin) {
     const hits = index.nseByIsin.get(isin);
     if (!hits || hits.length !== 1 || !row.nseSymbol) continue;
     const fromUniverse = hits[0].symbol;
     if (normaliseTicker(fromUniverse) !== normaliseTicker(row.nseSymbol)) {
-      conflicts.push({ isin, name: row.name, fromNseUniverse: fromUniverse, fromSeed: row.nseSymbol });
+      const claimants = isinsBySymbol.get(normaliseTicker(row.nseSymbol));
+      const kind = claimants && [...claimants].some((other) => other !== isin) ? 'cross-wired' : 'renamed';
+      conflicts.push({ isin, name: row.name, fromNseUniverse: fromUniverse, fromSeed: row.nseSymbol, kind });
     }
   }
   return conflicts;
@@ -509,6 +536,46 @@ export function resolveAll(funds, index) {
         else seen.set(outcome.isin, [record]);
       }
       resolved.push(record);
+    }
+  }
+
+  // ⚠ A NAME MATCH YIELDS TO A TICKER MATCH ON THE SAME ISSUER.
+  //
+  // Matching by name is the weakest method, and an issuer's name is shared by
+  // every instrument it has in issue. The first books fetched automatically
+  // (16 Oct 2026) carried two such rows beside the parent holding: OLAELECR, an
+  // Ola Electric rights entitlement, and SDCIN, TVS Holdings under a retired
+  // code with no exchange printed. Each matched its parent by name and resolved
+  // to the parent's ISIN — the wrong security, and exactly what a collision
+  // exists to catch. When ONE row reached the ISIN by its ticker, a name-only
+  // row on the same ISIN is not that security: it is kept, unresolved, with the
+  // reason stated. Two rows that reached one ISIN by ticker still collide, and
+  // still stop the build.
+  for (const seen of perFundIsin.values()) {
+    for (const [isin, records] of seen) {
+      const byTicker = records.filter((r) => r.resolution.method !== 'name');
+      const byName = records.filter((r) => r.resolution.method === 'name');
+      if (byTicker.length !== 1 || byName.length === 0) continue;
+      const parent = byTicker[0].holding;
+      for (const record of byName) {
+        resolved.splice(resolved.indexOf(record), 1);
+        methodCounts.name -= 1;
+        methodCounts.none = (methodCounts.none ?? 0) + 1;
+        unresolved.push({
+          ...record,
+          isin: null,
+          nseSymbol: null,
+          nseSymbolSource: null,
+          bseScripCode: null,
+          bseScripId: null,
+          resolvedName: null,
+          resolution: { method: 'none', via: 'none', confidence: 'none' },
+          reason: `its name matches ${isin} only by name, and this fund already holds ${isin} under ticker `
+            + `"${parent.ticker}" — a second instrument of the same issuer (a rights entitlement, a `
+            + 'retired code, a placeholder) is not that security',
+        });
+      }
+      seen.set(isin, byTicker);
     }
   }
 

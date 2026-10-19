@@ -74,6 +74,7 @@ import { dirname, join } from 'node:path';
 
 import { renderTable, num } from './lib/report.mjs';
 import { bhavcopyUrl, assertBhavcopyShape, parseBhavcopy } from './lib/bhavcopy.mjs';
+import { bseDownloadText } from './lib/bse.mjs';
 import { reviewCutoffs, REVIEW_MONTHS, closedReviews } from '../public/js/model/calendar.js';
 import { REBALANCE_BASELINE } from '../public/js/config/thresholds.mjs';
 
@@ -82,7 +83,6 @@ const REPO = join(HERE, '..');
 const OUT_PATH = join(REPO, 'public/data/price-history.json');
 const MASTER_PATH = join(REPO, 'public/data/bse-scrip-master.json');
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const GAP_MS = 350;
 
 /**
@@ -216,19 +216,13 @@ function baselineSpans(latestSessionDate) {
 }
 
 async function fetchSession(date) {
-  let response;
-  try {
-    response = await fetch(bhavcopyUrl(date), {
-      headers: { 'user-agent': UA, referer: 'https://www.bseindia.com/' },
-      signal: AbortSignal.timeout(60000),
-    });
-  } catch (error) {
-    return { state: 'failed', reason: `network: ${error.name === 'TimeoutError' ? 'timed out' : error.message}` };
-  }
-  const contentType = response.headers.get('content-type');
-  const text = await response.text();
+  // curl, via the one BSE download transport — fetch() rejects the malformed
+  // header lines BSE's download edge sometimes sends (see bseDownloadText).
+  const response = await bseDownloadText(bhavcopyUrl(date));
+  if (response.text === undefined) return { state: 'failed', reason: `network: ${response.reason}` };
+  const { contentType, text } = response;
   if (looksLikeNonSession(text, contentType)) return { state: 'non-session' };
-  if (!response.ok) return { state: 'failed', reason: `HTTP ${response.status}` };
+  if (!response.ok) return { state: 'failed', reason: response.reason };
 
   // SHAPE, NEVER STATUS — 3.8. A 200 is not a contract.
   const shape = assertBhavcopyShape(text, { expectDate: date, contentType });

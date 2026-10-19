@@ -70,14 +70,15 @@ function main() {
   const warnOnly = args.includes('--warn-only');
   // ⚠ "A JOB HAS STOPPED" AND "A PERSON IS OWED A WORKBOOK" ARE DIFFERENT FACTS
   //
-  // Two feeds here are refreshed by hand, and not by choice: BlackRock and
-  // Vanguard both answer a datacentre IP with an HTML page under a 200 and an
-  // Excel content-type (§3.8's "a 200 is not a contract", from the other side).
-  // Measured 22 Sep 2026 on the SMIN holdings URL: 1,440,151 bytes of
-  // `<!DOCTYPE html>`. No workflow can refresh those, so a red daily refresh
-  // caused by one would stop meaning "the pipeline stopped" — and a red that
-  // means two different things is a red people learn to wave through, which is
-  // the failure §3.8.2 already named about a guard waived weekly.
+  // One feed here is refreshed by a person: the FTSE book, because Vanguard
+  // builds its holdings export in the browser and there is no file a job can
+  // fetch. (iShares was the second until Oct 2026 — measured 22 Sep, its old
+  // URL answered 1,440,151 bytes of `<!DOCTYPE html>` under a 200, which read
+  // as a datacentre block and was in fact a retired URL; fetch-ishares.mjs now
+  // reads BlackRock's current export daily.) A red daily refresh caused by a
+  // hand feed would stop meaning "the pipeline stopped" — and a red that means
+  // two different things is a red people learn to wave through, which is the
+  // failure §3.8.2 already named about a guard waived weekly.
   //
   // So --jobs-only narrows the FAILURE to feeds a workflow owns. It never
   // narrows the REPORT: a hand-dropped feed past its cadence is printed just as
@@ -176,11 +177,13 @@ function main() {
     'A feed past its cadence means the job that writes it has stopped, not that nothing moved.\n'
     + 'Check the workflow that owns it before assuming the market was quiet:\n'
     + '  bse / bhavcopy / bse-master / benchmarks  -> daily-refresh.yml\n'
+    + '  ishares                                   -> daily-refresh.yml (fetch-ishares.mjs)\n'
     + '  nse / nse-universe                        -> weekly-nse-crosscheck.yml\n'
     + '  asm                                       -> asm-refresh.yml\n'
     + '  quote-stats                               -> monthly-float.yml\n'
-    + '  ishares / ftse                            -> replaced by hand; BlackRock and Vanguard\n'
-    + '                                               both serve a datacentre IP an HTML page.\n\n',
+    + '  ftse                                      -> uploaded by the desk (the FTSE book control);\n'
+    + '                                               Vanguard builds its export in the browser.\n'
+    + 'freshness-watch.yml re-runs the owning workflow and keeps one stale-data issue open.\n\n',
   );
 
   if (warnOnly) {

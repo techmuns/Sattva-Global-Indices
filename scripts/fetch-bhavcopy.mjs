@@ -28,49 +28,15 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { execFile } from 'node:child_process';
 
 import { assertBhavcopyShape, parseBhavcopy, assertContinuity, bhavcopyUrl, continuityRecord } from './lib/bhavcopy.mjs';
 import { renderTable, num, CheckList } from './lib/report.mjs';
+import { bseDownloadText } from './lib/bse.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
 const OUT_PATH = join(REPO, 'public', 'data', 'prices.json');
 const rel = (p) => p.replace(`${REPO}/`, '');
-
-const USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
-const STATUS_SENTINEL = '\n__CURL_HTTP_STATUS__';
-
-function curlText(url) {
-  return new Promise((resolve) => {
-    execFile(
-      'curl',
-      [
-        '-s', '-S', '--fail-with-body',
-        '--retry', '4', '--retry-delay', '5', '--retry-all-errors',
-        '--max-time', '120', '--compressed',
-        '-A', USER_AGENT, '-H', 'referer: https://www.bseindia.com/',
-        '-w', `${STATUS_SENTINEL}%{http_code}\n__CT__%{content_type}`,
-        url,
-      ],
-      { maxBuffer: 64 * 1024 * 1024, encoding: 'utf8' },
-      (error, stdout, stderr) => {
-        if (error && !stdout) {
-          resolve({ ok: false, reason: `curl failed: ${String(stderr || error.message).trim().split('\n')[0]}` });
-          return;
-        }
-        const ctAt = stdout.lastIndexOf('\n__CT__');
-        const contentType = ctAt === -1 ? '' : stdout.slice(ctAt + 7).trim();
-        const rest = ctAt === -1 ? stdout : stdout.slice(0, ctAt);
-        const at = rest.lastIndexOf(STATUS_SENTINEL);
-        if (at === -1) { resolve({ ok: false, reason: 'curl produced no status line' }); return; }
-        const status = Number.parseInt(rest.slice(at + STATUS_SENTINEL.length).trim(), 10);
-        resolve({ ok: status === 200, status, contentType, text: rest.slice(0, at), reason: status === 200 ? null : `HTTP ${status}` });
-      },
-    );
-  });
-}
 
 /** Most recent weekday, in IST — the exchange's own calendar day. */
 /**
@@ -166,7 +132,7 @@ async function main() {
     for (;;) {
       const url = bhavcopyUrl(candidate);
       process.stdout.write(`  GET ${url}\n`);
-      const response = await curlText(url);
+      const response = await bseDownloadText(url);
       if (!response.ok) {
         process.stderr.write(`\nCould not fetch the bhavcopy: ${response.reason}\n` +
           'This is an outage, not a day with no prices. Nothing written.\n\n');
