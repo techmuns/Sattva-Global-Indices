@@ -1,7 +1,7 @@
 {
   "source": "BSE India — api.bseindia.com (StockTrading, getScripHeaderData, ComHeader)",
   "note": "floatFactor = MktCapFF / MktCapFull, both from one StockTrading response at one instant, so it is price-independent. All monetary fields are RUPEES; BSE publishes ₹ crore strings and the conversion happens once, in scripts/lib/bse.mjs. sharesOutstanding is DERIVED as fullMcapInr / priceInr using BSE's own last traded price.",
-  "capturedAt": "2026-10-19T11:47:52.897Z",
+  "capturedAt": "2026-10-19T20:07:08.808Z",
   "universe": {
     "heldByFunds": 610,
     "minFullMcapInr": 20000000000,
@@ -56,7 +56,7 @@
     "partial": false
   },
   "requestCount": 3852,
-  "elapsedMs": 405999,
+  "elapsedMs": 309007,
   "scripCount": 1284,
   "scrips": [
     {
@@ -2522,7 +2522,7 @@
     {
       "scripCode": "532539",
       "scripId": "UNOMINDA",
-      "name": "UNO Minda Ltd-$",
+      "name": "UNO Minda Ltd",
       "isin": "INE405E01023",
       "isinFromComHeader": "INE405E01023",
       "instrumentKind": "equity",
@@ -3287,7 +3287,7 @@
     {
       "scripCode": "530843",
       "scripId": "CUPID",
-      "name": "Cupid Ltd-$",
+      "name": "Cupid Ltd",
       "isin": "INE509F01029",
       "isinFromComHeader": "INE509F01029",
       "instrumentKind": "equity",
@@ -3467,7 +3467,7 @@
     {
       "scripCode": "532504",
       "scripId": "NAVINFLUOR",
-      "name": "Navin Fluorine International Ltd-$",
+      "name": "Navin Fluorine International Ltd",
       "isin": "INE048G01026",
       "isinFromComHeader": "INE048G01026",
       "instrumentKind": "equity",
@@ -3557,7 +3557,7 @@
     {
       "scripCode": "502355",
       "scripId": "BALKRISIND",
-      "name": "Balkrishna Industries Ltd-$",
+      "name": "Balkrishna Industries Ltd",
       "isin": "INE787D01026",
       "isinFromComHeader": "INE787D01026",
       "instrumentKind": "equity",
@@ -4097,7 +4097,7 @@
     {
       "scripCode": "532478",
       "scripId": "UBL",
-      "name": "United Breweries Ltd-$",
+      "name": "United Breweries Ltd",
       "isin": "INE686F01025",
       "isinFromComHeader": "INE686F01025",
       "instrumentKind": "equity",
@@ -4742,7 +4742,7 @@
     {
       "scripCode": "505714",
       "scripId": "GABRIEL",
-      "name": "Gabriel India Ltd-$",
+      "name": "Gabriel India Ltd",
       "isin": "INE524A01029",
       "isinFromComHeader": "INE524A01029",
       "instrumentKind": "equity",
@@ -5057,7 +5057,7 @@
     {
       "scripCode": "500033",
       "scripId": "FORCEMOT",
-      "name": "Force Motors Ltd-$",
+      "name": "Force Motors Ltd",
       "isin": "INE451A01017",
       "isinFromComHeader": "INE451A01017",
       "instrumentKind": "equity",
@@ -5177,7 +5177,7 @@
     {
       "scripCode": "517271",
       "scripId": "HBLENGINE",
-      "name": "HBL Engineering Ltd-$",
+      "name": "HBL Engineering Ltd",
       "isin": "INE292B01021",
       "isinFromComHeader": "INE292B01021",
       "instrumentKind": "equity",
@@ -5387,7 +5387,7 @@
     {
       "scripCode": "506401",
       "scripId": "DEEPAKNTR",
-      "name": "Deepak Nitrite Ltd-$",
+      "name": "Deepak Nitrite Ltd",
       "isin": "INE288B01029",
       "isinFromComHeader": "INE288B01029",
       "instrumentKind": "equity",
@@ -5447,7 +5447,7 @@
     {
       "scripCode": "522163",
       "scripId": "DIACABS",
-      "name": "Diamond Power Infrastructure Ltd-$",
+      "name": "Diamond Power Infrastructure Ltd",
       "isin": "INE989C01038",
       "isinFromComHeader": "INE989C01038",
       "instrumentKind": "equity",
@@ -5567,7 +5567,7 @@
     {
       "scripCode": "506076",
       "scripId": "GRINDWELL",
-      "name": "Grindwell Norton Ltd-$",
+      "name": "Grindwell Norton Ltd",
       "isin": "INE536A01023",
       "isinFromComHeader": "INE536A01023",
       "instrumentKind": "equity",
@@ -5627,7 +5627,7 @@
     {
       "scripCode": "532482",
       "scripId": "GRANULES",
-      "name": "Granules India Ltd-$",
+      "name": "Granules India Ltd",
       "isin": "INE101D01020",
       "isinFromComHeader": "INE101D01020",
       "instrumentKind": "equity",
@@ -5942,7 +5942,7 @@
     {
       "scripCode": "515055",
       "scripId": "ANANTRAJ",
-      "name": "Anant Raj Ltd-$",
+      "name": "Anant Raj Ltd",
       "isin": "INE242C01024",
       "isinFromComHeader": "INE242C01024",
       "instrumentKind": "equity",
@@ -6002,7 +6002,7 @@
     {
       "scripCode": "520111",
       "scripId": "RATNAMANI",
-      "name": "Ratnamani Metals & Tubes Ltd-$",
+      "name": "Ratnamani Metals & Tubes Ltd",
       "isin": "INE703B01027",
       "isinFromComHeader": "INE703B01027",
       "instrumentKind": "equity",
@@ -6227,7 +6227,7 @@
     {
       "scripCode": "504614",
       "scripId": "SARDAEN",
-      "name": "Sarda Energy & Minerals Ltd-$",
+      "name": "Sarda Energy & Minerals Ltd",
       "isin": "INE385C01021",
       "isinFromComHeader": "INE385C01021",
       "instrumentKind": "equity",
@@ -6302,7 +6302,7 @@
     {
       "scripCode": "531162",
       "scripId": "EMAMILTD",
-      "name": "Emami Ltd-$",
+      "name": "Emami Ltd",
       "isin": "INE548C01032",
       "isinFromComHeader": "INE548C01032",
       "instrumentKind": "equity",
@@ -6317,7 +6317,7 @@
     {
       "scripCode": "531335",
       "scripId": "ZYDUSWELL",
-      "name": "Zydus Wellness Ltd-$",
+      "name": "Zydus Wellness Ltd",
       "isin": "INE768C01028",
       "isinFromComHeader": "INE768C01028",
       "instrumentKind": "equity",
@@ -6992,7 +6992,7 @@
     {
       "scripCode": "532548",
       "scripId": "CENTURYPLY",
-      "name": "Century Plyboards (India) Ltd-$",
+      "name": "Century Plyboards (India) Ltd",
       "isin": "INE348B01021",
       "isinFromComHeader": "INE348B01021",
       "instrumentKind": "equity",
@@ -7502,7 +7502,7 @@
     {
       "scripCode": "500241",
       "scripId": "KIRLOSBROS",
-      "name": "Kirloskar Brothers Ltd-$",
+      "name": "Kirloskar Brothers Ltd",
       "isin": "INE732A01036",
       "isinFromComHeader": "INE732A01036",
       "instrumentKind": "equity",
@@ -7532,7 +7532,7 @@
     {
       "scripCode": "507205",
       "scripId": "TI",
-      "name": "Tilaknagar Industries Ltd-$",
+      "name": "Tilaknagar Industries Ltd",
       "isin": "INE133E01013",
       "isinFromComHeader": "INE133E01013",
       "instrumentKind": "equity",
@@ -8342,7 +8342,7 @@
     {
       "scripCode": "524200",
       "scripId": "VINATIORGA",
-      "name": "Vinati Organics Ltd-$",
+      "name": "Vinati Organics Ltd",
       "isin": "INE410B01037",
       "isinFromComHeader": "INE410B01037",
       "instrumentKind": "equity",
@@ -8417,7 +8417,7 @@
     {
       "scripCode": "523405",
       "scripId": "JMFINANCIL",
-      "name": "JM Financial Ltd-$",
+      "name": "JM Financial Ltd",
       "isin": "INE780C01023",
       "isinFromComHeader": "INE780C01023",
       "instrumentKind": "equity",
@@ -8597,7 +8597,7 @@
     {
       "scripCode": "500123",
       "scripId": "ELANTAS",
-      "name": "Elantas Beck India Ltd-$",
+      "name": "Elantas Beck India Ltd",
       "isin": "INE280B01018",
       "isinFromComHeader": "INE280B01018",
       "instrumentKind": "equity",
@@ -8882,7 +8882,7 @@
     {
       "scripCode": "512573",
       "scripId": "AVANTIFEED",
-      "name": "Avanti Feeds Ltd-$",
+      "name": "Avanti Feeds Ltd",
       "isin": "INE871C01038",
       "isinFromComHeader": "INE871C01038",
       "instrumentKind": "equity",
@@ -9227,7 +9227,7 @@
     {
       "scripCode": "505242",
       "scripId": "DYNAMATECH",
-      "name": "Dynamatic Technologies Ltd-$",
+      "name": "Dynamatic Technologies Ltd",
       "isin": "INE221B01012",
       "isinFromComHeader": "INE221B01012",
       "instrumentKind": "equity",
@@ -9272,7 +9272,7 @@
     {
       "scripCode": "506767",
       "scripId": "ALKYLAMINE",
-      "name": "Alkyl Amines Chemicals Ltd-$",
+      "name": "Alkyl Amines Chemicals Ltd",
       "isin": "INE150B01039",
       "isinFromComHeader": "INE150B01039",
       "instrumentKind": "equity",
@@ -9347,7 +9347,7 @@
     {
       "scripCode": "505890",
       "scripId": "KENNAMET",
-      "name": "Kennametal India Ltd-$",
+      "name": "Kennametal India Ltd",
       "isin": "INE717A01029",
       "isinFromComHeader": "INE717A01029",
       "instrumentKind": "equity",
@@ -9512,7 +9512,7 @@
     {
       "scripCode": "524019",
       "scripId": "KINGFA",
-      "name": "Kingfa Science & Technology (India) Ltd-$",
+      "name": "Kingfa Science & Technology (India) Ltd",
       "isin": "INE473D01015",
       "isinFromComHeader": "INE473D01015",
       "instrumentKind": "equity",
@@ -9542,7 +9542,7 @@
     {
       "scripCode": "530343",
       "scripId": "GENUSPOWER",
-      "name": "Genus Power Infrastructures Ltd-$",
+      "name": "Genus Power Infrastructures Ltd",
       "isin": "INE955D01029",
       "isinFromComHeader": "INE955D01029",
       "instrumentKind": "equity",
@@ -9602,7 +9602,7 @@
     {
       "scripCode": "500039",
       "scripId": "BANCOINDIA",
-      "name": "Banco Products (India) Ltd-$",
+      "name": "Banco Products (India) Ltd",
       "isin": "INE213C01025",
       "isinFromComHeader": "INE213C01025",
       "instrumentKind": "equity",
@@ -10247,7 +10247,7 @@
     {
       "scripCode": "506854",
       "scripId": "TANFACIND",
-      "name": "TANFAC Industries Ltd-$",
+      "name": "TANFAC Industries Ltd",
       "isin": "INE639B01023",
       "isinFromComHeader": "INE639B01023",
       "instrumentKind": "equity",
@@ -10577,7 +10577,7 @@
     {
       "scripCode": "532468",
       "scripId": "KAMAHOLD",
-      "name": "Kama Holdings Ltd-$",
+      "name": "Kama Holdings Ltd",
       "isin": "INE411F01010",
       "isinFromComHeader": "INE411F01010",
       "instrumentKind": "equity",
@@ -10667,7 +10667,7 @@
     {
       "scripCode": "530517",
       "scripId": "RELAXO",
-      "name": "Relaxo Footwears Ltd-$",
+      "name": "Relaxo Footwears Ltd",
       "isin": "INE131B01039",
       "isinFromComHeader": "INE131B01039",
       "instrumentKind": "equity",
@@ -10712,7 +10712,7 @@
     {
       "scripCode": "500414",
       "scripId": "TIMEX",
-      "name": "Timex Group India Ltd-$",
+      "name": "Timex Group India Ltd",
       "isin": "INE064A01026",
       "isinFromComHeader": "INE064A01026",
       "instrumentKind": "equity",
@@ -11117,7 +11117,7 @@
     {
       "scripCode": "513269",
       "scripId": "MANINDS",
-      "name": "Man Industries (India) Ltd-$",
+      "name": "Man Industries (India) Ltd",
       "isin": "INE993A01026",
       "isinFromComHeader": "INE993A01026",
       "instrumentKind": "equity",
@@ -11222,7 +11222,7 @@
     {
       "scripCode": "513262",
       "scripId": "SSWL",
-      "name": "Steel Strips Wheels Ltd-$",
+      "name": "Steel Strips Wheels Ltd",
       "isin": "INE802C01033",
       "isinFromComHeader": "INE802C01033",
       "instrumentKind": "equity",
@@ -11252,7 +11252,7 @@
     {
       "scripCode": "530999",
       "scripId": "BALAMINES",
-      "name": "Balaji Amines Ltd-$",
+      "name": "Balaji Amines Ltd",
       "isin": "INE050E01027",
       "isinFromComHeader": "INE050E01027",
       "instrumentKind": "equity",
@@ -11402,7 +11402,7 @@
     {
       "scripCode": "532509",
       "scripId": "SUPRAJIT",
-      "name": "Suprajit Engineering Ltd-$",
+      "name": "Suprajit Engineering Ltd",
       "isin": "INE399C01030",
       "isinFromComHeader": "INE399C01030",
       "instrumentKind": "equity",
@@ -12092,7 +12092,7 @@
     {
       "scripCode": "526367",
       "scripId": "GANESHHOU",
-      "name": "Ganesh Housing Ltd-$",
+      "name": "Ganesh Housing Ltd",
       "isin": "INE460C01014",
       "isinFromComHeader": "INE460C01014",
       "instrumentKind": "equity",
@@ -12302,7 +12302,7 @@
     {
       "scripCode": "500214",
       "scripId": "IONEXCHANG",
-      "name": "Ion Exchange India Ltd-$",
+      "name": "Ion Exchange India Ltd",
       "isin": "INE570A01022",
       "isinFromComHeader": "INE570A01022",
       "instrumentKind": "equity",
@@ -12497,7 +12497,7 @@
     {
       "scripCode": "522281",
       "scripId": "RAMRAT",
-      "name": "Ram Ratna Wires Ltd-$",
+      "name": "Ram Ratna Wires Ltd",
       "isin": "INE207E01023",
       "isinFromComHeader": "INE207E01023",
       "instrumentKind": "equity",
@@ -12512,7 +12512,7 @@
     {
       "scripCode": "519156",
       "scripId": "VADILALIND",
-      "name": "Vadilal Industries Ltd-$",
+      "name": "Vadilal Industries Ltd",
       "isin": "INE694D01016",
       "isinFromComHeader": "INE694D01016",
       "instrumentKind": "equity",
@@ -12527,7 +12527,7 @@
     {
       "scripCode": "531431",
       "scripId": "SHAKTIPUMP",
-      "name": "Shakti Pumps India Ltd-$",
+      "name": "Shakti Pumps India Ltd",
       "isin": "INE908D01010",
       "isinFromComHeader": "INE908D01010",
       "instrumentKind": "equity",
@@ -13172,7 +13172,7 @@
     {
       "scripCode": "532054",
       "scripId": "KDDL",
-      "name": "KDDL Ltd-$",
+      "name": "KDDL Ltd",
       "isin": "INE291D01011",
       "isinFromComHeader": "INE291D01011",
       "instrumentKind": "equity",
@@ -13292,7 +13292,7 @@
     {
       "scripCode": "526227",
       "scripId": "FILATEX",
-      "name": "Filatex India Ltd-$",
+      "name": "Filatex India Ltd",
       "isin": "INE816B01035",
       "isinFromComHeader": "INE816B01035",
       "instrumentKind": "equity",
@@ -13937,7 +13937,7 @@
     {
       "scripCode": "508486",
       "scripId": "HAWKINCOOK",
-      "name": "Hawkins Cookers Ltd-$",
+      "name": "Hawkins Cookers Ltd",
       "isin": "INE979B01015",
       "isinFromComHeader": "INE979B01015",
       "instrumentKind": "equity",
@@ -14327,7 +14327,7 @@
     {
       "scripCode": "507880",
       "scripId": "VIPIND",
-      "name": "VIP Industries Ltd-$",
+      "name": "VIP Industries Ltd",
       "isin": "INE054A01027",
       "isinFromComHeader": "INE054A01027",
       "instrumentKind": "equity",
@@ -14372,7 +14372,7 @@
     {
       "scripCode": "523301",
       "scripId": "TCPLPACK",
-      "name": "TCPL Packaging Ltd-$",
+      "name": "TCPL Packaging Ltd",
       "isin": "INE822C01015",
       "isinFromComHeader": "INE822C01015",
       "instrumentKind": "equity",
@@ -14507,7 +14507,7 @@
     {
       "scripCode": "513519",
       "scripId": "PITTIENG",
-      "name": "Pitti Engineering Ltd-$",
+      "name": "Pitti Engineering Ltd",
       "isin": "INE450D01021",
       "isinFromComHeader": "INE450D01021",
       "instrumentKind": "equity",
@@ -14627,7 +14627,7 @@
     {
       "scripCode": "523716",
       "scripId": "ASHIANA",
-      "name": "Ashiana Housing Ltd-$",
+      "name": "Ashiana Housing Ltd",
       "isin": "INE365D01021",
       "isinFromComHeader": "INE365D01021",
       "instrumentKind": "equity",
@@ -14687,7 +14687,7 @@
     {
       "scripCode": "531266",
       "scripId": "VSTTILLERS",
-      "name": "VST Tillers Tractors Ltd-$",
+      "name": "VST Tillers Tractors Ltd",
       "isin": "INE764D01017",
       "isinFromComHeader": "INE764D01017",
       "instrumentKind": "equity",
@@ -14732,7 +14732,7 @@
     {
       "scripCode": "500147",
       "scripId": "COCKERILL",
-      "name": "John Cockerill India Ltd-$",
+      "name": "John Cockerill India Ltd",
       "isin": "INE515A01019",
       "isinFromComHeader": "INE515A01019",
       "instrumentKind": "equity",
@@ -14852,7 +14852,7 @@
     {
       "scripCode": "530075",
       "scripId": "ANTELOPUS",
-      "name": "Antelopus Selan Energy Ltd-$",
+      "name": "Antelopus Selan Energy Ltd",
       "isin": "INE818A01017",
       "isinFromComHeader": "INE818A01017",
       "instrumentKind": "equity",
@@ -14912,7 +14912,7 @@
     {
       "scripCode": "505710",
       "scripId": "GRAUWEIL",
-      "name": "Grauer & Weil India Ltd-$",
+      "name": "Grauer & Weil India Ltd",
       "isin": "INE266D01021",
       "isinFromComHeader": "INE266D01021",
       "instrumentKind": "equity",
@@ -15077,7 +15077,7 @@
     {
       "scripCode": "500031",
       "scripId": "BAJAJELEC",
-      "name": "Bajaj Electricals Ltd-$",
+      "name": "Bajaj Electricals Ltd",
       "isin": "INE193E01025",
       "isinFromComHeader": "INE193E01025",
       "instrumentKind": "equity",
@@ -15227,7 +15227,7 @@
     {
       "scripCode": "509243",
       "scripId": "TVSSRICHAK",
-      "name": "TVS Srichakra Ltd-$",
+      "name": "TVS Srichakra Ltd",
       "isin": "INE421C01016",
       "isinFromComHeader": "INE421C01016",
       "instrumentKind": "equity",
@@ -15302,7 +15302,7 @@
     {
       "scripCode": "522249",
       "scripId": "MAYURUNIQ",
-      "name": "Mayur Uniquoters Ltd-$",
+      "name": "Mayur Uniquoters Ltd",
       "isin": "INE040D01038",
       "isinFromComHeader": "INE040D01038",
       "instrumentKind": "equity",
@@ -15977,7 +15977,7 @@
     {
       "scripCode": "500052",
       "scripId": "BEPL",
-      "name": "Bhansali Engineering Polymers Ltd-$",
+      "name": "Bhansali Engineering Polymers Ltd",
       "isin": "INE922A01025",
       "isinFromComHeader": "INE922A01025",
       "instrumentKind": "equity",
@@ -16037,7 +16037,7 @@
     {
       "scripCode": "519183",
       "scripId": "ADFFOODS",
-      "name": "Adf Foods Ltd-$",
+      "name": "Adf Foods Ltd",
       "isin": "INE982B01027",
       "isinFromComHeader": "INE982B01027",
       "instrumentKind": "equity",
@@ -16442,7 +16442,7 @@
     {
       "scripCode": "503960",
       "scripId": "BBL",
-      "name": "Bharat Bijlee Ltd-$",
+      "name": "Bharat Bijlee Ltd",
       "isin": "INE464A01036",
       "isinFromComHeader": "INE464A01036",
       "instrumentKind": "equity",
@@ -16997,7 +16997,7 @@
     {
       "scripCode": "522261",
       "scripId": "DOLPHIN",
-      "name": "Dolphin Offshore Enterprises (India) Ltd-$",
+      "name": "Dolphin Offshore Enterprises (India) Ltd",
       "isin": "INE920A01037",
       "isinFromComHeader": "INE920A01037",
       "instrumentKind": "equity",
@@ -17192,7 +17192,7 @@
     {
       "scripCode": "522241",
       "scripId": "MMFL",
-      "name": "MM Forgings Ltd-$",
+      "name": "MM Forgings Ltd",
       "isin": "INE227C01017",
       "isinFromComHeader": "INE227C01017",
       "instrumentKind": "equity",
@@ -17237,7 +17237,7 @@
     {
       "scripCode": "526783",
       "scripId": "DRAGARWQ",
-      "name": "Dr Agarwals Eye Hospital Ltd-$",
+      "name": "Dr Agarwals Eye Hospital Ltd",
       "isin": "INE934C01018",
       "isinFromComHeader": "INE934C01018",
       "instrumentKind": "equity",
@@ -17462,7 +17462,7 @@
     {
       "scripCode": "531120",
       "scripId": "PATELENG",
-      "name": "Patel Engineering Ltd-$",
+      "name": "Patel Engineering Ltd",
       "isin": "INE244B01030",
       "isinFromComHeader": "INE244B01030",
       "instrumentKind": "equity",
@@ -17597,7 +17597,7 @@
     {
       "scripCode": "503811",
       "scripId": "SIYSIL",
-      "name": "Siyaram Silk Mills Ltd-$",
+      "name": "Siyaram Silk Mills Ltd",
       "isin": "INE076B01028",
       "isinFromComHeader": "INE076B01028",
       "instrumentKind": "equity",
@@ -17837,7 +17837,7 @@
     {
       "scripCode": "524394",
       "scripId": "VIMTALABS",
-      "name": "Vimta Labs Ltd-$",
+      "name": "Vimta Labs Ltd",
       "isin": "INE579C01029",
       "isinFromComHeader": "INE579C01029",
       "instrumentKind": "equity",
@@ -17867,7 +17867,7 @@
     {
       "scripCode": "513228",
       "scripId": "PENIND",
-      "name": "Pennar Industries Ltd-$",
+      "name": "Pennar Industries Ltd",
       "isin": "INE932A01024",
       "isinFromComHeader": "INE932A01024",
       "instrumentKind": "equity",
@@ -18137,7 +18137,7 @@
     {
       "scripCode": "530555",
       "scripId": "PARACABLES",
-      "name": "Paramount Communications Ltd-$",
+      "name": "Paramount Communications Ltd",
       "isin": "INE074B01023",
       "isinFromComHeader": "INE074B01023",
       "instrumentKind": "equity",
@@ -18422,7 +18422,7 @@
     {
       "scripCode": "500078",
       "scripId": "OAL",
-      "name": "Oriental Aromatics Ltd-$",
+      "name": "Oriental Aromatics Ltd",
       "isin": "INE959C01023",
       "isinFromComHeader": "INE959C01023",
       "instrumentKind": "equity",
@@ -18647,7 +18647,7 @@
     {
       "scripCode": "524470",
       "scripId": "SYNCOMF",
-      "name": "Syncom Formulations India Ltd-$",
+      "name": "Syncom Formulations India Ltd",
       "isin": "INE312C01025",
       "isinFromComHeader": "INE312C01025",
       "instrumentKind": "equity",
@@ -19127,7 +19127,7 @@
     {
       "scripCode": "502090",
       "scripId": "SAGCEM",
-      "name": "Sagar Cements Ltd-$",
+      "name": "Sagar Cements Ltd",
       "isin": "INE229C01021",
       "isinFromComHeader": "INE229C01021",
       "instrumentKind": "equity",

@@ -3,7 +3,7 @@
   "note": "The ETF, not the index. An ETF carries tracking error and trades at a premium or discount to NAV, so this is a close PROXY for the index it tracks, never the index itself. MSCI index levels are licensed and this project has no entitlement to them.",
   "returnBasis": "PRICE return, dividends not reinvested — a free-float market cap moves with price, not with a distribution paid out in cash.",
   "currencyNote": "Funds quote in USD. A rupee return is price_usd × usdinr on each date, both halves from the same date. Measured 20 Aug 2026, ignoring this would have put SMIN's 1-year move at -3.62% instead of +5.44% — the wrong sign.",
-  "capturedAt": "2026-10-19T11:47:55.465Z",
+  "capturedAt": "2026-10-19T20:07:11.344Z",
   "asOf": "2026-10-19",
   "range": "2y",
   "fx": {
@@ -2093,18 +2093,10 @@
       "instrumentType": "ETF",
       "exchange": "NYSEArca",
       "timezone": "America/New_York",
-      "firstClose": "2024-10-17",
-      "lastClose": "2026-10-16",
-      "points": 501,
+      "firstClose": "2024-10-21",
+      "lastClose": "2026-10-19",
+      "points": 500,
       "series": [
-        {
-          "date": "2024-10-17",
-          "close": 45.470001220703125
-        },
-        {
-          "date": "2024-10-18",
-          "close": 45.91999816894531
-        },
         {
           "date": "2024-10-21",
           "close": 45.599998474121094
@@ -4100,6 +4092,10 @@
         {
           "date": "2026-10-16",
           "close": 62.849998474121094
+        },
+        {
+          "date": "2026-10-19",
+          "close": 63.33000183105469
         }
       ]
     },
@@ -4115,18 +4111,10 @@
       "instrumentType": "ETF",
       "exchange": "Cboe US",
       "timezone": "America/New_York",
-      "firstClose": "2024-10-17",
-      "lastClose": "2026-10-16",
-      "points": 501,
+      "firstClose": "2024-10-21",
+      "lastClose": "2026-10-19",
+      "points": 500,
       "series": [
-        {
-          "date": "2024-10-17",
-          "close": 84.5
-        },
-        {
-          "date": "2024-10-18",
-          "close": 84.55999755859375
-        },
         {
           "date": "2024-10-21",
           "close": 83.80999755859375
@@ -6122,6 +6110,10 @@
         {
           "date": "2026-10-16",
           "close": 69.08000183105469
+        },
+        {
+          "date": "2026-10-19",
+          "close": 68.59429931640625
         }
       ]
     },
@@ -6137,18 +6129,10 @@
       "instrumentType": "ETF",
       "exchange": "NYSEArca",
       "timezone": "America/New_York",
-      "firstClose": "2024-10-17",
-      "lastClose": "2026-10-16",
-      "points": 501,
+      "firstClose": "2024-10-21",
+      "lastClose": "2026-10-19",
+      "points": 500,
       "series": [
-        {
-          "date": "2024-10-17",
-          "close": 62.7599983215332
-        },
-        {
-          "date": "2024-10-18",
-          "close": 62.599998474121094
-        },
         {
           "date": "2024-10-21",
           "close": 62.40999984741211
@@ -8144,6 +8128,10 @@
         {
           "date": "2026-10-16",
           "close": 73.06999969482422
+        },
+        {
+          "date": "2026-10-19",
+          "close": 73.25499725341797
         }
       ]
     },
@@ -8159,18 +8147,10 @@
       "instrumentType": "ETF",
       "exchange": "Cboe US",
       "timezone": "America/New_York",
-      "firstClose": "2024-10-17",
-      "lastClose": "2026-10-16",
-      "points": 501,
+      "firstClose": "2024-10-21",
+      "lastClose": "2026-10-19",
+      "points": 500,
       "series": [
-        {
-          "date": "2024-10-17",
-          "close": 56.34000015258789
-        },
-        {
-          "date": "2024-10-18",
-          "close": 56.560001373291016
-        },
         {
           "date": "2024-10-21",
           "close": 56.18000030517578
@@ -10166,6 +10146,10 @@
         {
           "date": "2026-10-16",
           "close": 47.65999984741211
+        },
+        {
+          "date": "2026-10-19",
+          "close": 47.41999816894531
         }
       ]
     }

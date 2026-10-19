@@ -1,7 +1,7 @@
 {
   "source": "niftyindices.com index constituent CSVs",
   "note": "The authoritative NSE symbol <-> ISIN mapping for this project. BSE scrip_id is never used as a substitute, however often the two agree.",
-  "capturedAt": "2026-10-19T11:40:57.132Z",
+  "capturedAt": "2026-10-19T20:01:49.991Z",
   "sources": [
     {
       "key": "nifty500",
@@ -4882,7 +4882,7 @@
       "isin": "INE864I01014",
       "name": "MTAR Technologies Ltd.",
       "industry": "Capital Goods",
-      "series": "BE",
+      "series": "EQ",
       "sources": [
         "nifty500",
         "niftytotalmarket"
