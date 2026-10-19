@@ -3321,9 +3321,16 @@ async function main() {
       // A differ that always answered "nothing changed" would sail through the
       // assertions above. §3.8.1: a detector that finds nothing is
       // indistinguishable from a broken one, so make it find something.
+      // The new stage is chosen to DIFFER from whatever the row holds today.
+      // Typed as Stage IV, this control went red on 19 Oct 2026 because NSE had
+      // put that very row in Stage IV — §2.34's hostage, a check whose outcome
+      // was decided by the surveillance list rather than by the differ.
       const moved = { companies: source.map((r) => ({ ...r })) };
-      moved.companies[1].survCode = 'LTASM - IV (16)';
-      moved.companies[1].stage = 'Stage IV';
+      const target = moved.companies[1].stage === 'Stage IV'
+        ? { survCode: 'LTASM - I (13)', stage: 'Stage I' }
+        : { survCode: 'LTASM - IV (16)', stage: 'Stage IV' };
+      moved.companies[1].survCode = target.survCode;
+      moved.companies[1].stage = target.stage;
       const dropped = moved.companies.pop();
       moved.companies.push({
         isin: 'INE000TEST01', symbol: 'TESTCO', companyName: 'Test Co',

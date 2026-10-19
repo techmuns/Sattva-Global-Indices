@@ -275,7 +275,8 @@ jobs:
           if [ -n "${{ github.event.inputs.date }}" ]; then
             node scripts/fetch-bhavcopy.mjs --date "${{ github.event.inputs.date }}"
           else
-            node scripts/fetch-bhavcopy.mjs --catch-up
+            # An explicit N, so a multi-week outage heals once BSE answers (see fetch-bhavcopy.mjs).
+            node scripts/fetch-bhavcopy.mjs --catch-up 60
           fi
 
       - name: Per-stock price history across the review windows and rebalance baselines
@@ -300,6 +301,7 @@ jobs:
         run: node scripts/verify-data.mjs
 
       - name: Commit if anything changed
+        id: commit
         run: |
           if git diff --quiet -- public/data scripts/fixtures; then
             echo "No change in public/data — nothing to commit."
@@ -378,6 +380,7 @@ jobs:
           ACTIONS: ${{ steps.actions.outcome }}
           PRICES: ${{ steps.prices.outcome }}
           HISTORY: ${{ steps.history.outcome }}
+          COMMIT: ${{ steps.commit.outcome }}
         run: |
           failed=""
           for pair in "BSE scrip master:$MASTER" "iShares download:$ISHARES" "iShares import:$ISHARES_IMPORT" \
@@ -387,7 +390,9 @@ jobs:
             if [ "$outcome" = "failure" ]; then failed="$failed${failed:+, }$name"; fi
           done
           if [ -n "$failed" ]; then
-            echo "::error title=Did not refresh::$failed — every other source refreshed and was committed."\
+            if [ "$COMMIT" = "success" ]; then landed="every other source refreshed and was committed."
+            else landed="and NOTHING was committed: the build or the suite stopped the run, read those steps."; fi
+            echo "::error title=Did not refresh::$failed — $landed"\
                  "Each failed source keeps its last good file and its STALE badge. If BSE is among them,"\
                  "run scripts/probe-bse-reach.mjs before assuming an IP block."
             exit 1

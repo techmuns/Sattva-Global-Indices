@@ -481,6 +481,19 @@ async function main() {
  */
 const CATCH_UP_MAX_SESSIONS = 15;
 
+/**
+ * The most an EXPLICIT `--catch-up N` may walk: about six months of sessions.
+ *
+ * ⚠ The refusal below has always said "re-run with a larger --catch-up N", and
+ * until Oct 2026 that advice could not work — N was clamped with
+ * Math.min(CATCH_UP_MAX_SESSIONS, N), so 15 was absolute. The 23 Sep – 19 Oct
+ * BSE outage left a 19-session gap, and the first healthy run refused on it.
+ * The default stays 15 so an unattended run without N still names an abandoned
+ * record; daily-refresh.yml passes an explicit N so an outage heals itself once
+ * the source answers, with every session still fetched and checked one by one.
+ */
+const CATCH_UP_CEILING_SESSIONS = 130;
+
 async function catchUp() {
   const args = process.argv.slice(2);
   const at = args.indexOf('--catch-up');
@@ -492,7 +505,7 @@ async function catchUp() {
   const limitRaw = Number(args[at + 1]);
   const hasLimit = args[at + 1] !== undefined && Number.isFinite(limitRaw) && limitRaw > 0;
   const maxSessions = hasLimit
-    ? Math.min(CATCH_UP_MAX_SESSIONS, Math.round(limitRaw))
+    ? Math.min(CATCH_UP_CEILING_SESSIONS, Math.round(limitRaw))
     : CATCH_UP_MAX_SESSIONS;
   const passthrough = args.filter((_, i) => i !== at && !(hasLimit && i === at + 1));
 
