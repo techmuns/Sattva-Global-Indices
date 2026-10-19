@@ -3305,10 +3305,25 @@ async function main() {
       const source = c.asm.companies;
       ok(source.length > 3, 'the ASM snapshot has enough rows to test against', String(source.length));
 
+      // ⚠ EVERY ROW THIS CHECK TOUCHES MUST CARRY AN ISIN NO OTHER ROW DOES.
+      //
+      // It used rows 0, 1 and the last, by position. On 19 Oct 2026 NSE's list
+      // carried AAATECH twice under one ISIN (two spellings of the name), row 1
+      // was one of the pair, and the ISIN-keyed differ — correctly — saw the
+      // untouched twin and reported no reclassification. The differ was right
+      // and the check went red: §2.34's hostage, an outcome decided by what NSE
+      // published rather than by the code. So the three roles are drawn from
+      // rows whose ISIN is unique in the snapshot.
+      const isinCount = new Map();
+      for (const r of source) isinCount.set(r.isin, (isinCount.get(r.isin) ?? 0) + 1);
+      const solo = source.map((r, i) => (r.isin && isinCount.get(r.isin) === 1 ? i : -1)).filter((i) => i >= 0);
+      ok(solo.length >= 3, 'the ASM snapshot has three rows with an ISIN of their own', String(solo.length));
+      const [respellAt, moveAt, dropAt] = [solo[0], solo[1], solo[solo.length - 1]];
+
       // --- the trap: same ISINs, one symbol spelt differently ---------------
       const before = { companies: source.map((r) => ({ ...r })) };
       const after = { companies: source.map((r) => ({ ...r })) };
-      after.companies[0].symbol = `${after.companies[0].symbol ?? 'X'}.RESPELT`;
+      after.companies[respellAt].symbol = `${after.companies[respellAt].symbol ?? 'X'}.RESPELT`;
 
       const quiet = diff(before, after);
       ok(quiet.comparable, 'two real snapshots are comparable', JSON.stringify(quiet.reason));
@@ -3321,17 +3336,15 @@ async function main() {
       // A differ that always answered "nothing changed" would sail through the
       // assertions above. §3.8.1: a detector that finds nothing is
       // indistinguishable from a broken one, so make it find something.
-      // The new stage is chosen to DIFFER from whatever the row holds today.
-      // Typed as Stage IV, this control went red on 19 Oct 2026 because NSE had
-      // put that very row in Stage IV — §2.34's hostage, a check whose outcome
-      // was decided by the surveillance list rather than by the differ.
+      // The new stage is chosen to DIFFER from whatever the row holds today, for
+      // the same reason: a typed stage the row already has would move nothing.
       const moved = { companies: source.map((r) => ({ ...r })) };
-      const target = moved.companies[1].stage === 'Stage IV'
+      const target = moved.companies[moveAt].stage === 'Stage IV'
         ? { survCode: 'LTASM - I (13)', stage: 'Stage I' }
         : { survCode: 'LTASM - IV (16)', stage: 'Stage IV' };
-      moved.companies[1].survCode = target.survCode;
-      moved.companies[1].stage = target.stage;
-      const dropped = moved.companies.pop();
+      moved.companies[moveAt].survCode = target.survCode;
+      moved.companies[moveAt].stage = target.stage;
+      const [dropped] = moved.companies.splice(dropAt, 1);
       moved.companies.push({
         isin: 'INE000TEST01', symbol: 'TESTCO', companyName: 'Test Co',
         category: 'longterm', stage: 'Stage I', survCode: 'LTASM - I (13)', survDesc: 'x', asmDate: null,
