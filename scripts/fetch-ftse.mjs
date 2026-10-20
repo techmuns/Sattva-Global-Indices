@@ -159,6 +159,18 @@ async function downloadBook(playwright) {
       + "[ancestor::*[position() <= 8][starts-with(normalize-space(.), 'Top 10 Holdings')]]",
     );
     await page.waitForLoadState('networkidle', { timeout: 90000 }).catch(() => {});
+    // ⚠ THE SECTIONS RENDER ONLY AS THEY SCROLL INTO VIEW. Measured on a runner:
+    // the same URL showed the holdings Download on one run and no Download at
+    // all on the next, with the page's own chrome intact both times. So open
+    // "Portfolio data" the way a reader does, walk the page down, and wait for
+    // the button to be visible rather than for a fixed time.
+    const portfolioTab = page.getByText('Portfolio data', { exact: true }).first();
+    if (await portfolioTab.count()) await portfolioTab.click().catch(() => {});
+    for (let step = 0; step < 30 && (await holdingsDownload.count()) === 0; step += 1) {
+      await page.mouse.wheel(0, 900);
+      await page.waitForTimeout(400);
+    }
+    await holdingsDownload.first().waitFor({ state: 'visible', timeout: 60000 }).catch(() => {});
     const count = await holdingsDownload.count();
     if (count !== 1) {
       const seen = await page.evaluate(() => [...document.querySelectorAll('button')]
