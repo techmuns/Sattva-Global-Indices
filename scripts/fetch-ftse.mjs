@@ -93,6 +93,16 @@ async function downloadBook(playwright) {
         push({ kind: 'anchor.click', href: String(this.href).slice(0, 60), download: this.download ?? null });
         return anchorClick.apply(this, arguments);
       };
+      const dispatch = EventTarget.prototype.dispatchEvent;
+      EventTarget.prototype.dispatchEvent = function trace(event) {
+        if (this instanceof HTMLAnchorElement && event?.type === 'click') {
+          push({ kind: 'anchor.dispatch', href: String(this.href).slice(0, 60), download: this.download ?? null });
+        }
+        return dispatch.apply(this, arguments);
+      };
+      for (const name of ['showSaveFilePicker', 'showOpenFilePicker', 'showDirectoryPicker']) {
+        if (name in window) push({ kind: 'has', name });
+      }
     });
     const page = await context.newPage();
     const requests = [];
