@@ -1,7 +1,7 @@
 {
   "source": "BSE India — api.bseindia.com (StockTrading, getScripHeaderData, ComHeader)",
   "note": "floatFactor = MktCapFF / MktCapFull, both from one StockTrading response at one instant, so it is price-independent. All monetary fields are RUPEES; BSE publishes ₹ crore strings and the conversion happens once, in scripts/lib/bse.mjs. sharesOutstanding is DERIVED as fullMcapInr / priceInr using BSE's own last traded price.",
-  "capturedAt": "2026-10-20T10:41:54.579Z",
+  "capturedAt": "2026-10-20T10:56:31.874Z",
   "universe": {
     "heldByFunds": 611,
     "minFullMcapInr": 20000000000,
@@ -56,7 +56,7 @@
     "partial": false
   },
   "requestCount": 3852,
-  "elapsedMs": 350441,
+  "elapsedMs": 301429,
   "scripCount": 1284,
   "scrips": [
     {
@@ -18175,9 +18175,9 @@
       "fullMcapInr": 21417200000,
       "freeFloatMcapInr": 5754600000,
       "floatFactor": 0.268691,
-      "priceInr": 460.4,
-      "priceAsOf": "19 Oct 26 | 16:00",
-      "sharesOutstanding": 46518679
+      "priceInr": 455.15,
+      "priceAsOf": "01 Oct 26 | 12:49",
+      "sharesOutstanding": 47055257
     },
     {
       "scripCode": "500201",
@@ -18520,9 +18520,9 @@
       "fullMcapInr": 20850400000,
       "freeFloatMcapInr": 11774900000,
       "floatFactor": 0.564733,
-      "priceInr": 74.7,
-      "priceAsOf": "19 Oct 26 | 16:00",
-      "sharesOutstanding": 279121821
+      "priceInr": 78.3,
+      "priceAsOf": "28 Sep 26 | 16:01",
+      "sharesOutstanding": 266288633
     },
     {
       "scripCode": "532848",
@@ -18550,9 +18550,9 @@
       "fullMcapInr": 20539700000,
       "freeFloatMcapInr": 4701800000,
       "floatFactor": 0.228913,
-      "priceInr": 73.07,
-      "priceAsOf": "19 Oct 26 | 16:00",
-      "sharesOutstanding": 281096209
+      "priceInr": 72.43,
+      "priceAsOf": "25 Sep 26 | 16:00",
+      "sharesOutstanding": 283580008
     },
     {
       "scripCode": "524370",
@@ -18727,12 +18727,12 @@
       "isinFromComHeader": "INE149O01018",
       "instrumentKind": "equity",
       "sector": "Capital Goods",
-      "fullMcapInr": 19956200000,
-      "freeFloatMcapInr": 7968600000,
-      "floatFactor": 0.399304,
+      "fullMcapInr": 19980200000,
+      "freeFloatMcapInr": 7978200000,
+      "floatFactor": 0.399305,
       "priceInr": 1287.35,
       "priceAsOf": "19 Oct 26 | 16:00",
-      "sharesOutstanding": 15501767
+      "sharesOutstanding": 15520410
     },
     {
       "scripCode": "544217",
