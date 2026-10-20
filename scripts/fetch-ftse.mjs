@@ -164,6 +164,12 @@ async function downloadBook(playwright) {
     // all on the next, with the page's own chrome intact both times. So open
     // "Portfolio data" the way a reader does, walk the page down, and wait for
     // the button to be visible rather than for a fixed time.
+    // A consent banner sits over the bottom of the page on a fresh browser and
+    // swallows the press. It is declined — the privacy-preserving answer; nothing
+    // here needs a cookie — and the press below is a DOM click besides, so a
+    // banner this misses cannot turn into a silent non-download.
+    const decline = page.locator('#onetrust-reject-all-handler');
+    if (await decline.count()) await decline.click({ timeout: 5000 }).catch(() => {});
     const portfolioTab = page.getByText('Portfolio data', { exact: true }).first();
     if (await portfolioTab.count()) await portfolioTab.click().catch(() => {});
     for (let step = 0; step < 30 && (await holdingsDownload.count()) === 0; step += 1) {
@@ -196,7 +202,7 @@ async function downloadBook(playwright) {
     try {
       [download] = await Promise.all([
         page.waitForEvent('download', { timeout: 90000 }),
-        holdingsDownload.click(),
+        holdingsDownload.evaluate((button) => button.click()),
       ]);
     } catch (error) {
       throw new Error(`${String(error.message).split('\n')[0]} — ${await explain()}`);
