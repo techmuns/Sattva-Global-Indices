@@ -78,7 +78,30 @@ async function downloadBook(playwright) {
   const browser = await playwright.chromium.launch();
   try {
     const context = await browser.newContext({ acceptDownloads: true, userAgent: USER_AGENT, locale: 'en-CA' });
+    // A trace of how the page hands over its file, read only when no download
+    // arrives — so a failure names what the page did instead of only timing out.
+    await context.addInitScript(() => {
+      window.__sattvaTrace = [];
+      const push = (entry) => { try { window.__sattvaTrace.push(entry); } catch { /* best effort */ } };
+      const createObjectURL = URL.createObjectURL;
+      URL.createObjectURL = function trace(blob) {
+        push({ kind: 'createObjectURL', type: blob?.type ?? null, size: blob?.size ?? null });
+        return createObjectURL.apply(this, arguments);
+      };
+      const anchorClick = HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click = function trace() {
+        push({ kind: 'anchor.click', href: String(this.href).slice(0, 60), download: this.download ?? null });
+        return anchorClick.apply(this, arguments);
+      };
+    });
     const page = await context.newPage();
+    const requests = [];
+    page.on('request', (r) => { if (/graphql|download|export|xlsx/i.test(r.url())) requests.push(`${r.method()} ${r.url().slice(0, 80)}`); });
+    page.on('popup', (p) => requests.push(`popup ${p.url().slice(0, 80)}`));
+    const explain = async () => {
+      const trace = await page.evaluate(() => window.__sattvaTrace ?? []).catch(() => []);
+      return `page trace ${JSON.stringify(trace).slice(0, 400)}; requests after load: ${requests.slice(-6).join(' | ') || 'none'}`;
+    };
     await page.goto(PRODUCT_URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
 
     // The holdings block renders lazily. Wait for the heading rather than for a
@@ -114,10 +137,16 @@ async function downloadBook(playwright) {
         + `(of ${marked.of} on the page) — the page has changed shape; look before guessing`);
     }
 
-    const [download] = await Promise.all([
-      page.waitForEvent('download', { timeout: 90000 }),
-      page.click('[data-sattva-holdings-download]'),
-    ]);
+    requests.length = 0;
+    let download;
+    try {
+      [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 90000 }),
+        page.click('[data-sattva-holdings-download]'),
+      ]);
+    } catch (error) {
+      throw new Error(`${String(error.message).split('\n')[0]} — ${await explain()}`);
+    }
     const path = await download.path();
     return { bytes: readFileSync(path), suggestedName: download.suggestedFilename() };
   } finally {
