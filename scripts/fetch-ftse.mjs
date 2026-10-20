@@ -107,9 +107,11 @@ async function downloadBook(playwright) {
       requests.push(`${r.status()} ${r.request().method()} ${r.url().slice(0, 50)}${note}`);
     });
     page.on('popup', (p) => requests.push(`popup ${p.url().slice(0, 80)}`));
+    page.on('pageerror', (e) => requests.push(`pageerror ${String(e.message).slice(0, 160)}`));
+    page.on('console', (m) => { if (m.type() === 'error') requests.push(`console.error ${m.text().slice(0, 160)}`); });
     const explain = async () => {
       const trace = await page.evaluate(() => window.__sattvaTrace ?? []).catch(() => []);
-      return `page trace ${JSON.stringify(trace).slice(0, 400)}; requests after load: ${requests.slice(-6).join(' | ') || 'none'}`;
+      return `page trace ${JSON.stringify(trace).slice(0, 400)}; requests after load: ${requests.slice(-12).join(' | ') || 'none'}`;
     };
     await page.goto(PRODUCT_URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
 
