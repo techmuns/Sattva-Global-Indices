@@ -117,11 +117,18 @@ async function downloadBook(playwright) {
     });
     const page = await context.newPage();
     const requests = [];
+    const lookThrough = { pages: 0, finalSeen: false, totalHoldings: null };
     page.on('response', async (r) => {
       if (!/graphql|download|export|xlsx/i.test(r.url())) return;
       let note = '';
       try {
         const text = await r.text();
+        if (text.includes('"delayeredHoldings"')) {
+          lookThrough.pages += 1;
+          const total = /"totalHoldings"\s*:\s*(\d+)/.exec(text)?.[1];
+          if (total) lookThrough.totalHoldings = Number(total);
+          if (/"lastItemKey"\s*:\s*null/.test(text)) lookThrough.finalSeen = true;
+        }
         const errors = /"errors"\s*:\s*\[\s*\{[^}]*"message"\s*:\s*"([^"]{0,120})/.exec(text)?.[1];
         note = errors ? ` error="${errors}"` : ` ${text.length}B`;
       } catch { /* body unavailable */ }
@@ -198,6 +205,20 @@ async function downloadBook(playwright) {
     }
     await holdingsDownload.scrollIntoViewIfNeeded();
     await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
+
+    // ⚠ NOT UNTIL THE LAST PAGE OF THE LOOK-THROUGH HAS ARRIVED. The exporter
+    // writes whatever holdings the page holds at the moment of the press, and
+    // it loads them 1,500 at a time: pressed early on a runner it handed over
+    // exactly three pages, 4,500 rows of 6,486. The final page is the one whose
+    // `lastItemKey` is null, and nothing is pressed before it has been seen.
+    for (let waited = 0; !lookThrough.finalSeen && waited < 180; waited += 1) {
+      await page.waitForTimeout(1000);
+    }
+    if (!lookThrough.finalSeen) {
+      throw new Error(`the page never finished loading its holdings (${lookThrough.pages} page(s) seen, `
+        + 'none with a null lastItemKey) — a book built now would be truncated');
+    }
+    await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
     let download;
     try {
       [download] = await Promise.all([
@@ -208,7 +229,7 @@ async function downloadBook(playwright) {
       throw new Error(`${String(error.message).split('\n')[0]} — ${await explain()}`);
     }
     const path = await download.path();
-    return { bytes: readFileSync(path), suggestedName: download.suggestedFilename() };
+    return { bytes: readFileSync(path), suggestedName: download.suggestedFilename(), lookThrough };
   } finally {
     await browser.close();
   }
@@ -242,6 +263,8 @@ async function main() {
   const expectedFile = JSON.parse(readFileSync(FTSE_EXPECTED_PATH, 'utf8'));
 
   process.stdout.write(`  received   ${fetched.suggestedName}, ${fetched.bytes.length.toLocaleString('en-US')} bytes\n`
+    + `  loaded     ${fetched.lookThrough.pages} look-through page(s) before the press; Vanguard counts `
+    + `${fetched.lookThrough.totalHoldings ?? '—'} holdings (cash, FX and swaps included, which the export drops)\n`
     + `  fund       ${measured.name}\n`
     + `  as at      ${measured.holdingsAsOf}   (committed: ${committed?.asOf ?? 'none'})\n`
     + `  stamped    downloaded on ${measured.downloadedOn}\n`
