@@ -13,12 +13,12 @@
   },
   "priceMatch": {
     "note": "DERIVED BY US, not published by Screener: the export carries no timestamp, so its price column is compared against the committed BSE closes to date it.",
-    "againstTradeDate": "2026-10-16",
+    "againstTradeDate": "2026-10-19",
     "compared": 1224,
     "exact": 2,
-    "within1pct": 69,
+    "within1pct": 63,
     "exactPct": 0.2,
-    "within1pctPct": 5.6
+    "within1pctPct": 5.1
   },
   "counts": {
     "companies": 1253,

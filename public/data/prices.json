@@ -1,7 +1,7 @@
 {
   "source": "BSE end-of-day bhavcopy — bseindia.com/download/BhavCopy/Equity",
   "note": "End-of-day BSE prices, committed so the static site renders with no Worker and no network. A scrip absent from the file did NOT trade: its last close is carried forward with staleDays > 0 and source \"bhavcopy-bse-carried\". Live NSE prices, where available, overlay this in memory only and are never written back here.",
-  "capturedAt": "2026-10-19T20:10:41.847Z",
+  "capturedAt": "2026-10-20T18:44:20.359Z",
   "tradeDate": "2026-10-19",
   "fileRowCount": 5118,
   "universeCount": 1284,
@@ -13,7 +13,9 @@
     "compared": 1273,
     "failures": [],
     "against": "2026-10-16",
-    "noCounterpart": 3845
+    "noCounterpart": 0,
+    "carriedForwardFrom": "2026-10-19",
+    "note": "this run re-fetched the same trade date; the continuity evidence recorded when it was first fetched is carried forward unchanged"
   },
   "carriedForward": [
     {
