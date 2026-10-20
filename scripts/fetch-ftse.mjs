@@ -145,44 +145,32 @@ async function downloadBook(playwright) {
       { timeout: 90000 },
     );
 
-    // Mark the ONE Download button whose own section is the holdings table. The
-    // page carries six Downloads (performance, allocation, holdings, prices,
-    // distributions…); a positional pick would fetch the wrong report and every
-    // check below would then describe a file that is not a holdings book.
-    const marked = await page.evaluate((source) => {
-      const heading = new RegExp(source, 'i');
-      const buttons = [...document.querySelectorAll('button')].filter((b) => b.textContent.trim() === 'Download');
-      const owned = buttons.filter((b) => {
-        let node = b;
-        for (let depth = 0; depth < 8 && node; depth += 1) {
-          node = node.parentElement;
-          if (node && heading.test(node.innerText ?? '')) return true;
-        }
-        return false;
-      });
-      if (owned.length !== 1) return { ok: false, found: owned.length, of: buttons.length };
-      owned[0].setAttribute('data-sattva-holdings-download', '');
-      let section = owned[0];
-      for (let depth = 0; depth < 6 && section.parentElement; depth += 1) section = section.parentElement;
-      return { ok: true, of: buttons.length, section: (section.innerText ?? '').replace(/\s+/g, ' ').slice(0, 90) };
-    }, SECTION_HEADING.source);
-    if (!marked.ok) {
-      throw new Error(`expected exactly one Download inside the holdings section, found ${marked.found} `
-        + `(of ${marked.of} on the page) — the page has changed shape; look before guessing`);
-    }
-
-    // The exporter works from holdings the page is still loading when the
-    // heading first paints; pressing before the network settles was measured
-    // to produce no file at all. Settle, then press like a person would.
+    // ⚠ ONE Download, named by the section it sits in, resolved AT CLICK TIME.
+    //
+    // The page carries six Downloads (performance, allocation, holdings,
+    // prices, distributions…); a positional pick would fetch the wrong report
+    // and every check below would describe a file that is not a holdings book.
+    // And it must be a locator, not a node marked in advance: the app re-renders
+    // that section once its holdings finish loading, so a tagged node is
+    // detached by the time it is pressed — measured on a runner as a click that
+    // produced nothing, then as a scroll that could not find its target.
+    const holdingsDownload = page.locator(
+      "xpath=//button[normalize-space()='Download']"
+      + "[ancestor::*[position() <= 8][starts-with(normalize-space(.), 'Top 10 Holdings')]]",
+    );
     await page.waitForLoadState('networkidle', { timeout: 90000 }).catch(() => {});
-    await page.locator('[data-sattva-holdings-download]').scrollIntoViewIfNeeded();
+    const count = await holdingsDownload.count();
+    if (count !== 1) {
+      throw new Error(`expected exactly one Download inside the holdings section, found ${count} — `
+        + 'the page has changed shape; look before guessing');
+    }
+    await holdingsDownload.scrollIntoViewIfNeeded();
     await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
-    requests.push(`pressing the Download in: "${marked.section}"`);
     let download;
     try {
       [download] = await Promise.all([
         page.waitForEvent('download', { timeout: 90000 }),
-        page.click('[data-sattva-holdings-download]'),
+        holdingsDownload.click(),
       ]);
     } catch (error) {
       throw new Error(`${String(error.message).split('\n')[0]} — ${await explain()}`);
