@@ -1,17 +1,17 @@
 {
   "note": "Measured from vanguard-ftse-em-allcap.xlsx committed beside this file — NOT invariants of the fund. scripts/fetch-ftse.mjs rewrites `measured` in the same write as a fresher workbook, after the book has passed assertBookShape against the one it replaces. By hand: re-measure from import-ftse.mjs's refusal message, never loosen a figure.",
-  "measuredOn": "2026-09-04",
+  "measuredOn": "2026-10-20",
   "measured": {
     "name": "Vanguard FTSE Emerging Markets All Cap Index ETF",
-    "holdingsAsOf": "2026-07-31",
-    "downloadedOn": "2026-09-04",
+    "holdingsAsOf": "2026-09-30",
+    "downloadedOn": "2026-10-20",
     "headerRowNumber": 7,
-    "dataRows": 6339,
-    "indiaRows": 651,
-    "indiaWeightPct3dp": "16.173",
-    "totalWeightPct3dp": "95.015",
+    "dataRows": 6509,
+    "indiaRows": 654,
+    "indiaWeightPct3dp": "15.132",
+    "totalWeightPct3dp": "94.972",
     "placeholderNameRows": 6,
-    "noTickerRows": 1,
-    "weightRoundsToZeroRows": 1
+    "noTickerRows": 2,
+    "weightRoundsToZeroRows": 2
   }
 }

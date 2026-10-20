@@ -3,16 +3,16 @@
   "note": "The ETF, not the index. An ETF carries tracking error and trades at a premium or discount to NAV, so this is a close PROXY for the index it tracks, never the index itself. MSCI index levels are licensed and this project has no entitlement to them.",
   "returnBasis": "PRICE return, dividends not reinvested — a free-float market cap moves with price, not with a distribution paid out in cash.",
   "currencyNote": "Funds quote in USD. A rupee return is price_usd × usdinr on each date, both halves from the same date. Measured 20 Aug 2026, ignoring this would have put SMIN's 1-year move at -3.62% instead of +5.44% — the wrong sign.",
-  "capturedAt": "2026-10-19T20:07:11.344Z",
-  "asOf": "2026-10-19",
+  "capturedAt": "2026-10-20T10:41:57.500Z",
+  "asOf": "2026-10-20",
   "range": "2y",
   "fx": {
     "symbol": "USDINR=X",
     "currency": "INR",
     "meaning": "INR per USD",
     "firstClose": "2024-10-21",
-    "lastClose": "2026-10-19",
-    "points": 516,
+    "lastClose": "2026-10-20",
+    "points": 517,
     "series": [
       {
         "date": "2024-10-21",
@@ -2076,7 +2076,11 @@
       },
       {
         "date": "2026-10-19",
-        "close": 94.91500091552734
+        "close": 94.97769927978516
+      },
+      {
+        "date": "2026-10-20",
+        "close": 94.93000030517578
       }
     ]
   },
@@ -4095,7 +4099,7 @@
         },
         {
           "date": "2026-10-19",
-          "close": 63.33000183105469
+          "close": 63.310001373291016
         }
       ]
     },
@@ -6113,7 +6117,7 @@
         },
         {
           "date": "2026-10-19",
-          "close": 68.59429931640625
+          "close": 68.51000213623047
         }
       ]
     },
@@ -8131,7 +8135,7 @@
         },
         {
           "date": "2026-10-19",
-          "close": 73.25499725341797
+          "close": 73.16999816894531
         }
       ]
     },
@@ -10149,7 +10153,7 @@
         },
         {
           "date": "2026-10-19",
-          "close": 47.41999816894531
+          "close": 47.400001525878906
         }
       ]
     }
