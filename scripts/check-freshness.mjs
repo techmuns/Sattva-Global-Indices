@@ -70,15 +70,16 @@ function main() {
   const warnOnly = args.includes('--warn-only');
   // ⚠ "A JOB HAS STOPPED" AND "A PERSON IS OWED A WORKBOOK" ARE DIFFERENT FACTS
   //
-  // One feed here is refreshed by a person: the FTSE book, because Vanguard
-  // builds its holdings export in the browser and there is no file a job can
-  // fetch. (iShares was the second until Oct 2026 — measured 22 Sep, its old
-  // URL answered 1,440,151 bytes of `<!DOCTYPE html>` under a 200, which read
-  // as a datacentre block and was in fact a retired URL; fetch-ishares.mjs now
-  // reads BlackRock's current export daily.) A red daily refresh caused by a
-  // hand feed would stop meaning "the pipeline stopped" — and a red that means
-  // two different things is a red people learn to wave through, which is the
-  // failure §3.8.2 already named about a guard waived weekly.
+  // Since Oct 2026 no feed in the registry is refreshed by a person. The two
+  // that were — iShares and FTSE — were each written off as "a datacentre
+  // cannot reach this" and neither was: iShares' old URL had been retired
+  // (fetch-ishares.mjs reads the current one), and Vanguard builds its export
+  // in the browser, so fetch-ftse.mjs drives the page and presses its Download.
+  // The distinction stays, for the next feed that genuinely needs a person: a
+  // red daily refresh caused by a hand feed would stop meaning "the pipeline
+  // stopped" — and a red that means two different things is a red people learn
+  // to wave through, which is the failure §3.8.2 already named about a guard
+  // waived weekly.
   //
   // So --jobs-only narrows the FAILURE to feeds a workflow owns. It never
   // narrows the REPORT: a hand-dropped feed past its cadence is printed just as
@@ -181,8 +182,8 @@ function main() {
     + '  nse / nse-universe                        -> weekly-nse-crosscheck.yml\n'
     + '  asm                                       -> asm-refresh.yml\n'
     + '  quote-stats                               -> monthly-float.yml\n'
-    + '  ftse                                      -> uploaded by the desk (the FTSE book control);\n'
-    + '                                               Vanguard builds its export in the browser.\n'
+    + '  ftse                                      -> daily-refresh.yml (fetch-ftse.mjs presses the\n'
+    + '                                               page\'s own Download); the desk can still upload.\n'
     + 'freshness-watch.yml re-runs the owning workflow and keeps one stale-data issue open.\n\n',
   );
 

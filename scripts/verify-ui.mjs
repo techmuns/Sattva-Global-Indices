@@ -23,7 +23,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { createRequire } from 'node:module';
+import { loadPlaywright } from './lib/playwright.mjs';
 
 import { Suite, parseArgs, ok, equal, empty, skip } from './lib/assert.mjs';
 import { closedReviews } from '../public/js/model/calendar.js';
@@ -35,32 +35,10 @@ const DEFAULT_BASE = 'http://127.0.0.1:8080';
 /* ── Playwright, from wherever it is installed ─────────────────────────────
  * There is no package.json in this repo and there is not going to be one, so
  * the browser driver is resolved from the global install rather than a
- * dependency. If it is absent the suite cannot run at all — that is an
- * environment failure and exits 2, distinct from a check failing.
+ * dependency (scripts/lib/playwright.mjs, shared with fetch-ftse.mjs). If it is
+ * absent the suite cannot run at all — that is an environment failure and
+ * exits 2, distinct from a check failing.
  */
-async function loadPlaywright() {
-  // ESM does not honour NODE_PATH, so the global root is turned into an
-  // explicit path rather than left to bare-specifier resolution. CI sets
-  // NODE_PATH="$(npm root -g)" and the runner's own location differs by image.
-  const globalRoots = (process.env.NODE_PATH ?? '').split(':').filter(Boolean);
-  const candidates = [
-    'playwright',
-    ...globalRoots.map((root) => join(root, 'playwright', 'index.js')),
-    '/opt/node22/lib/node_modules/playwright/index.js',
-    '/usr/lib/node_modules/playwright/index.js',
-    '/usr/local/lib/node_modules/playwright/index.js',
-    '/usr/local/share/npm-global/lib/node_modules/playwright/index.js',
-  ];
-  for (const specifier of candidates) {
-    try {
-      const mod = await import(specifier);
-      return mod.default ?? mod;
-    } catch { /* try the next one */ }
-  }
-  const require = createRequire(import.meta.url);
-  try { return require('playwright'); } catch { /* fall through */ }
-  return null;
-}
 
 /* ── the naive range parser, for --prove ───────────────────────────────────
  * Assertion 44 has to be able to fail, and the way it would fail in real life
@@ -4171,7 +4149,13 @@ async function main() {
         (report.text.match(/median[^.]*/) ?? [''])[0]);
 
       // ---- every count with its denominator (§2.5) ------------------------
-      ok(/651 of 6,339/.test(report.text), 'the India slice is stated against the whole book', report.text.slice(0, 400));
+      // The upload IS the committed fixture, so its slice and its book are the
+      // figures measured from that file — read from the one table the importer
+      // is held to, never typed here (they move every time the book refreshes).
+      const book = JSON.parse(readFileSync(join(ROOT, 'scripts/fixtures/vanguard-ftse-expected.json'), 'utf8')).measured;
+      const grouped = (n) => Number(n).toLocaleString('en-US');
+      ok(new RegExp(`${grouped(book.indiaRows)} of ${grouped(book.dataRows)}`).test(report.text),
+        'the India slice is stated against the whole book', report.text.slice(0, 400));
       // ⚠ THE RESOLVED COUNT BELONGS TO THE RECORD, NOT TO THIS FILE.
       //
       // It was typed as 638 of 651, and on 19 Oct 2026 the refreshed record

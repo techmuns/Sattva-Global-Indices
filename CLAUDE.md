@@ -1590,6 +1590,7 @@ in how they compounded.
 | The scrip master was the daily refresh's **first hard step** | NSE, Yahoo and the bhavcopy all answered — and all were skipped, daily | every source its own soft step; one red step at the end names what did not refresh |
 | NSE renamed `HEG` → `HEGAM` (same ISIN) | the weekly NSE job fetched everything, then the build refused on the dated seed's old symbol, four weeks running | a seed symbol no ISIN claims is a rename, reported; one claimed by **another** ISIN still stops the build |
 | iShares' download URL was retired | read on 22 Sep as "BlackRock serves a datacentre IP HTML", so the feed was labelled `hand` | `fetch-ishares.mjs` reads BlackRock's current export daily; `refreshedBy: 'job'` |
+| Vanguard's export has no URL, and `ftse-fx.json` had no workflow at all | the FTSE book waited on a person; its CAD→INR series sat on 22 Sep with nothing tracking it | `fetch-ftse.mjs` presses the page's own Download (§2.38); `fetch-ftse-fx.mjs` runs daily; `refreshedBy: 'job'` |
 
 **The rule this adds to §2.34: a source's failure costs that source, never its neighbours.** Every
 feed carries its own capture date, the sources strip shows each one, and `check-freshness` fails on
@@ -1842,9 +1843,34 @@ the cutoff itself.
 
 ### 2.38 The desk uploads the FTSE workbook itself, and an upload is not a shortcut past the checks
 
-Vanguard publishes its FTSE book quarterly and it arrives as a file somebody downloads. The only way
+Vanguard publishes its FTSE book monthly and it arrived as a file somebody downloads. The only way
 in was `node scripts/import-ftse.mjs` against a committed fixture, which meant the desk waited on
 whoever holds the repo. They asked to do it themselves, so the dashboard takes the workbook.
+
+> ### ⚠ AND SINCE OCT 2026 A JOB FETCHES THE SAME FILE — BY PRESSING THE SAME BUTTON
+>
+> There is no URL for it. Measured 20 Oct 2026: the Download beside "Top 10 Holdings" on VEE's page
+> makes **no request** — the page builds the `.xlsx` in the browser from holdings it read from its
+> own GraphQL API (`/gpx/graphql`, `borHoldings.delayeredHoldings`, portfolio **9556**; VEE is a fund
+> of funds, 99.2% one US ETF directly, and the workbook is the look-through). That API answers plain
+> HTTP and carries the unrounded figures — 6,343 of the export's 6,486 rows matched it on all seven
+> columns, the rest differing only in Vanguard's own fourth-decimal rounding — and **it is not used**:
+> reading it would be the second reader this section forbids, and "Vanguard's export" would become
+> "our reconstruction of it" on every cell.
+>
+> So `scripts/fetch-ftse.mjs` opens the page in headless Chromium (Playwright, global, as for
+> verify-ui) and presses Vanguard's Download; the bytes it receives are the bytes the desk would
+> upload, read by `readFtseBook` and checked by `assertBookShape` against the committed book, then
+> written only if newer, with `vanguard-ftse-expected.json` re-measured in the same write. Four
+> things it took, each measured on a runner and each now written into the script: the exporter
+> prefers `showSaveFilePicker()`, which headless Chromium has and can never answer, so the API is
+> removed before the page loads; the sections render only as they scroll into view; a consent
+> banner swallows the press (it is declined, and the press is a DOM click besides); and — the one
+> that matters — **the exporter writes whatever it holds at the moment of the press**. Pressed early
+> it handed over exactly three 1,500-row pages, 4,500 rows of 6,486, and the India slice came through
+> at 651 of 652 because the missing pages are the smallest positions. The script now waits for the
+> look-through page whose `lastItemKey` is null, and `assertBookShape` gained the shrink test on the
+> **whole** book it lacked — which protects an upload of a truncated file too.
 
 **It is the SAME code, not a browser version of it.** `public/js/model/ftse-book.js` holds the parse,
 the payload shape, the structural checks and the join, and both callers use it. A second
@@ -2480,6 +2506,7 @@ scripts/
   lib/asm-diff.mjs                 ASM snapshot diff, keyed on ISIN; pure, writes nothing
   lib/cutoff-measure.mjs           the cutoff's own uncertainty, measured from price history
   lib/yahoo.mjs                    one Yahoo daily-close reader, shared by both FX fetchers
+  lib/playwright.mjs               the GLOBAL browser driver, for verify-ui and fetch-ftse
   lib/munshot.mjs                  Munshot batch client + rawQuote parser, pure
   lib/recompute.mjs                free-float recompute, passive drift, flow primitives
   import-universe.mjs              Screener seed → public/data/universe.json
@@ -2487,6 +2514,8 @@ scripts/
   fetch-ishares.mjs                BlackRock's own export → scripts/fixtures/ishares-*.xls,
                                    re-measuring fixtures/ishares-expected.json in the same write
   import-ishares.mjs               3 workbooks → public/data/msci-funds.json
+  fetch-ftse.mjs                   presses VEE's own Download → scripts/fixtures/vanguard-ftse-em-allcap.xlsx,
+                                   re-measuring fixtures/vanguard-ftse-expected.json in the same write
   import-ftse.mjs                  Vanguard FTSE EM workbook → public/data/ftse-funds.json
   scrape-nse-freefloat.mjs         NSE pre-open → public/data/nse-freefloat.json
   scrape-nse-asm.mjs               NSE ASM report → public/data/nse-asm.json
@@ -2516,7 +2545,8 @@ scripts/
   fixtures/ishares-{eem,smin,eems}.xls    the committed input workbooks (fetched daily)
   fixtures/ishares-expected.json          what they measure — the importer's table, and verify-data's
   fixtures/screener-universe.csv          the desk's >₹2,000 Cr seed list
-  fixtures/vanguard-ftse-em-allcap.xlsx   the FTSE EM holdings book (struck in CAD)
+  fixtures/vanguard-ftse-em-allcap.xlsx   the FTSE EM holdings book (struck in CAD; fetched daily)
+  fixtures/vanguard-ftse-expected.json    what it measures — import-ftse's table, and verify-ui 61's
   fixtures/bhavcopy-spa-shell.html       BSE's SPA shell, served with HTTP 200
   fixtures/bhavcopy-sample-2026081{8,9}.csv  two real days, for continuity
   fixtures/munshot-rawquote-reliance.txt     one captured detail quote
@@ -2604,6 +2634,7 @@ Refresh order — later scripts read what earlier ones write:
 ```bash
 node scripts/fetch-ishares.mjs         # 3 requests; writes only a workbook newer than committed
 node scripts/import-ishares.mjs        # workbooks; no network
+node scripts/fetch-ftse.mjs            # VEE's own export, via headless Chromium (global Playwright)
 node scripts/import-ftse.mjs           # the Vanguard FTSE EM workbook; no network
 node scripts/import-universe.mjs       # the desk's >Rs2,000 Cr seed list; no network
 node scripts/fetch-bse-master.mjs      # 1 request, ~1.7 MB

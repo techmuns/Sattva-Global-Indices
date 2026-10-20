@@ -168,6 +168,54 @@ jobs:
           echo "::warning title=iShares not applied::A fresh workbook downloaded but the importer refused it."\
                "The committed holdings stand; read the import step's log for the check that failed."
 
+      # ---- the FTSE second opinion: Vanguard's own export ----------------
+      #
+      # Was the one feed a person had to refresh: Vanguard builds its
+      # "Holdings details" .xlsx in the browser, so there is no URL to fetch.
+      # fetch-ftse.mjs drives the product page in headless Chromium, presses the
+      # same Download the desk presses, and receives the same bytes — checked
+      # by the same readFtseBook/assertBookShape the upload panel uses, written
+      # only when NEWER, its measured table re-measured in the same write.
+      #
+      # The CAD->INR series the join converts with was never refreshed by any
+      # workflow at all (it sat on 22 Sep 2026), so it is fetched here too —
+      # first, because a fresher book needs a rate for its own date.
+      - name: INR per CAD for the FTSE book (soft)
+        id: ftse_fx
+        continue-on-error: true
+        run: node scripts/fetch-ftse-fx.mjs
+
+      # Playwright is a global tool, never a dependency of this repo (§1).
+      - name: Install Playwright (globally, outside the repo)
+        id: playwright
+        continue-on-error: true
+        timeout-minutes: 10
+        run: |
+          npm install -g playwright@latest
+          playwright install chromium
+
+      - name: Vanguard FTSE book (the page's own export)
+        id: ftse
+        if: steps.playwright.outcome == 'success'
+        continue-on-error: true
+        run: |
+          export NODE_PATH="$(npm root -g)"
+          node scripts/fetch-ftse.mjs
+
+      - name: Import the FTSE book
+        id: ftse_import
+        if: steps.ftse.outcome == 'success'
+        continue-on-error: true
+        run: node scripts/import-ftse.mjs
+
+      - name: Put the FTSE group back if the import refused
+        if: steps.ftse_import.outcome == 'failure'
+        run: |
+          git checkout -- scripts/fixtures/vanguard-ftse-em-allcap.xlsx \
+            scripts/fixtures/vanguard-ftse-expected.json public/data/ftse-funds.json
+          echo "::warning title=FTSE book not applied::A fresher Vanguard book downloaded but the importer"\
+               "refused it. The committed book stands; read the import step's log for the check that failed."
+
       # ---- BSE: the primary source. Soft per step, never silent. ---------
       - name: BSE per-scrip free float
         id: float
@@ -310,7 +358,8 @@ jobs:
           git config user.name  "sattva-bot"
           git config user.email "tech@muns.io"
           TRADE_DATE=$(node -e "console.log(require('./public/data/prices.json').tradeDate)")
-          git add public/data scripts/fixtures/ishares-*.xls scripts/fixtures/ishares-expected.json
+          git add public/data scripts/fixtures/ishares-*.xls scripts/fixtures/ishares-expected.json \
+            scripts/fixtures/vanguard-ftse-em-allcap.xlsx scripts/fixtures/vanguard-ftse-expected.json
           git commit -m "Daily refresh for ${TRADE_DATE}"
 
           # REBASE AND RETRY, because a bare `git push` loses the whole run.
@@ -376,6 +425,10 @@ jobs:
           MASTER: ${{ steps.master.outcome }}
           ISHARES: ${{ steps.ishares.outcome }}
           ISHARES_IMPORT: ${{ steps.ishares_import.outcome }}
+          FTSE_FX: ${{ steps.ftse_fx.outcome }}
+          PLAYWRIGHT: ${{ steps.playwright.outcome }}
+          FTSE: ${{ steps.ftse.outcome }}
+          FTSE_IMPORT: ${{ steps.ftse_import.outcome }}
           FLOAT: ${{ steps.float.outcome }}
           ACTIONS: ${{ steps.actions.outcome }}
           PRICES: ${{ steps.prices.outcome }}
@@ -384,6 +437,7 @@ jobs:
         run: |
           failed=""
           for pair in "BSE scrip master:$MASTER" "iShares download:$ISHARES" "iShares import:$ISHARES_IMPORT" \
+                      "FTSE FX:$FTSE_FX" "Playwright install:$PLAYWRIGHT" "FTSE download:$FTSE" "FTSE import:$FTSE_IMPORT" \
                       "BSE free float:$FLOAT" "BSE corporate actions:$ACTIONS" "BSE bhavcopy:$PRICES" \
                       "price history:$HISTORY"; do
             name="${pair%%:*}"; outcome="${pair##*:}"

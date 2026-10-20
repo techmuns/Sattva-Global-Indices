@@ -734,10 +734,16 @@ export const FTSE_JOIN = {
  * date, so nothing is hidden by being conservative here.
  */
 export const FTSE_BOOK = {
-  // Vanguard publishes holdings monthly, so a book older than this is behind
-  // its own publisher rather than merely older than the MSCI files.
-  staleAfterDays: 45,
-  cadence: 'published monthly by Vanguard; re-imported when a fresh workbook is dropped in',
+  // Vanguard publishes holdings monthly, struck at month-end and released
+  // weeks later: on 20 Oct 2026 the newest book on the page was as at 30 Sep.
+  // So a book is CURRENT until the next month-end's arrives — about 31 days
+  // plus that release lag — and 45 would have called a current book stale for
+  // the last days of every cycle once a job, not a person, kept it fresh. 60 is
+  // a month and a release lag with room for a slow month; past it, the job has
+  // stopped or Vanguard has. The desk's number, measured from one observation
+  // of the lag, and to be tightened when more are on the record.
+  staleAfterDays: 60,
+  cadence: 'published monthly by Vanguard; fetched every trading day from the product page\'s own export',
   attribution:
     "Vanguard's own published holdings for its FTSE Emerging Markets fund, carried through unchanged. "
     + 'FTSE Russell publishes the index; this is a fund that tracks it, not the index itself.',
