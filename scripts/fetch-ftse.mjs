@@ -161,8 +161,19 @@ async function downloadBook(playwright) {
     await page.waitForLoadState('networkidle', { timeout: 90000 }).catch(() => {});
     const count = await holdingsDownload.count();
     if (count !== 1) {
+      const seen = await page.evaluate(() => [...document.querySelectorAll('button')]
+        .filter((b) => /download/i.test(b.textContent ?? ''))
+        .map((b) => {
+          const around = [];
+          let node = b;
+          for (let depth = 1; depth <= 8 && node.parentElement; depth += 1) {
+            node = node.parentElement;
+            if ([2, 5, 8].includes(depth)) around.push(`${depth}:${(node.innerText ?? '').replace(/\s+/g, ' ').slice(0, 40)}`);
+          }
+          return `[${JSON.stringify(b.textContent.trim().slice(0, 20))} ${around.join(' / ')}]`;
+        }).join(' '));
       throw new Error(`expected exactly one Download inside the holdings section, found ${count} — `
-        + 'the page has changed shape; look before guessing');
+        + `the page has changed shape; look before guessing. Downloads on the page: ${seen.slice(0, 900)}`);
     }
     await holdingsDownload.scrollIntoViewIfNeeded();
     await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
