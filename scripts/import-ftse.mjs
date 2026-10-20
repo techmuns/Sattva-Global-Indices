@@ -80,20 +80,15 @@ const inflateRaw = (body) => inflateRawSync(body);
  * legitimately and applying it there would reject every real quarterly book.
  * What the panel runs instead is `assertBookShape` — the checks that hold for
  * ANY Vanguard book, plus the shrink guard every writer here follows.
+ *
+ * It lives beside the workbook in vanguard-ftse-expected.json since Oct 2026,
+ * because scripts/fetch-ftse.mjs now replaces the workbook on a schedule and
+ * re-measures this table in the same write — the contract above, kept by the
+ * one actor that replaces the file, without a bot ever rewriting JavaScript.
  */
-const EXPECTED = {
-  name: 'Vanguard FTSE Emerging Markets All Cap Index ETF',
-  holdingsAsOf: '2026-07-31',
-  downloadedOn: '2026-09-04',
-  headerRowNumber: 7,
-  dataRows: 6339,
-  indiaRows: 651,
-  indiaWeightPct3dp: '16.173',
-  totalWeightPct3dp: '95.015',
-  placeholderNameRows: 6,
-  noTickerRows: 1,
-  weightRoundsToZeroRows: 1,
-};
+const EXPECTED = JSON.parse(
+  readFileSync(join(REPO, 'scripts', 'fixtures', 'vanguard-ftse-expected.json'), 'utf8'),
+).measured;
 
 async function main() {
   const { payload, measured } = await readFtseBook(readFileSync(FIXTURE), inflateRaw, {
@@ -123,7 +118,7 @@ async function main() {
   const drift = Object.keys(EXPECTED).filter((k) => String(measured[k]) !== String(EXPECTED[k]));
   if (drift.length) {
     process.stderr.write(
-      `\nThe workbook does not match the EXPECTED table in this script:\n\n${
+      `\nThe workbook does not match scripts/fixtures/vanguard-ftse-expected.json:\n\n${
         drift.map((k) => `  ${k}: measured ${JSON.stringify(measured[k])} vs expected ${JSON.stringify(EXPECTED[k])}`).join('\n')
       }\n\nEXPECTED describes the file committed in scripts/fixtures/, not the fund in general. If you\n`
       + 'replaced the workbook, re-measure and update EXPECTED in the same commit. Never loosen it to\n'
