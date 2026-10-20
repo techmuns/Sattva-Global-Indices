@@ -162,14 +162,22 @@ async function downloadBook(playwright) {
       });
       if (owned.length !== 1) return { ok: false, found: owned.length, of: buttons.length };
       owned[0].setAttribute('data-sattva-holdings-download', '');
-      return { ok: true, of: buttons.length };
+      let section = owned[0];
+      for (let depth = 0; depth < 6 && section.parentElement; depth += 1) section = section.parentElement;
+      return { ok: true, of: buttons.length, section: (section.innerText ?? '').replace(/\s+/g, ' ').slice(0, 90) };
     }, SECTION_HEADING.source);
     if (!marked.ok) {
       throw new Error(`expected exactly one Download inside the holdings section, found ${marked.found} `
         + `(of ${marked.of} on the page) — the page has changed shape; look before guessing`);
     }
 
-    requests.length = 0;
+    // The exporter works from holdings the page is still loading when the
+    // heading first paints; pressing before the network settles was measured
+    // to produce no file at all. Settle, then press like a person would.
+    await page.waitForLoadState('networkidle', { timeout: 90000 }).catch(() => {});
+    await page.locator('[data-sattva-holdings-download]').scrollIntoViewIfNeeded();
+    await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
+    requests.push(`pressing the Download in: "${marked.section}"`);
     let download;
     try {
       [download] = await Promise.all([
