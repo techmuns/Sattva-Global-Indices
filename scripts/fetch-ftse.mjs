@@ -172,8 +172,11 @@ async function downloadBook(playwright) {
           }
           return `[${JSON.stringify(b.textContent.trim().slice(0, 20))} ${around.join(' / ')}]`;
         }).join(' '));
+      const where = await page.evaluate(() => `${location.href} · "${document.title}" · `
+        + `${(document.body?.innerText ?? '').replace(/\s+/g, ' ').slice(0, 300)}`).catch((e) => String(e.message));
       throw new Error(`expected exactly one Download inside the holdings section, found ${count} — `
-        + `the page has changed shape; look before guessing. Downloads on the page: ${seen.slice(0, 900)}`);
+        + `the page has changed shape; look before guessing. Downloads on the page: ${seen.slice(0, 900) || 'none'}. `
+        + `Page: ${where}`);
     }
     await holdingsDownload.scrollIntoViewIfNeeded();
     await page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {});
