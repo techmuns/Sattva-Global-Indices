@@ -4144,9 +4144,16 @@ async function main() {
       // in the browser, not inherited from the committed record.
       ok(/struck in Canadian dollars/.test(report.text),
         'the panel establishes the currency by measurement', report.text.slice(0, 200));
-      ok(/median 1\.00\d+ of our own close across \d+ companies/.test(report.text),
-        'and shows the median ratio with its denominator',
-        (report.text.match(/median[^.]*/) ?? [''])[0]);
+      // ⚠ A RATIO NEAR 1 IS NOT A RATIO OF 1.00-SOMETHING. This was a regex for
+      // `median 1.00…`, and the 30 Sep 2026 book's median is 0.9998 — the
+      // market decided which side of 1 the check landed on (§2.34). What the
+      // figure proves is CAD (≈1) against a misread USD (≈1.41), so the number
+      // is read and held to the join's own exact-basis tolerance either side.
+      const medianMatch = /median (\d+(?:\.\d+)?) of our own close across ([\d,]+) companies/.exec(report.text);
+      const median = medianMatch ? Number(medianMatch[1]) : null;
+      ok(median !== null && Math.abs(median - 1) <= 0.05 && Number(medianMatch[2].replace(/,/g, '')) > 0,
+        'and shows the median ratio, near 1 as CAD reads, with its denominator',
+        (report.text.match(/median[^\n]*/) ?? ['no median line'])[0].slice(0, 120));
 
       // ---- every count with its denominator (§2.5) ------------------------
       // The upload IS the committed fixture, so its slice and its book are the
