@@ -100,8 +100,19 @@ async function downloadBook(playwright) {
         }
         return dispatch.apply(this, arguments);
       };
+      // ⚠ THE EXPORTER PREFERS A SAVE DIALOG WHERE ONE EXISTS. Chromium has the
+      // File System Access API, so Vanguard's exporter calls showSaveFilePicker()
+      // — which a headless browser can never answer, so the file is built and
+      // handed to nobody. Measured on a GitHub runner: the look-through fetched
+      // (six GraphQL pages, ~3.4 MB, all 200) and no download ever fired. With
+      // the picker absent the exporter takes its ordinary path, the Blob link a
+      // browser without the API gets, and Playwright receives the same file.
       for (const name of ['showSaveFilePicker', 'showOpenFilePicker', 'showDirectoryPicker']) {
-        if (name in window) push({ kind: 'has', name });
+        try {
+          delete Window.prototype[name];
+          delete window[name];
+        } catch { /* best effort */ }
+        if (name in window) push({ kind: 'still-present', name });
       }
     });
     const page = await context.newPage();
