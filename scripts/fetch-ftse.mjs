@@ -96,7 +96,16 @@ async function downloadBook(playwright) {
     });
     const page = await context.newPage();
     const requests = [];
-    page.on('request', (r) => { if (/graphql|download|export|xlsx/i.test(r.url())) requests.push(`${r.method()} ${r.url().slice(0, 80)}`); });
+    page.on('response', async (r) => {
+      if (!/graphql|download|export|xlsx/i.test(r.url())) return;
+      let note = '';
+      try {
+        const text = await r.text();
+        const errors = /"errors"\s*:\s*\[\s*\{[^}]*"message"\s*:\s*"([^"]{0,120})/.exec(text)?.[1];
+        note = errors ? ` error="${errors}"` : ` ${text.length}B`;
+      } catch { /* body unavailable */ }
+      requests.push(`${r.status()} ${r.request().method()} ${r.url().slice(0, 50)}${note}`);
+    });
     page.on('popup', (p) => requests.push(`popup ${p.url().slice(0, 80)}`));
     const explain = async () => {
       const trace = await page.evaluate(() => window.__sattvaTrace ?? []).catch(() => []);
