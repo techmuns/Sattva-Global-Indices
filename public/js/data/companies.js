@@ -458,7 +458,10 @@ export function feedRegistry(asOf = {}) {
       raw: asOf.ftseHoldings ?? null,
       detail: "Vanguard's own as-at date for its FTSE Emerging Markets holdings — a second opinion beside MSCI, and the oldest input here",
       cadence: FTSE_BOOK.cadence,
-      refreshedBy: 'hand',
+      // 'job' since Oct 2026: scripts/fetch-ftse.mjs presses the page's own
+      // Download every trading day. The desk's upload panel still works and
+      // still wins when it carries a newer book (§2.38).
+      refreshedBy: 'job',
       staleAfterDays: FTSE_BOOK.staleAfterDays,
     },
   ];

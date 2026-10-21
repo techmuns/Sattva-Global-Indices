@@ -265,7 +265,21 @@ async function run() {
   // guard can tell which of the two a failed session belongs to: a hole in a
   // price window and a hole in a sensitivity span are different problems.
   const baselineDates = new Set(baselines.flatMap((b) => businessDates(b.from, b.to)));
-  const keptDates = new Set([...windowDates, ...baselineDates]);
+
+  // ⚠ AND THE FTSE BOOK'S OWN DATE. The FTSE join proves each holding against
+  // our close ON THE DAY THE BOOK WAS STRUCK (§2.35), and only this file holds a
+  // close for a past day. The July book joined exactly only because 31 Jul fell
+  // inside an MSCI price window; the first book fetched automatically was as at
+  // 30 Sep, which no window or baseline covers, so the join reached four weeks
+  // back to 2 Sep at three times the tolerance and rejected real matches whose
+  // price had moved — 607 of 654 resolved against 636 of 651. One more session,
+  // read from the committed book rather than the clock, makes it exact again.
+  const ftsePath = join(REPO, 'public/data/ftse-funds.json');
+  const ftseAsOf = existsSync(ftsePath)
+    ? (JSON.parse(readFileSync(ftsePath, 'utf8')).funds?.[0]?.asOf ?? null)
+    : null;
+  const ftseDates = new Set(ftseAsOf && ftseAsOf <= prices.tradeDate ? businessDates(ftseAsOf, ftseAsOf) : []);
+  const keptDates = new Set([...windowDates, ...baselineDates, ...ftseDates]);
   let span = [...keptDates].sort();
   if (args.limit) span = span.slice(0, args.limit);
 
@@ -275,6 +289,7 @@ async function run() {
   const spans = [
     ...windows.map((w) => ({ from: w.from, to: w.to })),
     ...baselines.map((b) => ({ from: b.from, to: b.to })),
+    ...[...ftseDates].map((d) => ({ from: d, to: d })),
   ];
 
   // ---- walk the span, in order ------------------------------------------
@@ -513,7 +528,8 @@ async function run() {
   }
 
   // ---- assemble ----------------------------------------------------------
-  const dates = [...new Set([...perWindow, ...perBaseline].flatMap((w) => w.dates))].sort();
+  const ftseSessions = sessions.filter((s) => ftseDates.has(s.date)).map((s) => s.date);
+  const dates = [...new Set([...perWindow, ...perBaseline].flatMap((w) => w.dates).concat(ftseSessions))].sort();
   const scrips = {};
   for (const [code, byDate] of closesByScrip) {
     const info = meta.get(code) ?? {};
@@ -546,6 +562,10 @@ async function run() {
     continuityBreaks,
     continuityToleranceInr: CONTINUITY_TOLERANCE_INR,
     corporateActions: 'see public/data/corporate-actions.json — actions are not derivable from this file',
+    // The committed FTSE book's own "As at", captured so its join is struck on
+    // that day's close. null when no book is committed, or its date was not a
+    // session we could read (the join then states its inexact basis, §2.38).
+    ftseBook: { asOf: ftseAsOf, dates: ftseSessions },
     windows: perWindow.map((w) => ({
       review: w.review,
       from: w.from,
@@ -631,7 +651,8 @@ async function run() {
   process.stdout.write(
     `\nWrote ${OUT_PATH.replace(REPO + '/', '')} — ${num(payload.scripCount)} scrips × ${dates.length} sessions `
     + `(${perWindow.reduce((n, w) => n + w.sessions, 0)} in price windows, `
-    + `${perBaseline.reduce((n, b) => n + b.sessions, 0)} in rebalance baselines).\n\n`,
+    + `${perBaseline.reduce((n, b) => n + b.sessions, 0)} in rebalance baselines, `
+    + `${ftseSessions.length} for the FTSE book).\n\n`,
   );
 }
 

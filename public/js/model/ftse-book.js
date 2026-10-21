@@ -282,6 +282,22 @@ export function assertBookShape(measured, { previous = null, shrinkTolerancePct 
       `${measured.indiaRows} India rows against ${previous.indiaRows} before `
       + `(a drop past ${shrinkTolerancePct}% is refused — pass an override and mean it)`,
     );
+    // ⚠ AND THE WHOLE BOOK, NOT ONLY ITS INDIA SLICE. Vanguard's page builds the
+    // export from holdings it loads 1,500 rows at a time, and pressed too early
+    // it hands over what it has: measured 20 Oct 2026, a 4,500-row book (three
+    // pages exactly) against 6,486 in a complete one. The missing pages are the
+    // SMALLEST positions, so the India slice came through at 651 rows against
+    // 652 and the check above passed it. A truncated file is a partial read, and
+    // this is the same shrink rule applied to the thing that was truncated.
+    if (Number.isFinite(previous.dataRows)) {
+      const bookFloor = previous.dataRows * (1 - shrinkTolerancePct / 100);
+      check(
+        measured.dataRows >= bookFloor,
+        'the whole book is not materially smaller than the one it replaces',
+        `${measured.dataRows} rows against ${previous.dataRows} before `
+        + `(a drop past ${shrinkTolerancePct}% is a truncated file, not a smaller fund)`,
+      );
+    }
     check(
       measured.holdingsAsOf >= previous.asOf,
       'the new book is not older than the one it replaces',
