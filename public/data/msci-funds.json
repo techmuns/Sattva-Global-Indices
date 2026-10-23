@@ -1,6 +1,6 @@
 {
   "source": "iShares fund holdings workbooks (BlackRock) — scripts/import-ishares.mjs",
-  "importedAt": "2026-10-23T18:34:06.802Z",
+  "importedAt": "2026-10-23T20:11:22.406Z",
   "fixtures": [
     "scripts/fixtures/ishares-eem.xls",
     "scripts/fixtures/ishares-smin.xls",
