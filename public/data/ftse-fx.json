@@ -4,8 +4,8 @@
   "symbol": "CADINR=X",
   "currency": "INR",
   "meaning": "INR per CAD",
-  "capturedAt": "2026-10-22T18:40:56.337Z",
-  "asOf": "2026-10-22",
+  "capturedAt": "2026-10-23T18:34:07.276Z",
+  "asOf": "2026-10-23",
   "range": "2y",
   "exchange": "CCY",
   "timezone": "Europe/London",
@@ -13,10 +13,6 @@
   "duplicateDateBars": 0,
   "points": 518,
   "series": [
-    {
-      "date": "2024-10-22",
-      "close": 60.715667724609375
-    },
     {
       "date": "2024-10-23",
       "close": 60.80699157714844
@@ -2083,7 +2079,11 @@
     },
     {
       "date": "2026-10-22",
-      "close": 67.69200134277344
+      "close": 67.23092651367188
+    },
+    {
+      "date": "2026-10-23",
+      "close": 67.802001953125
     }
   ]
 }
