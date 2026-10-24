@@ -1,7 +1,7 @@
 {
   "source": "iShares holdings + NSE pre-open free float + BSE free float + niftyindices ISIN map",
   "note": "floatFactor is dimensionless and price-independent. NSE wins wherever it publishes a reading because MSCI follows NSE; BSE fills gaps only. The two are never averaged, and where both exist both are kept so the disagreement stays inspectable. Every monetary field is RUPEES. A null in funds{} means NOT HELD by that fund — it is not a zero weight.",
-  "builtAt": "2026-10-23T20:19:22.270Z",
+  "builtAt": "2026-10-24T08:41:47.676Z",
   "holdingsAsOfByFund": {
     "eem": "2026-10-22",
     "smin": "2026-10-22",
@@ -16,7 +16,7 @@
     "quoteStatsCapturedAt": "2026-10-02T01:03:21.315Z",
     "benchmarksAsOf": "2026-10-23",
     "bseScripMasterCapturedAt": "2026-10-23T20:10:59.228Z",
-    "nseUniverseCapturedAt": "2026-10-23T20:11:00.759Z",
+    "nseUniverseCapturedAt": "2026-10-24T08:41:42.413Z",
     "asmAsOf": "23-Oct-2026"
   },
   "thresholds": {
@@ -653,7 +653,7 @@
     "publisher": "National Stock Exchange of India",
     "endpoint": "https://www.nseindia.com/api/reportASM",
     "note": "NSE's published surveillance stage, carried through unchanged (tier 1) and joined to the universe by ISIN. dhan.co/nse-asm-list mirrors this same NSE feed. A company not on the list is NOT under ASM; a null stage when the feed is unavailable means we could not check.",
-    "capturedAt": "2026-10-23T20:11:05.549Z",
+    "capturedAt": "2026-10-24T08:41:47.340Z",
     "asOf": "23-Oct-2026",
     "totalFlagged": 195,
     "flaggedInUniverse": 56,
