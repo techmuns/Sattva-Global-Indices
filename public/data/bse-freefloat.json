@@ -1,7 +1,7 @@
 {
   "source": "BSE India — api.bseindia.com (StockTrading, getScripHeaderData, ComHeader)",
   "note": "floatFactor = MktCapFF / MktCapFull, both from one StockTrading response at one instant, so it is price-independent. All monetary fields are RUPEES; BSE publishes ₹ crore strings and the conversion happens once, in scripts/lib/bse.mjs. sharesOutstanding is DERIVED as fullMcapInr / priceInr using BSE's own last traded price.",
-  "capturedAt": "2026-10-26T20:10:31.817Z",
+  "capturedAt": "2026-10-26T21:24:16.507Z",
   "universe": {
     "heldByFunds": 612,
     "minFullMcapInr": 20000000000,
@@ -62,7 +62,7 @@
     "partial": false
   },
   "requestCount": 3834,
-  "elapsedMs": 379424,
+  "elapsedMs": 332327,
   "scripCount": 1277,
   "scrips": [
     {
