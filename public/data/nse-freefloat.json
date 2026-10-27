@@ -1,36 +1,36 @@
 {
   "source": "NSE pre-open market API — nseindia.com/api/market-data-pre-open",
   "note": "Free-float market cap as published by NSE. NOT computed from promoter holding. Struck at the pre-open indicative equilibrium price (09:00–09:08 IST), not at the close.",
-  "capturedAt": "2026-10-26T21:18:13.913Z",
-  "sessionTimestamp": "26-Oct-2026 09:09:18",
+  "capturedAt": "2026-10-27T19:31:20.873Z",
+  "sessionTimestamp": "27-Oct-2026 09:09:40",
   "keysRead": [
     {
       "key": "FO",
       "rowsReturned": 213,
       "rowsWithFreeFloat": 213,
       "newSymbols": 213,
-      "sessionTimestamp": "26-Oct-2026 09:09:18"
+      "sessionTimestamp": "27-Oct-2026 09:09:40"
     },
     {
       "key": "SME",
-      "rowsReturned": 56,
-      "rowsWithFreeFloat": 56,
-      "newSymbols": 56,
-      "sessionTimestamp": "26-Oct-2026 09:09:18"
+      "rowsReturned": 41,
+      "rowsWithFreeFloat": 41,
+      "newSymbols": 41,
+      "sessionTimestamp": "27-Oct-2026 09:09:40"
     }
   ],
-  "companyCount": 461,
-  "freshThisSession": 269,
-  "carriedForward": 192,
+  "companyCount": 466,
+  "freshThisSession": 254,
+  "carriedForward": 212,
   "companies": [
     {
       "symbol": "360ONE",
-      "freeFloatMcapInr": 259411930042.52,
-      "iep": 990,
-      "previousClose": 997.1,
+      "freeFloatMcapInr": 256477168813.75,
+      "iep": 978.8,
+      "previousClose": 975,
       "impliedFreeFloatShares": 262032253,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -45,22 +45,22 @@
     },
     {
       "symbol": "ABB",
-      "freeFloatMcapInr": 322307106294.96,
-      "iep": 6154.5,
-      "previousClose": 6140,
+      "freeFloatMcapInr": 333487960498.22,
+      "iep": 6368,
+      "previousClose": 6357.5,
       "impliedFreeFloatShares": 52369341,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "ABCAPITAL",
-      "freeFloatMcapInr": 291748180240.62,
-      "iep": 343.35,
-      "previousClose": 347.25,
+      "freeFloatMcapInr": 299140663619.37,
+      "iep": 352.05,
+      "previousClose": 353.05,
       "impliedFreeFloatShares": 849710733,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -105,73 +105,73 @@
     },
     {
       "symbol": "ADANIENSOL",
-      "freeFloatMcapInr": 397253739257.85,
-      "iep": 1221,
-      "previousClose": 1220,
+      "freeFloatMcapInr": 411341443524.73,
+      "iep": 1264.3,
+      "previousClose": 1258,
       "impliedFreeFloatShares": 325351138,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "ADANIENT",
-      "freeFloatMcapInr": 839387768634.69,
-      "iep": 2482.4,
-      "previousClose": 2477,
+      "freeFloatMcapInr": 850410988606.28,
+      "iep": 2515,
+      "previousClose": 2508,
       "impliedFreeFloatShares": 338135582,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "ADANIGREEN",
-      "freeFloatMcapInr": 396205479382.75,
-      "iep": 1185.1,
-      "previousClose": 1185.1,
+      "freeFloatMcapInr": 417234358509.55,
+      "iep": 1248,
+      "previousClose": 1250,
       "impliedFreeFloatShares": 334322403,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "ADANIPORTS",
-      "freeFloatMcapInr": 1331048263050.77,
-      "iep": 1703.1,
-      "previousClose": 1702.7,
+      "freeFloatMcapInr": 1362231884503.25,
+      "iep": 1743,
+      "previousClose": 1752.5,
       "impliedFreeFloatShares": 781544397,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "ADANIPOWER",
-      "freeFloatMcapInr": 755372751771.21,
-      "iep": 182.04,
-      "previousClose": 182.04,
+      "freeFloatMcapInr": 770933330869.99,
+      "iep": 185.79,
+      "previousClose": 186.55,
       "impliedFreeFloatShares": 4149487760,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "ADISOFT",
-      "freeFloatMcapInr": 792149743.34,
-      "iep": 264.05,
-      "previousClose": 277.75,
+      "freeFloatMcapInr": 761999753.11,
+      "iep": 254,
+      "previousClose": 263.9,
       "impliedFreeFloatShares": 2999999,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "AIMTRON",
-      "freeFloatMcapInr": 10215340498.92,
-      "iep": 1704.6,
-      "previousClose": 1704.6,
+      "freeFloatMcapInr": 9696363327.03,
+      "iep": 1618,
+      "previousClose": 1610.55,
       "impliedFreeFloatShares": 5992808,
       "sourceKey": "SME",
-      "sessionTimestamp": "23-Oct-2026 09:09:05",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "AISL",
@@ -195,12 +195,12 @@
     },
     {
       "symbol": "ALKEM",
-      "freeFloatMcapInr": 298292024606.4,
-      "iep": 4960,
-      "previousClose": 4947,
+      "freeFloatMcapInr": 300096210239.1,
+      "iep": 4990,
+      "previousClose": 5030,
       "impliedFreeFloatShares": 60139521,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -215,12 +215,12 @@
     },
     {
       "symbol": "ALPEXSOLAR",
-      "freeFloatMcapInr": 4838490321.68,
-      "iep": 667.35,
-      "previousClose": 674.55,
+      "freeFloatMcapInr": 5008147433.43,
+      "iep": 690.75,
+      "previousClose": 690.75,
       "impliedFreeFloatShares": 7250304,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -235,32 +235,42 @@
     },
     {
       "symbol": "AMBER",
-      "freeFloatMcapInr": 130235272726.17,
-      "iep": 5974,
-      "previousClose": 6004.5,
+      "freeFloatMcapInr": 128295041846.92,
+      "iep": 5885,
+      "previousClose": 5908,
       "impliedFreeFloatShares": 21800347,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "AMBUJACEM",
-      "freeFloatMcapInr": 221902029465.41,
-      "iep": 356.9,
-      "previousClose": 358.9,
+      "freeFloatMcapInr": 228834524922.23,
+      "iep": 368.05,
+      "previousClose": 368,
       "impliedFreeFloatShares": 621748471,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
+    },
+    {
+      "symbol": "AMEYA",
+      "freeFloatMcapInr": 392597475,
+      "iep": 190,
+      "previousClose": 182.95,
+      "impliedFreeFloatShares": 2066303,
+      "sourceKey": "SME",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "ANANDRATHI",
-      "freeFloatMcapInr": 204297654346.05,
-      "iep": 2240,
-      "previousClose": 2235,
+      "freeFloatMcapInr": 202655976766.49,
+      "iep": 2222,
+      "previousClose": 2230,
       "impliedFreeFloatShares": 91204310,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -275,12 +285,12 @@
     },
     {
       "symbol": "ANGELONE",
-      "freeFloatMcapInr": 180761414919.63,
-      "iep": 277.65,
-      "previousClose": 279,
+      "freeFloatMcapInr": 183495785323.6,
+      "iep": 281.85,
+      "previousClose": 282.6,
       "impliedFreeFloatShares": 651040572,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -315,32 +325,32 @@
     },
     {
       "symbol": "APLAPOLLO",
-      "freeFloatMcapInr": 368526893594.22,
-      "iep": 2030.1,
-      "previousClose": 2033.7,
+      "freeFloatMcapInr": 381942063997.95,
+      "iep": 2104,
+      "previousClose": 2077.9,
       "impliedFreeFloatShares": 181531399,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "APOLLOHOSP",
-      "freeFloatMcapInr": 792231224779.29,
-      "iep": 7719,
-      "previousClose": 7730,
+      "freeFloatMcapInr": 802391982811.82,
+      "iep": 7818,
+      "previousClose": 7844,
       "impliedFreeFloatShares": 102633920,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "APRAMEYA",
-      "freeFloatMcapInr": 473746398.94,
-      "iep": 95.9,
-      "previousClose": 89.9,
+      "freeFloatMcapInr": 462631389.58,
+      "iep": 93.65,
+      "previousClose": 90,
       "impliedFreeFloatShares": 4940004,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -351,7 +361,7 @@
       "impliedFreeFloatShares": 5520655,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "ARCIIL",
@@ -361,7 +371,7 @@
       "impliedFreeFloatShares": 3110004,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "ARUNAYA",
@@ -375,12 +385,12 @@
     },
     {
       "symbol": "ASHOKLEY",
-      "freeFloatMcapInr": 413040124415.61,
-      "iep": 144.7,
-      "previousClose": 144.95,
+      "freeFloatMcapInr": 407873554787.47,
+      "iep": 142.89,
+      "previousClose": 141.9,
       "impliedFreeFloatShares": 2854458358,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -395,22 +405,22 @@
     },
     {
       "symbol": "ASIANPAINT",
-      "freeFloatMcapInr": 1036095069976.16,
-      "iep": 2298.7,
-      "previousClose": 2307,
+      "freeFloatMcapInr": 1035058388956.04,
+      "iep": 2296.4,
+      "previousClose": 2322,
       "impliedFreeFloatShares": 450730878,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "ASTRAL",
-      "freeFloatMcapInr": 165504715863.19,
-      "iep": 1357,
-      "previousClose": 1357,
+      "freeFloatMcapInr": 164772933773.89,
+      "iep": 1351,
+      "previousClose": 1349,
       "impliedFreeFloatShares": 121963682,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -421,16 +431,16 @@
       "impliedFreeFloatShares": 5403591,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "ATHERENERG",
-      "freeFloatMcapInr": 258983191956.86,
-      "iep": 1365.6,
-      "previousClose": 1380,
+      "freeFloatMcapInr": 304764198502.25,
+      "iep": 1607,
+      "previousClose": 1575,
       "impliedFreeFloatShares": 189647914,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -445,12 +455,12 @@
     },
     {
       "symbol": "AUBANK",
-      "freeFloatMcapInr": 513138683905.17,
-      "iep": 884,
-      "previousClose": 932.9,
+      "freeFloatMcapInr": 504431579540.27,
+      "iep": 869,
+      "previousClose": 869,
       "impliedFreeFloatShares": 580473624,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -465,12 +475,12 @@
     },
     {
       "symbol": "AUROPHARMA",
-      "freeFloatMcapInr": 430640993563.97,
-      "iep": 1562.4,
-      "previousClose": 1571.7,
+      "freeFloatMcapInr": 441004601704.02,
+      "iep": 1600,
+      "previousClose": 1590,
       "impliedFreeFloatShares": 275627876,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -491,7 +501,7 @@
       "impliedFreeFloatShares": 1043998,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "AVPINFRA",
@@ -505,82 +515,82 @@
     },
     {
       "symbol": "AXISBANK",
-      "freeFloatMcapInr": 3491007115078.7,
-      "iep": 1217.5,
-      "previousClose": 1217.5,
+      "freeFloatMcapInr": 3511938820984.3,
+      "iep": 1224.8,
+      "previousClose": 1220,
       "impliedFreeFloatShares": 2867356973,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "BAJAJ-AUTO",
-      "freeFloatMcapInr": 1096832033273.79,
-      "iep": 10080,
-      "previousClose": 10072,
+      "freeFloatMcapInr": 1096287969765.23,
+      "iep": 10075,
+      "previousClose": 10071,
       "impliedFreeFloatShares": 108812702,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "BAJAJFINSV",
-      "freeFloatMcapInr": 958282979758.27,
-      "iep": 1653,
-      "previousClose": 1655,
+      "freeFloatMcapInr": 960022150320.44,
+      "iep": 1656,
+      "previousClose": 1670.9,
       "impliedFreeFloatShares": 579723521,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "BAJAJHLDNG",
-      "freeFloatMcapInr": 479426192060.49,
-      "iep": 11103,
-      "previousClose": 11175,
+      "freeFloatMcapInr": 478562594488.56,
+      "iep": 11083,
+      "previousClose": 11050,
       "impliedFreeFloatShares": 43179879,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "BAJFINANCE",
-      "freeFloatMcapInr": 2503506531349.18,
-      "iep": 920,
-      "previousClose": 928.95,
+      "freeFloatMcapInr": 2492621720343.31,
+      "iep": 916,
+      "previousClose": 918.7,
       "impliedFreeFloatShares": 2721202751,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "BANDHANBNK",
-      "freeFloatMcapInr": 146881320008.5,
-      "iep": 149.39,
-      "previousClose": 149.89,
+      "freeFloatMcapInr": 149113200297.8,
+      "iep": 151.66,
+      "previousClose": 150.86,
       "impliedFreeFloatShares": 983207176,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "BANKBARODA",
-      "freeFloatMcapInr": 423667290641.79,
-      "iep": 229,
-      "previousClose": 230.9,
+      "freeFloatMcapInr": 427182434101.26,
+      "iep": 230.9,
+      "previousClose": 232,
       "impliedFreeFloatShares": 1850075505,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "BANKINDIA",
-      "freeFloatMcapInr": 149281673933.18,
-      "iep": 123.66,
-      "previousClose": 131,
+      "freeFloatMcapInr": 153313703618.91,
+      "iep": 127,
+      "previousClose": 126.32,
       "impliedFreeFloatShares": 1207194517,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -595,22 +605,22 @@
     },
     {
       "symbol": "BDL",
-      "freeFloatMcapInr": 92238717319.13,
-      "iep": 1003.6,
-      "previousClose": 1017.5,
+      "freeFloatMcapInr": 95133814564.59,
+      "iep": 1035.1,
+      "previousClose": 1029,
       "impliedFreeFloatShares": 91907849,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "BEL",
-      "freeFloatMcapInr": 1289369358463.84,
-      "iep": 361,
-      "previousClose": 362,
+      "freeFloatMcapInr": 1307406242841.24,
+      "iep": 366.05,
+      "previousClose": 363,
       "impliedFreeFloatShares": 3571660273,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -630,36 +640,36 @@
       "impliedFreeFloatShares": 4871991,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "BHARATFORG",
-      "freeFloatMcapInr": 468350539009.39,
-      "iep": 1690,
-      "previousClose": 1711.2,
+      "freeFloatMcapInr": 477468132342.77,
+      "iep": 1722.9,
+      "previousClose": 1730.4,
       "impliedFreeFloatShares": 277130496,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "BHARTIARTL",
-      "freeFloatMcapInr": 5719900612825.19,
-      "iep": 1886,
-      "previousClose": 1892.1,
+      "freeFloatMcapInr": 5812098374558.96,
+      "iep": 1916.4,
+      "previousClose": 1917.5,
       "impliedFreeFloatShares": 3032821110,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "BHEL",
-      "freeFloatMcapInr": 563070798038.38,
-      "iep": 387.5,
-      "previousClose": 387.5,
+      "freeFloatMcapInr": 578328200307.81,
+      "iep": 398,
+      "previousClose": 394.55,
       "impliedFreeFloatShares": 1453085930,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -674,12 +684,12 @@
     },
     {
       "symbol": "BIOCON",
-      "freeFloatMcapInr": 224508481146.56,
-      "iep": 323,
-      "previousClose": 323.5,
+      "freeFloatMcapInr": 229234975486.49,
+      "iep": 329.8,
+      "previousClose": 328.8,
       "impliedFreeFloatShares": 695072697,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -704,12 +714,12 @@
     },
     {
       "symbol": "BLUESTARCO",
-      "freeFloatMcapInr": 193925857274.42,
-      "iep": 1499,
-      "previousClose": 1499,
+      "freeFloatMcapInr": 194055227426.03,
+      "iep": 1500,
+      "previousClose": 1504.5,
       "impliedFreeFloatShares": 129370152,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -724,12 +734,12 @@
     },
     {
       "symbol": "BMISL",
-      "freeFloatMcapInr": 510079969.18,
-      "iep": 188.5,
-      "previousClose": 198.3,
+      "freeFloatMcapInr": 484373021.13,
+      "iep": 179,
+      "previousClose": 188.4,
       "impliedFreeFloatShares": 2705995,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -744,62 +754,62 @@
     },
     {
       "symbol": "BOSCHLTD",
-      "freeFloatMcapInr": 379143675823.37,
-      "iep": 43820,
-      "previousClose": 44085,
+      "freeFloatMcapInr": 387579665871.93,
+      "iep": 44795,
+      "previousClose": 44900,
       "impliedFreeFloatShares": 8652297,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "BPCL",
-      "freeFloatMcapInr": 560488053190.33,
-      "iep": 280,
-      "previousClose": 281.95,
+      "freeFloatMcapInr": 577703043395.46,
+      "iep": 288.6,
+      "previousClose": 290.4,
       "impliedFreeFloatShares": 2001743047,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "BRITANNIA",
-      "freeFloatMcapInr": 533829382873.1,
-      "iep": 4544.5,
-      "previousClose": 4537.9,
+      "freeFloatMcapInr": 537999466070.81,
+      "iep": 4580,
+      "previousClose": 4580,
       "impliedFreeFloatShares": 117467132,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "BSE",
-      "freeFloatMcapInr": 1309286534438.57,
-      "iep": 3213,
-      "previousClose": 3230.8,
+      "freeFloatMcapInr": 1376930967901.63,
+      "iep": 3379,
+      "previousClose": 3359,
       "impliedFreeFloatShares": 407496587,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "C2C",
-      "freeFloatMcapInr": 1393461083.99,
-      "iep": 141.15,
-      "previousClose": 144,
+      "freeFloatMcapInr": 1396916354.13,
+      "iep": 141.5,
+      "previousClose": 139.9,
       "impliedFreeFloatShares": 9872200,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "CAMS",
-      "freeFloatMcapInr": 156106712122.69,
-      "iep": 649.95,
-      "previousClose": 650,
+      "freeFloatMcapInr": 160550091112.26,
+      "iep": 668.45,
+      "previousClose": 661.5,
       "impliedFreeFloatShares": 240182648,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -814,32 +824,32 @@
     },
     {
       "symbol": "CANBK",
-      "freeFloatMcapInr": 389319350268.06,
-      "iep": 116.16,
-      "previousClose": 116.16,
+      "freeFloatMcapInr": 391799518305.24,
+      "iep": 116.9,
+      "previousClose": 116.71,
       "impliedFreeFloatShares": 3351578429,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "CDSL",
-      "freeFloatMcapInr": 211126343950.5,
-      "iep": 1188.5,
-      "previousClose": 1188.5,
+      "freeFloatMcapInr": 213169215600,
+      "iep": 1200,
+      "previousClose": 1196,
       "impliedFreeFloatShares": 177641013,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "CGPOWER",
-      "freeFloatMcapInr": 567775414368.58,
-      "iep": 830,
-      "previousClose": 813.35,
+      "freeFloatMcapInr": 578720482597.37,
+      "iep": 846,
+      "previousClose": 833.25,
       "impliedFreeFloatShares": 684066764,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -864,22 +874,22 @@
     },
     {
       "symbol": "CHOLAFIN",
-      "freeFloatMcapInr": 624786504052.65,
-      "iep": 1439.1,
-      "previousClose": 1463.8,
+      "freeFloatMcapInr": 631255351881.43,
+      "iep": 1454,
+      "previousClose": 1447.9,
       "impliedFreeFloatShares": 434150861,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "CIPLA",
-      "freeFloatMcapInr": 750183396921.2,
-      "iep": 1336.6,
-      "previousClose": 1338,
+      "freeFloatMcapInr": 758882964968.7,
+      "iep": 1352.1,
+      "previousClose": 1355,
       "impliedFreeFloatShares": 561262455,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -890,7 +900,7 @@
       "impliedFreeFloatShares": 5099207,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "CLSL",
@@ -910,56 +920,56 @@
       "impliedFreeFloatShares": 6371988,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "COALINDIA",
-      "freeFloatMcapInr": 949532593105.77,
-      "iep": 397.45,
-      "previousClose": 397.45,
+      "freeFloatMcapInr": 961477901862.92,
+      "iep": 402.45,
+      "previousClose": 405,
       "impliedFreeFloatShares": 2389061751,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "COCHINSHIP",
-      "freeFloatMcapInr": 108897862020.71,
-      "iep": 1129,
-      "previousClose": 1139.9,
+      "freeFloatMcapInr": 110248234091.83,
+      "iep": 1143,
+      "previousClose": 1133.9,
       "impliedFreeFloatShares": 96455148,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "COFORGE",
-      "freeFloatMcapInr": 640604582407.22,
-      "iep": 1844.2,
-      "previousClose": 1900.5,
+      "freeFloatMcapInr": 687428949454.44,
+      "iep": 1979,
+      "previousClose": 1993,
       "impliedFreeFloatShares": 347361773,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "COLPAL",
-      "freeFloatMcapInr": 210210080920.85,
-      "iep": 1600,
-      "previousClose": 1605,
+      "freeFloatMcapInr": 213126745793.62,
+      "iep": 1622.2,
+      "previousClose": 1615.5,
       "impliedFreeFloatShares": 131381301,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "CONCOR",
-      "freeFloatMcapInr": 141212510806.88,
-      "iep": 410.2,
-      "previousClose": 410.15,
+      "freeFloatMcapInr": 141832165900.62,
+      "iep": 412,
+      "previousClose": 411.6,
       "impliedFreeFloatShares": 344252830,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -994,22 +1004,22 @@
     },
     {
       "symbol": "CROMPTON",
-      "freeFloatMcapInr": 125127695624.83,
-      "iep": 195,
-      "previousClose": 195.18,
+      "freeFloatMcapInr": 125063527575.79,
+      "iep": 194.9,
+      "previousClose": 193.95,
       "impliedFreeFloatShares": 641680490,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "CUMMINSIND",
-      "freeFloatMcapInr": 582352790841.36,
-      "iep": 4322.6,
-      "previousClose": 4344.2,
+      "freeFloatMcapInr": 591028939393.2,
+      "iep": 4387,
+      "previousClose": 4385.5,
       "impliedFreeFloatShares": 134722804,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1024,12 +1034,12 @@
     },
     {
       "symbol": "DABUR",
-      "freeFloatMcapInr": 212453478655.53,
-      "iep": 361,
-      "previousClose": 363,
+      "freeFloatMcapInr": 211247025383.38,
+      "iep": 358.95,
+      "previousClose": 359.3,
       "impliedFreeFloatShares": 588513791,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1043,13 +1053,13 @@
     },
     {
       "symbol": "DANISH",
-      "freeFloatMcapInr": 5085443468.4,
-      "iep": 979,
-      "previousClose": 975.9,
+      "freeFloatMcapInr": 4576639395.14,
+      "iep": 881.05,
+      "previousClose": 892,
       "impliedFreeFloatShares": 5194529,
       "sourceKey": "SME",
-      "sessionTimestamp": "21-Oct-2026 09:08:43",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "DCG",
@@ -1063,22 +1073,22 @@
     },
     {
       "symbol": "DELAPLEX",
-      "freeFloatMcapInr": 299645215.74,
-      "iep": 127.05,
-      "previousClose": 133.6,
+      "freeFloatMcapInr": 302475394.88,
+      "iep": 128.25,
+      "previousClose": 134.95,
       "impliedFreeFloatShares": 2358483,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "DELHIVERY",
-      "freeFloatMcapInr": 220930554845.81,
-      "iep": 368,
-      "previousClose": 370,
+      "freeFloatMcapInr": 225133038226.03,
+      "iep": 375,
+      "previousClose": 375,
       "impliedFreeFloatShares": 600354769,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1089,7 +1099,7 @@
       "impliedFreeFloatShares": 4907989,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "DHANSA",
@@ -1099,7 +1109,7 @@
       "impliedFreeFloatShares": 7447409,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "DHARARAIL",
@@ -1132,72 +1142,72 @@
     },
     {
       "symbol": "DIVISLAB",
-      "freeFloatMcapInr": 1128061689677.62,
-      "iep": 8900,
-      "previousClose": 8950,
+      "freeFloatMcapInr": 1152143905524.67,
+      "iep": 9090,
+      "previousClose": 9050,
       "impliedFreeFloatShares": 126748504,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "DIXON",
-      "freeFloatMcapInr": 461396047561.32,
-      "iep": 11108,
-      "previousClose": 11191,
+      "freeFloatMcapInr": 465217476835.33,
+      "iep": 11200,
+      "previousClose": 11161,
       "impliedFreeFloatShares": 41537275,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "DLF",
-      "freeFloatMcapInr": 417524070636.36,
-      "iep": 653,
-      "previousClose": 657,
+      "freeFloatMcapInr": 421999826370.6,
+      "iep": 660,
+      "previousClose": 662.3,
       "impliedFreeFloatShares": 639393676,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "DMART",
-      "freeFloatMcapInr": 507466534948.11,
-      "iep": 3153.9,
-      "previousClose": 3157.7,
+      "freeFloatMcapInr": 507643526351.91,
+      "iep": 3155,
+      "previousClose": 3150,
       "impliedFreeFloatShares": 160901276,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "DPEL",
-      "freeFloatMcapInr": 5539158630.93,
-      "iep": 603,
-      "previousClose": 597.35,
+      "freeFloatMcapInr": 5456484621.51,
+      "iep": 594,
+      "previousClose": 593.8,
       "impliedFreeFloatShares": 9186001,
       "sourceKey": "SME",
-      "sessionTimestamp": "22-Oct-2026 09:08:36",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "DRONE",
-      "freeFloatMcapInr": 304304282.26,
-      "iep": 32,
-      "previousClose": 32.15,
+      "freeFloatMcapInr": 297647626.08,
+      "iep": 31.3,
+      "previousClose": 33.05,
       "impliedFreeFloatShares": 9509509,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "DRREDDY",
-      "freeFloatMcapInr": 766362254561.74,
-      "iep": 1260,
-      "previousClose": 1229.5,
+      "freeFloatMcapInr": 796165231128.03,
+      "iep": 1309,
+      "previousClose": 1310.9,
       "impliedFreeFloatShares": 608224012,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1211,13 +1221,13 @@
     },
     {
       "symbol": "EEPL",
-      "freeFloatMcapInr": 518346626.17,
-      "iep": 152.5,
-      "previousClose": 152.8,
+      "freeFloatMcapInr": 401931072.43,
+      "iep": 118.25,
+      "previousClose": 123.4,
       "impliedFreeFloatShares": 3398994,
       "sourceKey": "SME",
-      "sessionTimestamp": "28-Aug-2026 09:07:08",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "EFACTOR",
@@ -1227,7 +1237,7 @@
       "impliedFreeFloatShares": 3996541,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "EFFWA",
@@ -1250,12 +1260,12 @@
     },
     {
       "symbol": "EICHERMOT",
-      "freeFloatMcapInr": 963430200300.32,
-      "iep": 7002,
-      "previousClose": 7066,
+      "freeFloatMcapInr": 972717766498.59,
+      "iep": 7069.5,
+      "previousClose": 7099.5,
       "impliedFreeFloatShares": 137593573,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1276,16 +1286,16 @@
       "impliedFreeFloatShares": 2599204,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "ENRIN",
-      "freeFloatMcapInr": 234498257909.8,
-      "iep": 2659,
-      "previousClose": 2653.3,
+      "freeFloatMcapInr": 244296210694.22,
+      "iep": 2770.1,
+      "previousClose": 2754.9,
       "impliedFreeFloatShares": 88190394,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1299,12 +1309,12 @@
     },
     {
       "symbol": "ESCONET",
-      "freeFloatMcapInr": 1677090388.66,
-      "iep": 319.2,
-      "previousClose": 304,
+      "freeFloatMcapInr": 1760892367.67,
+      "iep": 335.15,
+      "previousClose": 319.2,
       "impliedFreeFloatShares": 5254043,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1319,22 +1329,22 @@
     },
     {
       "symbol": "ETERNAL",
-      "freeFloatMcapInr": 2280665449915.8,
-      "iep": 315.6,
-      "previousClose": 317.4,
+      "freeFloatMcapInr": 2352568558999.02,
+      "iep": 325.55,
+      "previousClose": 325.55,
       "impliedFreeFloatShares": 7226443124,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "EVENTIONS",
       "freeFloatMcapInr": 174441874.35,
       "iep": 54,
-      "previousClose": 60,
+      "previousClose": 54,
       "impliedFreeFloatShares": 3230405,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1349,12 +1359,12 @@
     },
     {
       "symbol": "FEDERALBNK",
-      "freeFloatMcapInr": 840036794593.3,
-      "iep": 341,
-      "previousClose": 340.9,
+      "freeFloatMcapInr": 850506461388.09,
+      "iep": 345.25,
+      "previousClose": 344.4,
       "impliedFreeFloatShares": 2463451011,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1409,22 +1419,22 @@
     },
     {
       "symbol": "FORCEMOT",
-      "freeFloatMcapInr": 78796344221.8,
-      "iep": 16401,
-      "previousClose": 16400,
+      "freeFloatMcapInr": 80175196169.35,
+      "iep": 16688,
+      "previousClose": 16588,
       "impliedFreeFloatShares": 4804362,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "FORTIS",
-      "freeFloatMcapInr": 371038562277.4,
-      "iep": 714,
-      "previousClose": 712.9,
+      "freeFloatMcapInr": 381145985297.42,
+      "iep": 733.45,
+      "previousClose": 734.7,
       "impliedFreeFloatShares": 519661852,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1439,12 +1449,12 @@
     },
     {
       "symbol": "GAIL",
-      "freeFloatMcapInr": 441027308144.11,
-      "iep": 163.96,
-      "previousClose": 163.96,
+      "freeFloatMcapInr": 453239213358.63,
+      "iep": 168.5,
+      "previousClose": 168.28,
       "impliedFreeFloatShares": 2689846964,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1469,13 +1479,13 @@
     },
     {
       "symbol": "GGBL",
-      "freeFloatMcapInr": 1463931290.63,
-      "iep": 222.05,
-      "previousClose": 221.2,
+      "freeFloatMcapInr": 1319548965.63,
+      "iep": 200.15,
+      "previousClose": 204.7,
       "impliedFreeFloatShares": 6592800,
       "sourceKey": "SME",
-      "sessionTimestamp": "21-Oct-2026 09:08:43",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "GIRIRAJ",
@@ -1489,52 +1499,52 @@
     },
     {
       "symbol": "GLENMARK",
-      "freeFloatMcapInr": 320685689801.96,
-      "iep": 2135.6,
-      "previousClose": 2166.6,
+      "freeFloatMcapInr": 332563493727.48,
+      "iep": 2214.7,
+      "previousClose": 2225.8,
       "impliedFreeFloatShares": 150161870,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "GMRAIRPORT",
-      "freeFloatMcapInr": 299664117173.62,
-      "iep": 85.75,
-      "previousClose": 86.38,
+      "freeFloatMcapInr": 311021649311.4,
+      "iep": 89,
+      "previousClose": 89.88,
       "impliedFreeFloatShares": 3494625273,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "GODFRYPHLP",
-      "freeFloatMcapInr": 67825184623.77,
-      "iep": 1664.1,
-      "previousClose": 1669,
+      "freeFloatMcapInr": 67821108835.98,
+      "iep": 1664,
+      "previousClose": 1664,
       "impliedFreeFloatShares": 40757878,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "GODREJCP",
-      "freeFloatMcapInr": 340630392019.78,
-      "iep": 850.1,
-      "previousClose": 856.35,
+      "freeFloatMcapInr": 333818585568.38,
+      "iep": 833.1,
+      "previousClose": 833.15,
       "impliedFreeFloatShares": 400694497,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "GODREJPROP",
-      "freeFloatMcapInr": 202306727650.17,
-      "iep": 1500,
-      "previousClose": 1496.5,
+      "freeFloatMcapInr": 206878859695.06,
+      "iep": 1533.9,
+      "previousClose": 1525.2,
       "impliedFreeFloatShares": 134871152,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1569,22 +1579,22 @@
     },
     {
       "symbol": "GRASIM",
-      "freeFloatMcapInr": 1080568625794.92,
-      "iep": 2871.1,
-      "previousClose": 2894,
+      "freeFloatMcapInr": 1102773895176.66,
+      "iep": 2930.1,
+      "previousClose": 2950,
       "impliedFreeFloatShares": 376360498,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "GSMFOILS",
-      "freeFloatMcapInr": 296795750.31,
-      "iep": 62.95,
-      "previousClose": 63.6,
+      "freeFloatMcapInr": 294674096.81,
+      "iep": 62.5,
+      "previousClose": 61.45,
       "impliedFreeFloatShares": 4714786,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1595,126 +1605,126 @@
       "impliedFreeFloatShares": 11502775,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "GVT&D",
-      "freeFloatMcapInr": 451583952927.67,
-      "iep": 3654.4,
-      "previousClose": 3700,
+      "freeFloatMcapInr": 470935432521.71,
+      "iep": 3811,
+      "previousClose": 3790,
       "impliedFreeFloatShares": 123572667,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "HAL",
-      "freeFloatMcapInr": 892152674180.1,
-      "iep": 4716,
-      "previousClose": 4725,
+      "freeFloatMcapInr": 908005599136.91,
+      "iep": 4799.8,
+      "previousClose": 4775,
       "impliedFreeFloatShares": 189175715,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "HAVELLS",
-      "freeFloatMcapInr": 256797978228.86,
-      "iep": 1022,
-      "previousClose": 1031,
+      "freeFloatMcapInr": 253782737779.99,
+      "iep": 1010,
+      "previousClose": 1009.9,
       "impliedFreeFloatShares": 251270037,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "HCLTECH",
-      "freeFloatMcapInr": 1462595061707.43,
-      "iep": 1392,
-      "previousClose": 1422.2,
+      "freeFloatMcapInr": 1481507928884.68,
+      "iep": 1410,
+      "previousClose": 1417,
       "impliedFreeFloatShares": 1050714843,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "HDFCAMC",
-      "freeFloatMcapInr": 456583058153.04,
-      "iep": 2242.1,
-      "previousClose": 2250,
-      "impliedFreeFloatShares": 203640809,
+      "freeFloatMcapInr": 459921675208.3,
+      "iep": 2258.4,
+      "previousClose": 2258.4,
+      "impliedFreeFloatShares": 203649343,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "HDFCBANK",
-      "freeFloatMcapInr": 10587033200528.07,
-      "iep": 692.1,
-      "previousClose": 692.8,
+      "freeFloatMcapInr": 10550320471614.23,
+      "iep": 689.7,
+      "previousClose": 688.05,
       "impliedFreeFloatShares": 15296970381,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "HDFCLIFE",
-      "freeFloatMcapInr": 557887913871.85,
-      "iep": 520,
-      "previousClose": 523.75,
+      "freeFloatMcapInr": 556385907949.89,
+      "iep": 518.6,
+      "previousClose": 519,
       "impliedFreeFloatShares": 1072861373,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "HEROMOTOCO",
-      "freeFloatMcapInr": 653460069369.58,
-      "iep": 5047,
-      "previousClose": 5047,
+      "freeFloatMcapInr": 679743484087.64,
+      "iep": 5250,
+      "previousClose": 5199,
       "impliedFreeFloatShares": 129474949,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "HINDALCO",
-      "freeFloatMcapInr": 1244586890037.92,
-      "iep": 862,
-      "previousClose": 869.85,
+      "freeFloatMcapInr": 1272019779725.53,
+      "iep": 881,
+      "previousClose": 885.65,
       "impliedFreeFloatShares": 1443836299,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "HINDPETRO",
-      "freeFloatMcapInr": 316002007184.5,
-      "iep": 330,
-      "previousClose": 338.3,
+      "freeFloatMcapInr": 325290551032.04,
+      "iep": 339.7,
+      "previousClose": 343.45,
       "impliedFreeFloatShares": 957581840,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "HINDUNILVR",
-      "freeFloatMcapInr": 1600776112332.7,
-      "iep": 1809.1,
-      "previousClose": 1814.7,
+      "freeFloatMcapInr": 1600687627665.61,
+      "iep": 1809,
+      "previousClose": 1818.6,
       "impliedFreeFloatShares": 884846671,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "HINDZINC",
-      "freeFloatMcapInr": 237070995448.93,
-      "iep": 494.35,
-      "previousClose": 496,
+      "freeFloatMcapInr": 238821393210.41,
+      "iep": 498,
+      "previousClose": 497,
       "impliedFreeFloatShares": 479561031,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1739,12 +1749,12 @@
     },
     {
       "symbol": "HYUNDAI",
-      "freeFloatMcapInr": 262472429520.32,
-      "iep": 1850,
-      "previousClose": 1850,
+      "freeFloatMcapInr": 264331018075.3,
+      "iep": 1863.1,
+      "previousClose": 1868,
       "impliedFreeFloatShares": 141876989,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1759,32 +1769,32 @@
     },
     {
       "symbol": "ICICIBANK",
-      "freeFloatMcapInr": 9967852038995.73,
-      "iep": 1394.2,
-      "previousClose": 1394.2,
-      "impliedFreeFloatShares": 7149513728,
+      "freeFloatMcapInr": 10015787394234.93,
+      "iep": 1400.9,
+      "previousClose": 1403,
+      "impliedFreeFloatShares": 7149537722,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "ICICIGI",
-      "freeFloatMcapInr": 386158109214.32,
-      "iep": 1589.9,
-      "previousClose": 1592,
+      "freeFloatMcapInr": 382539167251.12,
+      "iep": 1575,
+      "previousClose": 1580,
       "impliedFreeFloatShares": 242882011,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "ICICILIFE",
-      "freeFloatMcapInr": 164424503486.06,
-      "iep": 415.5,
-      "previousClose": 422.2,
+      "freeFloatMcapInr": 164226640064.3,
+      "iep": 415,
+      "previousClose": 413.35,
       "impliedFreeFloatShares": 395726844,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1799,92 +1809,92 @@
     },
     {
       "symbol": "IDEA",
-      "freeFloatMcapInr": 311876399232.96,
-      "iep": 11.33,
-      "previousClose": 11.36,
-      "impliedFreeFloatShares": 27526601874,
+      "freeFloatMcapInr": 328348744262.87,
+      "iep": 11.96,
+      "previousClose": 11.95,
+      "impliedFreeFloatShares": 27453908383,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "IDFCFIRSTB",
-      "freeFloatMcapInr": 482793961830.09,
-      "iep": 72.89,
-      "previousClose": 72.3,
+      "freeFloatMcapInr": 475176825650.85,
+      "iep": 71.74,
+      "previousClose": 71.74,
       "impliedFreeFloatShares": 6623596678,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "IEML",
-      "freeFloatMcapInr": 460643064.12,
-      "iep": 37.3,
-      "previousClose": 39.25,
-      "impliedFreeFloatShares": 12349680,
+      "freeFloatMcapInr": 815078880.22,
+      "iep": 33,
+      "previousClose": 37,
+      "impliedFreeFloatShares": 24699360,
       "sourceKey": "SME",
-      "sessionTimestamp": "23-Oct-2026 09:09:05",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "IEX",
-      "freeFloatMcapInr": 79255166164.45,
-      "iep": 100,
-      "previousClose": 101.2,
+      "freeFloatMcapInr": 81949841814.04,
+      "iep": 103.4,
+      "previousClose": 103.5,
       "impliedFreeFloatShares": 792551662,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "INDHOTEL",
-      "freeFloatMcapInr": 682292074629.5,
-      "iep": 779.1,
-      "previousClose": 781.75,
+      "freeFloatMcapInr": 694114617316.57,
+      "iep": 792.6,
+      "previousClose": 795.5,
       "impliedFreeFloatShares": 875743903,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "INDIANB",
-      "freeFloatMcapInr": 293341788304.11,
-      "iep": 832.4,
-      "previousClose": 837.15,
+      "freeFloatMcapInr": 293429889513.96,
+      "iep": 832.65,
+      "previousClose": 830,
       "impliedFreeFloatShares": 352404839,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "INDIGO",
-      "freeFloatMcapInr": 1022617176152.56,
-      "iep": 4530,
-      "previousClose": 4549,
+      "freeFloatMcapInr": 1036161774512.2,
+      "iep": 4590,
+      "previousClose": 4608,
       "impliedFreeFloatShares": 225743306,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "INDUSINDBK",
-      "freeFloatMcapInr": 546903172292.84,
-      "iep": 832.6,
-      "previousClose": 835,
+      "freeFloatMcapInr": 553833064759.44,
+      "iep": 843.15,
+      "previousClose": 844.5,
       "impliedFreeFloatShares": 656861845,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "INDUSTOWER",
-      "freeFloatMcapInr": 489063072779.69,
-      "iep": 380.95,
-      "previousClose": 380,
+      "freeFloatMcapInr": 492850278619.57,
+      "iep": 383.9,
+      "previousClose": 389,
       "impliedFreeFloatShares": 1283798590,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1909,12 +1919,12 @@
     },
     {
       "symbol": "INFY",
-      "freeFloatMcapInr": 3927269464686.97,
-      "iep": 1115,
-      "previousClose": 1153.8,
+      "freeFloatMcapInr": 4057415300310.46,
+      "iep": 1151.95,
+      "previousClose": 1166,
       "impliedFreeFloatShares": 3522214767,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1925,26 +1935,26 @@
       "impliedFreeFloatShares": 5709180,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "INOXWIND",
-      "freeFloatMcapInr": 56665264533.08,
-      "iep": 58.93,
-      "previousClose": 58.93,
+      "freeFloatMcapInr": 56444103649.96,
+      "iep": 58.7,
+      "previousClose": 58.4,
       "impliedFreeFloatShares": 961569057,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "IOC",
-      "freeFloatMcapInr": 480652399887,
-      "iep": 129,
-      "previousClose": 129.09,
+      "freeFloatMcapInr": 486204121405.07,
+      "iep": 130.49,
+      "previousClose": 130.85,
       "impliedFreeFloatShares": 3725987596,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -1959,43 +1969,43 @@
     },
     {
       "symbol": "IREDA",
-      "freeFloatMcapInr": 78940220330.95,
-      "iep": 99.5,
-      "previousClose": 100.27,
+      "freeFloatMcapInr": 80923642952.33,
+      "iep": 102,
+      "previousClose": 101.87,
       "impliedFreeFloatShares": 793369049,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "IRFC",
-      "freeFloatMcapInr": 165783775159.34,
-      "iep": 74.19,
-      "previousClose": 74.45,
+      "freeFloatMcapInr": 166253037765.94,
+      "iep": 74.4,
+      "previousClose": 74.4,
       "impliedFreeFloatShares": 2234583841,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "ITC",
-      "freeFloatMcapInr": 2479596445772.25,
-      "iep": 257.9,
-      "previousClose": 257.9,
-      "impliedFreeFloatShares": 9614565513,
+      "freeFloatMcapInr": 2494296048144.34,
+      "iep": 259.4,
+      "previousClose": 260.5,
+      "impliedFreeFloatShares": 9615636269,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "IWARE",
-      "freeFloatMcapInr": 994860636.73,
-      "iep": 363.3,
-      "previousClose": 356.95,
+      "freeFloatMcapInr": 999515916.34,
+      "iep": 365,
+      "previousClose": 350.5,
       "impliedFreeFloatShares": 2738400,
       "sourceKey": "SME",
-      "sessionTimestamp": "19-Oct-2026 09:09:17",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "JAYBEE",
@@ -2017,52 +2027,52 @@
     },
     {
       "symbol": "JINDALSTEL",
-      "freeFloatMcapInr": 373542602141.78,
-      "iep": 1010,
-      "previousClose": 1015.9,
+      "freeFloatMcapInr": 384268082797.34,
+      "iep": 1039,
+      "previousClose": 1039.9,
       "impliedFreeFloatShares": 369844161,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "JIOFIN",
-      "freeFloatMcapInr": 670688912107.48,
-      "iep": 204.9,
-      "previousClose": 205.03,
+      "freeFloatMcapInr": 672325537076.02,
+      "iep": 205.4,
+      "previousClose": 205.23,
       "impliedFreeFloatShares": 3273249937,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "JSWENERGY",
-      "freeFloatMcapInr": 271260963270.76,
-      "iep": 443.75,
-      "previousClose": 448.55,
+      "freeFloatMcapInr": 276120737147.95,
+      "iep": 451.7,
+      "previousClose": 449.65,
       "impliedFreeFloatShares": 611292312,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "JSWSTEEL",
-      "freeFloatMcapInr": 1147811124342.35,
-      "iep": 1195.5,
-      "previousClose": 1185.5,
+      "freeFloatMcapInr": 1188327752905.5,
+      "iep": 1237.7,
+      "previousClose": 1260,
       "impliedFreeFloatShares": 960109682,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "JUBLFOOD",
-      "freeFloatMcapInr": 158215589027.03,
-      "iep": 404,
-      "previousClose": 404,
+      "freeFloatMcapInr": 165460609811.68,
+      "iep": 422.5,
+      "previousClose": 422.9,
       "impliedFreeFloatShares": 391622745,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2086,12 +2096,12 @@
     },
     {
       "symbol": "KALYANKJIL",
-      "freeFloatMcapInr": 195452634572.75,
-      "iep": 510,
-      "previousClose": 512,
+      "freeFloatMcapInr": 193862186663.97,
+      "iep": 505.85,
+      "previousClose": 504.8,
       "impliedFreeFloatShares": 383240460,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2106,42 +2116,42 @@
     },
     {
       "symbol": "KAYNES",
-      "freeFloatMcapInr": 99721915077.85,
-      "iep": 3187.9,
-      "previousClose": 3187.9,
+      "freeFloatMcapInr": 103353683433.36,
+      "iep": 3304,
+      "previousClose": 3306.8,
       "impliedFreeFloatShares": 31281381,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "KDL",
-      "freeFloatMcapInr": 96748416.01,
-      "iep": 22.15,
-      "previousClose": 23.3,
+      "freeFloatMcapInr": 91943754.27,
+      "iep": 21.05,
+      "previousClose": 22.15,
       "impliedFreeFloatShares": 4367874,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "KEI",
-      "freeFloatMcapInr": 229087138406.95,
-      "iep": 3720,
-      "previousClose": 3725,
+      "freeFloatMcapInr": 240141208660.73,
+      "iep": 3899.5,
+      "previousClose": 3899.5,
       "impliedFreeFloatShares": 61582564,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "KFINTECH",
-      "freeFloatMcapInr": 106841940998.26,
-      "iep": 800.75,
-      "previousClose": 799,
+      "freeFloatMcapInr": 113533322004.89,
+      "iep": 850.9,
+      "previousClose": 829,
       "impliedFreeFloatShares": 133427338,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2182,26 +2192,26 @@
       "impliedFreeFloatShares": 3734755,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "KOTAKBANK",
-      "freeFloatMcapInr": 3237896562154.62,
-      "iep": 440.9,
-      "previousClose": 430.5,
+      "freeFloatMcapInr": 3241935671043.68,
+      "iep": 441.45,
+      "previousClose": 440.75,
       "impliedFreeFloatShares": 7343834344,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "KPITTECH",
-      "freeFloatMcapInr": 86986785395.43,
-      "iep": 524,
-      "previousClose": 532.65,
+      "freeFloatMcapInr": 88638538286.05,
+      "iep": 533.95,
+      "previousClose": 536.55,
       "impliedFreeFloatShares": 166005316,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2226,92 +2236,92 @@
     },
     {
       "symbol": "LAURUSLABS",
-      "freeFloatMcapInr": 761322629887.64,
-      "iep": 1960,
-      "previousClose": 1970,
+      "freeFloatMcapInr": 805992069906.56,
+      "iep": 2075,
+      "previousClose": 2058.9,
       "impliedFreeFloatShares": 388429913,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "LICHSGFIN",
-      "freeFloatMcapInr": 146917503804.82,
-      "iep": 490,
-      "previousClose": 490,
+      "freeFloatMcapInr": 149645971732.62,
+      "iep": 499.1,
+      "previousClose": 497.4,
       "impliedFreeFloatShares": 299831640,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "LICI",
-      "freeFloatMcapInr": 482626280425.78,
-      "iep": 381.5,
-      "previousClose": 381.5,
+      "freeFloatMcapInr": 482246757793.72,
+      "iep": 381.2,
+      "previousClose": 380.95,
       "impliedFreeFloatShares": 1265075440,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "LODHA",
-      "freeFloatMcapInr": 280133788543.96,
-      "iep": 945.5,
-      "previousClose": 963,
+      "freeFloatMcapInr": 290355486803.89,
+      "iep": 980,
+      "previousClose": 980,
       "impliedFreeFloatShares": 296281109,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "LT",
-      "freeFloatMcapInr": 4251503806042.93,
-      "iep": 3642.2,
-      "previousClose": 3647,
+      "freeFloatMcapInr": 4293292789694.66,
+      "iep": 3678,
+      "previousClose": 3680,
       "impliedFreeFloatShares": 1167290046,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "LTF",
-      "freeFloatMcapInr": 200803732868.53,
-      "iep": 235.75,
-      "previousClose": 237.5,
+      "freeFloatMcapInr": 204764442763.93,
+      "iep": 240.4,
+      "previousClose": 241.1,
       "impliedFreeFloatShares": 851765569,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "LTM",
-      "freeFloatMcapInr": 375103884824.66,
-      "iep": 4050,
-      "previousClose": 4134,
+      "freeFloatMcapInr": 375566976040.49,
+      "iep": 4055,
+      "previousClose": 4074.9,
       "impliedFreeFloatShares": 92618243,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "LUPIN",
-      "freeFloatMcapInr": 467075285978.36,
-      "iep": 1928,
-      "previousClose": 1928.9,
+      "freeFloatMcapInr": 472162724259.25,
+      "iep": 1949,
+      "previousClose": 1959.9,
       "impliedFreeFloatShares": 242258966,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "M&M",
-      "freeFloatMcapInr": 2539013719156.16,
-      "iep": 2849.6,
-      "previousClose": 2861.2,
+      "freeFloatMcapInr": 2542132243867.37,
+      "iep": 2853.1,
+      "previousClose": 2853.1,
       "impliedFreeFloatShares": 891007060,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2326,12 +2336,22 @@
     },
     {
       "symbol": "MAHABANK",
-      "freeFloatMcapInr": 153707782606.95,
-      "iep": 75.7,
-      "previousClose": 75.32,
+      "freeFloatMcapInr": 156347414276.56,
+      "iep": 77,
+      "previousClose": 76.12,
       "impliedFreeFloatShares": 2030485900,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
+    },
+    {
+      "symbol": "MAHICKRA",
+      "freeFloatMcapInr": 1092509559.3,
+      "iep": 260,
+      "previousClose": 268.8,
+      "impliedFreeFloatShares": 4201960,
+      "sourceKey": "SME",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2356,12 +2376,12 @@
     },
     {
       "symbol": "MANAPPURAM",
-      "freeFloatMcapInr": 154690194099.78,
-      "iep": 282.6,
-      "previousClose": 286.1,
+      "freeFloatMcapInr": 157372366608.95,
+      "iep": 287.5,
+      "previousClose": 287.5,
       "impliedFreeFloatShares": 547382145,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2376,12 +2396,12 @@
     },
     {
       "symbol": "MANKIND",
-      "freeFloatMcapInr": 251326890250.15,
-      "iep": 2223.7,
-      "previousClose": 2212.6,
+      "freeFloatMcapInr": 266562247899.89,
+      "iep": 2358.5,
+      "previousClose": 2312,
       "impliedFreeFloatShares": 113021941,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2396,12 +2416,12 @@
     },
     {
       "symbol": "MARICO",
-      "freeFloatMcapInr": 403104835505.44,
-      "iep": 762.6,
-      "previousClose": 766.5,
+      "freeFloatMcapInr": 406514258779.78,
+      "iep": 769.05,
+      "previousClose": 775.15,
       "impliedFreeFloatShares": 528592756,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2416,12 +2436,12 @@
     },
     {
       "symbol": "MARUTI",
-      "freeFloatMcapInr": 1459013833881.88,
-      "iep": 11250,
-      "previousClose": 11230,
+      "freeFloatMcapInr": 1455123130324.86,
+      "iep": 11220,
+      "previousClose": 11220,
       "impliedFreeFloatShares": 129690119,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2436,12 +2456,12 @@
     },
     {
       "symbol": "MAXHEALTH",
-      "freeFloatMcapInr": 607907415779.63,
-      "iep": 819.05,
-      "previousClose": 815,
+      "freeFloatMcapInr": 625683354498.78,
+      "iep": 843,
+      "previousClose": 835,
       "impliedFreeFloatShares": 742210385,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2462,26 +2482,26 @@
       "impliedFreeFloatShares": 6636534,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "MAZDOCK",
-      "freeFloatMcapInr": 140916615915.6,
-      "iep": 1860,
-      "previousClose": 1860,
+      "freeFloatMcapInr": 143189464559.4,
+      "iep": 1890,
+      "previousClose": 1875,
       "impliedFreeFloatShares": 75761621,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "MCX",
-      "freeFloatMcapInr": 763180902394.89,
-      "iep": 3000,
-      "previousClose": 3020.3,
+      "freeFloatMcapInr": 792461609683.44,
+      "iep": 3115.1,
+      "previousClose": 3111.8,
       "impliedFreeFloatShares": 254393634,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2492,16 +2512,16 @@
       "impliedFreeFloatShares": 4648009,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "MFSL",
-      "freeFloatMcapInr": 318721375165.44,
-      "iep": 1205,
-      "previousClose": 1211.3,
+      "freeFloatMcapInr": 325519001175.2,
+      "iep": 1230.7,
+      "previousClose": 1240.1,
       "impliedFreeFloatShares": 264499067,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2512,7 +2532,7 @@
       "impliedFreeFloatShares": 3946529,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "MHHL",
@@ -2552,36 +2572,36 @@
       "impliedFreeFloatShares": 5592499,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "MOS",
-      "freeFloatMcapInr": 789970327.62,
-      "iep": 6.65,
-      "previousClose": 6.35,
+      "freeFloatMcapInr": 819668460.24,
+      "iep": 6.9,
+      "previousClose": 6.65,
       "impliedFreeFloatShares": 118792530,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "MOTHERSON",
-      "freeFloatMcapInr": 663037013186.39,
-      "iep": 150.5,
-      "previousClose": 151.67,
+      "freeFloatMcapInr": 677355088221.97,
+      "iep": 153.75,
+      "previousClose": 153.75,
       "impliedFreeFloatShares": 4405561549,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "MOTILALOFS",
-      "freeFloatMcapInr": 145058770690.31,
-      "iep": 916.3,
-      "previousClose": 925.8,
+      "freeFloatMcapInr": 147195945637.72,
+      "iep": 929.8,
+      "previousClose": 933.35,
       "impliedFreeFloatShares": 158309255,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2596,22 +2616,22 @@
     },
     {
       "symbol": "MPHASIS",
-      "freeFloatMcapInr": 321597018878.62,
-      "iep": 2435,
-      "previousClose": 2480,
+      "freeFloatMcapInr": 334659008680.3,
+      "iep": 2533.9,
+      "previousClose": 2557.6,
       "impliedFreeFloatShares": 132072698,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "MUTHOOTFIN",
-      "freeFloatMcapInr": 252365043179.76,
-      "iep": 2360,
-      "previousClose": 2373,
+      "freeFloatMcapInr": 255476832483.38,
+      "iep": 2389.1,
+      "previousClose": 2395.8,
       "impliedFreeFloatShares": 106934340,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2622,7 +2642,7 @@
       "impliedFreeFloatShares": 5367605,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "MYMUDRA",
@@ -2635,12 +2655,12 @@
     },
     {
       "symbol": "NAM-INDIA",
-      "freeFloatMcapInr": 165576710202.34,
-      "iep": 920,
-      "previousClose": 922.6,
+      "freeFloatMcapInr": 165414732985.84,
+      "iep": 919.1,
+      "previousClose": 919.1,
       "impliedFreeFloatShares": 179974685,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2655,32 +2675,32 @@
     },
     {
       "symbol": "NATIONALUM",
-      "freeFloatMcapInr": 268356860784.41,
-      "iep": 300.1,
-      "previousClose": 301.75,
+      "freeFloatMcapInr": 280384184268.42,
+      "iep": 313.55,
+      "previousClose": 312.4,
       "impliedFreeFloatShares": 894224794,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "NAUKRI",
-      "freeFloatMcapInr": 453716951172.3,
-      "iep": 1174,
-      "previousClose": 1186.5,
+      "freeFloatMcapInr": 461059900126.54,
+      "iep": 1193,
+      "previousClose": 1196.6,
       "impliedFreeFloatShares": 386470998,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "NBCC",
-      "freeFloatMcapInr": 70108875270,
-      "iep": 67.9,
-      "previousClose": 67.9,
+      "freeFloatMcapInr": 71244659700,
+      "iep": 69,
+      "previousClose": 68.65,
       "impliedFreeFloatShares": 1032531300,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2705,12 +2725,12 @@
     },
     {
       "symbol": "NESTLEIND",
-      "freeFloatMcapInr": 837569455003.22,
-      "iep": 1171.3,
-      "previousClose": 1175,
+      "freeFloatMcapInr": 835924778364.87,
+      "iep": 1169,
+      "previousClose": 1173.5,
       "impliedFreeFloatShares": 715076799,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2725,12 +2745,12 @@
     },
     {
       "symbol": "NHPC",
-      "freeFloatMcapInr": 259715157391.49,
-      "iep": 69.1,
-      "previousClose": 69.84,
+      "freeFloatMcapInr": 270426998181.15,
+      "iep": 71.95,
+      "previousClose": 70.56,
       "impliedFreeFloatShares": 3758540628,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2745,22 +2765,22 @@
     },
     {
       "symbol": "NIRMAN",
-      "freeFloatMcapInr": 119706156.09,
-      "iep": 26.85,
-      "previousClose": 26.85,
+      "freeFloatMcapInr": 105216584.12,
+      "iep": 23.6,
+      "previousClose": 24.2,
       "impliedFreeFloatShares": 4458330,
       "sourceKey": "SME",
-      "sessionTimestamp": "17-Sep-2026 09:09:24",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "NMDC",
-      "freeFloatMcapInr": 228687974482.67,
-      "iep": 66.35,
-      "previousClose": 66.35,
+      "freeFloatMcapInr": 230376853269.36,
+      "iep": 66.84,
+      "previousClose": 66.49,
       "impliedFreeFloatShares": 3446691401,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2775,62 +2795,62 @@
     },
     {
       "symbol": "NTPC",
-      "freeFloatMcapInr": 1411087271899.79,
-      "iep": 297.75,
-      "previousClose": 298,
+      "freeFloatMcapInr": 1421513441499.05,
+      "iep": 299.95,
+      "previousClose": 300,
       "impliedFreeFloatShares": 4739168000,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "NYKAA",
-      "freeFloatMcapInr": 431305868577.67,
-      "iep": 315.9,
-      "previousClose": 319.3,
+      "freeFloatMcapInr": 453560650653.7,
+      "iep": 332.2,
+      "previousClose": 329.85,
       "impliedFreeFloatShares": 1365324054,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "OBEROIRLTY",
-      "freeFloatMcapInr": 186735042798.2,
-      "iep": 1590.9,
-      "previousClose": 1612.7,
+      "freeFloatMcapInr": 185455633679.77,
+      "iep": 1580,
+      "previousClose": 1582,
       "impliedFreeFloatShares": 117376983,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "OBSCP",
-      "freeFloatMcapInr": 5397888741.03,
-      "iep": 844.95,
-      "previousClose": 838.25,
-      "impliedFreeFloatShares": 6388412,
+      "freeFloatMcapInr": 5274000837.45,
+      "iep": 782,
+      "previousClose": 783.3,
+      "impliedFreeFloatShares": 6744247,
       "sourceKey": "SME",
-      "sessionTimestamp": "08-Sep-2026 09:09:10",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "OFSS",
-      "freeFloatMcapInr": 229245344603.1,
-      "iep": 9625,
-      "previousClose": 9677,
-      "impliedFreeFloatShares": 23817698,
+      "freeFloatMcapInr": 235888891320.18,
+      "iep": 9900,
+      "previousClose": 9913,
+      "impliedFreeFloatShares": 23827161,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "OIL",
-      "freeFloatMcapInr": 242460572034.51,
-      "iep": 445.8,
-      "previousClose": 447.85,
+      "freeFloatMcapInr": 246430877498.51,
+      "iep": 453.1,
+      "previousClose": 454.9,
       "impliedFreeFloatShares": 543877461,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2845,12 +2865,12 @@
     },
     {
       "symbol": "ONGC",
-      "freeFloatMcapInr": 876400590534.78,
-      "iep": 226.25,
-      "previousClose": 227.5,
+      "freeFloatMcapInr": 880467863993.61,
+      "iep": 227.3,
+      "previousClose": 228.44,
       "impliedFreeFloatShares": 3873593770,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2884,12 +2904,12 @@
     },
     {
       "symbol": "ORIANA",
-      "freeFloatMcapInr": 9882670500.4,
-      "iep": 231.5,
-      "previousClose": 237.4,
+      "freeFloatMcapInr": 9989394803.86,
+      "iep": 234,
+      "previousClose": 234.2,
       "impliedFreeFloatShares": 42689721,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2904,22 +2924,22 @@
     },
     {
       "symbol": "OWAIS",
-      "freeFloatMcapInr": 321524106.71,
-      "iep": 64.65,
-      "previousClose": 68.05,
+      "freeFloatMcapInr": 308344850.99,
+      "iep": 62,
+      "previousClose": 65.2,
       "impliedFreeFloatShares": 4973304,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "PAGEIND",
-      "freeFloatMcapInr": 212812726358.19,
-      "iep": 33830,
-      "previousClose": 33830,
+      "freeFloatMcapInr": 212340927526.48,
+      "iep": 33755,
+      "previousClose": 33910,
       "impliedFreeFloatShares": 6290651,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2973,12 +2993,12 @@
     },
     {
       "symbol": "PATANJALI",
-      "freeFloatMcapInr": 120478152874.77,
-      "iep": 348.75,
-      "previousClose": 349.75,
+      "freeFloatMcapInr": 119700874469.13,
+      "iep": 346.5,
+      "previousClose": 347.45,
       "impliedFreeFloatShares": 345457069,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -2993,12 +3013,12 @@
     },
     {
       "symbol": "PAYTM",
-      "freeFloatMcapInr": 691647232840.92,
-      "iep": 1609.5,
-      "previousClose": 1616.1,
+      "freeFloatMcapInr": 717645777473.95,
+      "iep": 1670,
+      "previousClose": 1654.7,
       "impliedFreeFloatShares": 429728010,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3013,42 +3033,42 @@
     },
     {
       "symbol": "PERSISTENT",
-      "freeFloatMcapInr": 609068798240,
-      "iep": 5600,
-      "previousClose": 5727.5,
+      "freeFloatMcapInr": 630821255320,
+      "iep": 5800,
+      "previousClose": 5850,
       "impliedFreeFloatShares": 108762285,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "PETRONET",
-      "freeFloatMcapInr": 211331361998.11,
-      "iep": 282.8,
-      "previousClose": 286.3,
+      "freeFloatMcapInr": 217533802961.98,
+      "iep": 291.1,
+      "previousClose": 291.75,
       "impliedFreeFloatShares": 747282044,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "PFC",
-      "freeFloatMcapInr": 458267413824.87,
-      "iep": 315.6,
-      "previousClose": 316,
+      "freeFloatMcapInr": 461316721711.54,
+      "iep": 317.7,
+      "previousClose": 318.3,
       "impliedFreeFloatShares": 1452051375,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "PGEL",
-      "freeFloatMcapInr": 75984323859.61,
-      "iep": 470.05,
-      "previousClose": 470.05,
+      "freeFloatMcapInr": 77140132636.54,
+      "iep": 477.2,
+      "previousClose": 475,
       "impliedFreeFloatShares": 161651577,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3059,76 +3079,76 @@
       "impliedFreeFloatShares": 8923997,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "PHOENIXLTD",
-      "freeFloatMcapInr": 343330586900.74,
-      "iep": 1842.6,
-      "previousClose": 1872.3,
+      "freeFloatMcapInr": 352907919022.03,
+      "iep": 1894,
+      "previousClose": 1894,
       "impliedFreeFloatShares": 186329419,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "PIDILITIND",
-      "freeFloatMcapInr": 457788512053.27,
-      "iep": 1477,
-      "previousClose": 1487.7,
+      "freeFloatMcapInr": 458067462399.14,
+      "iep": 1477.9,
+      "previousClose": 1478,
       "impliedFreeFloatShares": 309944829,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "PIIND",
-      "freeFloatMcapInr": 165589924913.14,
-      "iep": 2051,
-      "previousClose": 2051,
+      "freeFloatMcapInr": 163894464931.09,
+      "iep": 2030,
+      "previousClose": 2020,
       "impliedFreeFloatShares": 80736190,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "PNB",
-      "freeFloatMcapInr": 409901336542.05,
-      "iep": 119.35,
-      "previousClose": 120.37,
+      "freeFloatMcapInr": 415568175296.08,
+      "iep": 121,
+      "previousClose": 120.89,
       "impliedFreeFloatShares": 3434447730,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "PNBHOUSING",
-      "freeFloatMcapInr": 203156052358.83,
-      "iep": 1082.8,
-      "previousClose": 1089.1,
+      "freeFloatMcapInr": 203550056523.91,
+      "iep": 1084.9,
+      "previousClose": 1086,
       "impliedFreeFloatShares": 187621031,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "POLICYBZR",
-      "freeFloatMcapInr": 359322051461.23,
-      "iep": 1015,
-      "previousClose": 1015,
+      "freeFloatMcapInr": 362154146448.11,
+      "iep": 1023,
+      "previousClose": 1023,
       "impliedFreeFloatShares": 354011873,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "POLYCAB",
-      "freeFloatMcapInr": 396235062104.94,
-      "iep": 7432,
-      "previousClose": 7440,
+      "freeFloatMcapInr": 412549369021.53,
+      "iep": 7738,
+      "previousClose": 7739,
       "impliedFreeFloatShares": 53314728,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3153,22 +3173,22 @@
     },
     {
       "symbol": "POWERGRID",
-      "freeFloatMcapInr": 1116767993705.94,
-      "iep": 247.3,
-      "previousClose": 247.4,
+      "freeFloatMcapInr": 1113381111395.87,
+      "iep": 246.55,
+      "previousClose": 247,
       "impliedFreeFloatShares": 4515843080,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "POWERINDIA",
-      "freeFloatMcapInr": 333860441894.68,
-      "iep": 26315,
-      "previousClose": 26300,
+      "freeFloatMcapInr": 345786294654.74,
+      "iep": 27255,
+      "previousClose": 26850,
       "impliedFreeFloatShares": 12687077,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3183,12 +3203,12 @@
     },
     {
       "symbol": "PREMIERENE",
-      "freeFloatMcapInr": 123817671216.47,
-      "iep": 853,
-      "previousClose": 853.3,
+      "freeFloatMcapInr": 122090320351.91,
+      "iep": 841.1,
+      "previousClose": 840.6,
       "impliedFreeFloatShares": 145155535,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3203,12 +3223,12 @@
     },
     {
       "symbol": "PRESTIGE",
-      "freeFloatMcapInr": 232132263730.92,
-      "iep": 1380,
-      "previousClose": 1392.5,
+      "freeFloatMcapInr": 233831202762.58,
+      "iep": 1390.1,
+      "previousClose": 1396.6,
       "impliedFreeFloatShares": 168211785,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3233,12 +3253,12 @@
     },
     {
       "symbol": "PRIZOR",
-      "freeFloatMcapInr": 4410197510.2,
-      "iep": 1287.95,
-      "previousClose": 1185.6,
+      "freeFloatMcapInr": 4283673345.44,
+      "iep": 1251,
+      "previousClose": 1245.5,
       "impliedFreeFloatShares": 3424199,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3278,7 +3298,7 @@
       "impliedFreeFloatShares": 3759632,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "QLINE",
@@ -3288,7 +3308,7 @@
       "impliedFreeFloatShares": 4471992,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "QUALIANCE",
@@ -3299,6 +3319,16 @@
       "sourceKey": "SME",
       "sessionTimestamp": "22-Sep-2026 09:08:53",
       "carriedForward": true
+    },
+    {
+      "symbol": "QUESTLAB",
+      "freeFloatMcapInr": 446334757.86,
+      "iep": 82,
+      "previousClose": 84,
+      "impliedFreeFloatShares": 5443107,
+      "sourceKey": "SME",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "QUICKTOUCH",
@@ -3312,12 +3342,12 @@
     },
     {
       "symbol": "RADICO",
-      "freeFloatMcapInr": 324539610653.23,
-      "iep": 4150,
-      "previousClose": 4157.3,
+      "freeFloatMcapInr": 328293321812.59,
+      "iep": 4198,
+      "previousClose": 4200,
       "impliedFreeFloatShares": 78202316,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3332,22 +3362,22 @@
     },
     {
       "symbol": "RAVITA",
-      "freeFloatMcapInr": 864096903.93,
-      "iep": 116.5,
-      "previousClose": 119.3,
+      "freeFloatMcapInr": 803276349.32,
+      "iep": 108.3,
+      "previousClose": 113.35,
       "impliedFreeFloatShares": 7417141,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "RBLBANK",
-      "freeFloatMcapInr": 213539437177.79,
-      "iep": 345.65,
-      "previousClose": 345.65,
+      "freeFloatMcapInr": 215331030893.44,
+      "iep": 348.55,
+      "previousClose": 348.5,
       "impliedFreeFloatShares": 617790936,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3381,22 +3411,22 @@
     },
     {
       "symbol": "RECLTD",
-      "freeFloatMcapInr": 363141400002.46,
-      "iep": 291.55,
-      "previousClose": 293.95,
+      "freeFloatMcapInr": 367812229191.31,
+      "iep": 295.3,
+      "previousClose": 298.2,
       "impliedFreeFloatShares": 1245554450,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "RELIANCE",
-      "freeFloatMcapInr": 7909102743790.41,
-      "iep": 1186.1,
-      "previousClose": 1190,
+      "freeFloatMcapInr": 7968449354042.27,
+      "iep": 1195,
+      "previousClose": 1201.8,
       "impliedFreeFloatShares": 6668158455,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3427,7 +3457,7 @@
       "impliedFreeFloatShares": 10490103,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "RILINFRA",
@@ -3437,7 +3467,7 @@
       "impliedFreeFloatShares": 5894678,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "RNFI",
@@ -3460,12 +3490,12 @@
     },
     {
       "symbol": "RVNL",
-      "freeFloatMcapInr": 101977591032.35,
-      "iep": 180.15,
-      "previousClose": 181.31,
+      "freeFloatMcapInr": 103392767149.92,
+      "iep": 182.65,
+      "previousClose": 182.65,
       "impliedFreeFloatShares": 566070447,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3490,13 +3520,13 @@
     },
     {
       "symbol": "SACHEEROME",
-      "freeFloatMcapInr": 3159635333.36,
-      "iep": 523.05,
-      "previousClose": 522.55,
+      "freeFloatMcapInr": 2398193724.01,
+      "iep": 397,
+      "previousClose": 389.4,
       "impliedFreeFloatShares": 6040790,
       "sourceKey": "SME",
-      "sessionTimestamp": "08-Sep-2026 09:09:10",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "SADHAV",
@@ -3519,12 +3549,12 @@
     },
     {
       "symbol": "SAGILITY",
-      "freeFloatMcapInr": 101377271908.65,
-      "iep": 44.15,
-      "previousClose": 44.18,
+      "freeFloatMcapInr": 102043170183.93,
+      "iep": 44.44,
+      "previousClose": 44.5,
       "impliedFreeFloatShares": 2296200949,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3545,7 +3575,7 @@
       "impliedFreeFloatShares": 7523272,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "SAIFL",
@@ -3559,12 +3589,12 @@
     },
     {
       "symbol": "SAIL",
-      "freeFloatMcapInr": 236573812796.19,
-      "iep": 164.1,
-      "previousClose": 164.34,
+      "freeFloatMcapInr": 243782033783.28,
+      "iep": 169.1,
+      "previousClose": 169.8,
       "impliedFreeFloatShares": 1441644197,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3598,13 +3628,23 @@
       "carriedForward": true
     },
     {
+      "symbol": "SATECH",
+      "freeFloatMcapInr": 147472258.61,
+      "iep": 37.2,
+      "previousClose": 36.95,
+      "impliedFreeFloatShares": 3964308,
+      "sourceKey": "SME",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
+    },
+    {
       "symbol": "SATKARTAR",
-      "freeFloatMcapInr": 771803089.59,
-      "iep": 134.3,
-      "previousClose": 130.45,
+      "freeFloatMcapInr": 738471310.59,
+      "iep": 128.5,
+      "previousClose": 128.75,
       "impliedFreeFloatShares": 5746858,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3619,32 +3659,32 @@
     },
     {
       "symbol": "SBICARD",
-      "freeFloatMcapInr": 158982820403.05,
-      "iep": 536.5,
-      "previousClose": 545.55,
+      "freeFloatMcapInr": 159516220359.67,
+      "iep": 538.3,
+      "previousClose": 538.3,
       "impliedFreeFloatShares": 296333309,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "SBILIFE",
-      "freeFloatMcapInr": 735128348554.7,
-      "iep": 1640,
-      "previousClose": 1640,
+      "freeFloatMcapInr": 731094107617.51,
+      "iep": 1631,
+      "previousClose": 1643.7,
       "impliedFreeFloatShares": 448248993,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "SBIN",
-      "freeFloatMcapInr": 3942250494356.22,
-      "iep": 956.5,
-      "previousClose": 958.6,
+      "freeFloatMcapInr": 3951936107175.6,
+      "iep": 958.85,
+      "previousClose": 960.8,
       "impliedFreeFloatShares": 4121537370,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3719,12 +3759,12 @@
     },
     {
       "symbol": "SHREECEM",
-      "freeFloatMcapInr": 302147518968.07,
-      "iep": 22650,
-      "previousClose": 22735,
+      "freeFloatMcapInr": 316020959132.61,
+      "iep": 23690,
+      "previousClose": 23540,
       "impliedFreeFloatShares": 13339846,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3739,22 +3779,22 @@
     },
     {
       "symbol": "SHRIKANHA",
-      "freeFloatMcapInr": 107921534.89,
-      "iep": 22.05,
-      "previousClose": 21,
+      "freeFloatMcapInr": 106942654.75,
+      "iep": 21.85,
+      "previousClose": 22.95,
       "impliedFreeFloatShares": 4894401,
       "sourceKey": "SME",
-      "sessionTimestamp": "23-Oct-2026 09:09:05",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "SHRIRAMFIN",
-      "freeFloatMcapInr": 1166500386275.44,
-      "iep": 835,
-      "previousClose": 865,
+      "freeFloatMcapInr": 1164823978534.69,
+      "iep": 833.8,
+      "previousClose": 825,
       "impliedFreeFloatShares": 1397006451,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3769,12 +3809,12 @@
     },
     {
       "symbol": "SIEMENS",
-      "freeFloatMcapInr": 284231411278,
-      "iep": 3225,
-      "previousClose": 3245.2,
+      "freeFloatMcapInr": 290550602654.32,
+      "iep": 3296.7,
+      "previousClose": 3278.8,
       "impliedFreeFloatShares": 88133771,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3795,7 +3835,7 @@
       "impliedFreeFloatShares": 2732398,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "SJLOGISTIC",
@@ -3815,7 +3855,7 @@
       "impliedFreeFloatShares": 2945601,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "SMARTEN",
@@ -3829,22 +3869,22 @@
     },
     {
       "symbol": "SOLARINDS",
-      "freeFloatMcapInr": 446979792744.14,
-      "iep": 18401,
-      "previousClose": 18365,
+      "freeFloatMcapInr": 455433081580.34,
+      "iep": 18749,
+      "previousClose": 18683,
       "impliedFreeFloatShares": 24291060,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "SONACOMS",
-      "freeFloatMcapInr": 335442085492.62,
-      "iep": 748,
-      "previousClose": 752.85,
+      "freeFloatMcapInr": 362483740245.57,
+      "iep": 808.3,
+      "previousClose": 781.9,
       "impliedFreeFloatShares": 448451986,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3874,7 +3914,7 @@
       "impliedFreeFloatShares": 6911334,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "SPECTRAA",
@@ -3888,12 +3928,12 @@
     },
     {
       "symbol": "SRF",
-      "freeFloatMcapInr": 331703935224.56,
-      "iep": 2290,
-      "previousClose": 2310,
+      "freeFloatMcapInr": 336049401624.88,
+      "iep": 2320,
+      "previousClose": 2340,
       "impliedFreeFloatShares": 144848880,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3904,7 +3944,7 @@
       "impliedFreeFloatShares": 8961783,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "SSFL",
@@ -3918,72 +3958,72 @@
     },
     {
       "symbol": "SUMAX",
-      "freeFloatMcapInr": 364377535.78,
-      "iep": 96,
-      "previousClose": 94.15,
+      "freeFloatMcapInr": 365326435.61,
+      "iep": 96.25,
+      "previousClose": 94,
       "impliedFreeFloatShares": 3795599,
       "sourceKey": "SME",
-      "sessionTimestamp": "23-Oct-2026 09:09:05",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "SUNLITE",
-      "freeFloatMcapInr": 1911351873.72,
-      "iep": 717.15,
-      "previousClose": 717.15,
+      "freeFloatMcapInr": 1679079244.85,
+      "iep": 630,
+      "previousClose": 608.85,
       "impliedFreeFloatShares": 2665205,
       "sourceKey": "SME",
-      "sessionTimestamp": "19-Oct-2026 09:09:17",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "SUNPHARMA",
-      "freeFloatMcapInr": 1850542994358.9,
-      "iep": 1752.4,
-      "previousClose": 1748,
+      "freeFloatMcapInr": 1837448533545.13,
+      "iep": 1740,
+      "previousClose": 1740,
       "impliedFreeFloatShares": 1056004904,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "SUPREMEIND",
-      "freeFloatMcapInr": 217641065985.29,
-      "iep": 3390,
-      "previousClose": 3390,
+      "freeFloatMcapInr": 209294948410.63,
+      "iep": 3260,
+      "previousClose": 3250,
       "impliedFreeFloatShares": 64200904,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "SUPREMEPWR",
-      "freeFloatMcapInr": 3040639506.76,
-      "iep": 284,
-      "previousClose": 273.3,
+      "freeFloatMcapInr": 2918050343.55,
+      "iep": 272.55,
+      "previousClose": 269.9,
       "impliedFreeFloatShares": 10706477,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "SUZLON",
-      "freeFloatMcapInr": 448942285533.49,
-      "iep": 37,
-      "previousClose": 37.4,
+      "freeFloatMcapInr": 450398314567.65,
+      "iep": 37.12,
+      "previousClose": 37.12,
       "impliedFreeFloatShares": 12133575285,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "SWIGGY",
-      "freeFloatMcapInr": 263686879961.9,
-      "iep": 176,
-      "previousClose": 176,
+      "freeFloatMcapInr": 281815352959.29,
+      "iep": 188.1,
+      "previousClose": 185.75,
       "impliedFreeFloatShares": 1498220909,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -3994,56 +4034,56 @@
       "impliedFreeFloatShares": 4082004,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "TAC",
-      "freeFloatMcapInr": 3062269064.39,
-      "iep": 336,
-      "previousClose": 336,
+      "freeFloatMcapInr": 3271888672.96,
+      "iep": 359,
+      "previousClose": 352.8,
       "impliedFreeFloatShares": 9113896,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "TATACONSUM",
-      "freeFloatMcapInr": 623439445712.52,
-      "iep": 960,
-      "previousClose": 963.9,
+      "freeFloatMcapInr": 629284190516.07,
+      "iep": 969,
+      "previousClose": 936.5,
       "impliedFreeFloatShares": 649416089,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "TATAELXSI",
-      "freeFloatMcapInr": 125374705011.59,
-      "iep": 3649.4,
-      "previousClose": 3700,
+      "freeFloatMcapInr": 127937579181,
+      "iep": 3724,
+      "previousClose": 3724,
       "impliedFreeFloatShares": 34354882,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "TATAPOWER",
-      "freeFloatMcapInr": 577941114671.79,
-      "iep": 345.1,
-      "previousClose": 348.1,
+      "freeFloatMcapInr": 565883229926.39,
+      "iep": 337.9,
+      "previousClose": 338.5,
       "impliedFreeFloatShares": 1674706215,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "TATASTEEL",
-      "freeFloatMcapInr": 1387394835198.8,
-      "iep": 167.67,
-      "previousClose": 167.67,
+      "freeFloatMcapInr": 1399972160596.91,
+      "iep": 169.19,
+      "previousClose": 169.94,
       "impliedFreeFloatShares": 8274556183,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4058,22 +4098,22 @@
     },
     {
       "symbol": "TBI",
-      "freeFloatMcapInr": 624093166.13,
-      "iep": 78.95,
-      "previousClose": 75.1,
+      "freeFloatMcapInr": 524491216.88,
+      "iep": 66.35,
+      "previousClose": 67.65,
       "impliedFreeFloatShares": 7904917,
       "sourceKey": "SME",
-      "sessionTimestamp": "21-Oct-2026 09:08:43",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "TCS",
-      "freeFloatMcapInr": 2545333614131.8,
-      "iep": 2500,
-      "previousClose": 2530,
+      "freeFloatMcapInr": 2559689295715.5,
+      "iep": 2514.1,
+      "previousClose": 2535,
       "impliedFreeFloatShares": 1018133446,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4084,7 +4124,7 @@
       "impliedFreeFloatShares": 2018398,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "TECHERA",
@@ -4108,12 +4148,12 @@
     },
     {
       "symbol": "TECHM",
-      "freeFloatMcapInr": 1115302029005.98,
-      "iep": 1760.5,
-      "previousClose": 1790,
+      "freeFloatMcapInr": 1130189616442.3,
+      "iep": 1784,
+      "previousClose": 1795,
       "impliedFreeFloatShares": 633514359,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4144,46 +4184,46 @@
       "impliedFreeFloatShares": 4395405,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "TIINDIA",
-      "freeFloatMcapInr": 221559221084.45,
-      "iep": 2081.7,
-      "previousClose": 2080,
+      "freeFloatMcapInr": 221931732624.92,
+      "iep": 2085.2,
+      "previousClose": 2085.2,
       "impliedFreeFloatShares": 106431869,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "TITAN",
-      "freeFloatMcapInr": 1764441978008.28,
-      "iep": 4281,
-      "previousClose": 4299.7,
+      "freeFloatMcapInr": 1773509421016.03,
+      "iep": 4303,
+      "previousClose": 4323,
       "impliedFreeFloatShares": 412156500,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "TMPV",
-      "freeFloatMcapInr": 551292302633.91,
-      "iep": 264.2,
-      "previousClose": 264.6,
+      "freeFloatMcapInr": 549831649296.12,
+      "iep": 263.5,
+      "previousClose": 263.7,
       "impliedFreeFloatShares": 2086647625,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "TORNTPHARM",
-      "freeFloatMcapInr": 669407820338.59,
-      "iep": 4561.1,
-      "previousClose": 4524.4,
+      "freeFloatMcapInr": 667470528187.91,
+      "iep": 4547.9,
+      "previousClose": 4550,
       "impliedFreeFloatShares": 146764557,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4198,12 +4238,12 @@
     },
     {
       "symbol": "TRENT",
-      "freeFloatMcapInr": 899861861380.78,
-      "iep": 2712.2,
-      "previousClose": 2727.5,
+      "freeFloatMcapInr": 913730390916.11,
+      "iep": 2754,
+      "previousClose": 2754,
       "impliedFreeFloatShares": 331783003,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4228,12 +4268,12 @@
     },
     {
       "symbol": "TVSMOTOR",
-      "freeFloatMcapInr": 928153882495.51,
-      "iep": 3962.2,
-      "previousClose": 3980.2,
+      "freeFloatMcapInr": 939093458062.75,
+      "iep": 4008.9,
+      "previousClose": 3996,
       "impliedFreeFloatShares": 234252153,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4247,22 +4287,22 @@
     },
     {
       "symbol": "UJJIVANSFB",
-      "freeFloatMcapInr": 108779933561.42,
-      "iep": 57.6,
-      "previousClose": 58.1,
+      "freeFloatMcapInr": 104058582278.37,
+      "iep": 55.1,
+      "previousClose": 55,
       "impliedFreeFloatShares": 1888540513,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "ULTRACEMCO",
-      "freeFloatMcapInr": 1299773363341.19,
-      "iep": 11011,
-      "previousClose": 11050,
+      "freeFloatMcapInr": 1308508558045.33,
+      "iep": 11085,
+      "previousClose": 11180,
       "impliedFreeFloatShares": 118043172,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4273,57 +4313,57 @@
       "impliedFreeFloatShares": 5225882,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "UNIONBANK",
-      "freeFloatMcapInr": 344720620021.44,
-      "iep": 178.3,
-      "previousClose": 178.9,
-      "impliedFreeFloatShares": 1933374201,
+      "freeFloatMcapInr": 351965726400.88,
+      "iep": 182.66,
+      "previousClose": 181.2,
+      "impliedFreeFloatShares": 1926889995,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "UNITDSPR",
-      "freeFloatMcapInr": 365344143920.99,
-      "iep": 1240,
-      "previousClose": 1252,
+      "freeFloatMcapInr": 364607562985.66,
+      "iep": 1237.5,
+      "previousClose": 1239,
       "impliedFreeFloatShares": 294632374,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "UNOMINDA",
-      "freeFloatMcapInr": 191787702104.03,
-      "iep": 1057,
-      "previousClose": 1057,
+      "freeFloatMcapInr": 193602155293.28,
+      "iep": 1067,
+      "previousClose": 1069.3,
       "impliedFreeFloatShares": 181445319,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "UPL",
-      "freeFloatMcapInr": 284109043515.02,
-      "iep": 508,
-      "previousClose": 508.65,
+      "freeFloatMcapInr": 277537623709.31,
+      "iep": 496.25,
+      "previousClose": 497.7,
       "impliedFreeFloatShares": 559269771,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "URBAN",
-      "freeFloatMcapInr": 578521081.2,
-      "iep": 145,
-      "previousClose": 146.2,
+      "freeFloatMcapInr": 534633275.04,
+      "iep": 134,
+      "previousClose": 132.45,
       "impliedFreeFloatShares": 3989801,
       "sourceKey": "SME",
-      "sessionTimestamp": "19-Oct-2026 09:09:17",
-      "carriedForward": true
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
     },
     {
       "symbol": "UTKAL",
@@ -4357,12 +4397,12 @@
     },
     {
       "symbol": "VBL",
-      "freeFloatMcapInr": 540619902670.95,
-      "iep": 396.5,
-      "previousClose": 395.1,
+      "freeFloatMcapInr": 555072792881.06,
+      "iep": 407.1,
+      "previousClose": 408,
       "impliedFreeFloatShares": 1363480209,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4377,12 +4417,12 @@
     },
     {
       "symbol": "VEDL",
-      "freeFloatMcapInr": 396548522529.33,
-      "iep": 225.9,
-      "previousClose": 226.5,
+      "freeFloatMcapInr": 399357188470.22,
+      "iep": 227.5,
+      "previousClose": 227.5,
       "impliedFreeFloatShares": 1755416213,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4427,12 +4467,12 @@
     },
     {
       "symbol": "VINOD",
-      "freeFloatMcapInr": 97532761.95,
-      "iep": 21.4,
-      "previousClose": 22.5,
+      "freeFloatMcapInr": 92747275.97,
+      "iep": 20.35,
+      "previousClose": 21.4,
       "impliedFreeFloatShares": 4557606,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4453,7 +4493,7 @@
       "impliedFreeFloatShares": 8852676,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "VISAMAN",
@@ -4467,12 +4507,12 @@
     },
     {
       "symbol": "VIVIDEL",
-      "freeFloatMcapInr": 1960832746.34,
-      "iep": 1165,
-      "previousClose": 1263.9,
+      "freeFloatMcapInr": 2095398049.4,
+      "iep": 1244.95,
+      "previousClose": 1159.35,
       "impliedFreeFloatShares": 1683118,
       "sourceKey": "SME",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4487,32 +4527,42 @@
     },
     {
       "symbol": "VMM",
-      "freeFloatMcapInr": 240404159719.39,
-      "iep": 86,
-      "previousClose": 87.35,
+      "freeFloatMcapInr": 247895824231.58,
+      "iep": 88.68,
+      "previousClose": 88.7,
       "impliedFreeFloatShares": 2795397206,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
+      "carriedForward": false
+    },
+    {
+      "symbol": "VMOBILE",
+      "freeFloatMcapInr": 97199989.65,
+      "iep": 45,
+      "previousClose": 45.9,
+      "impliedFreeFloatShares": 2160000,
+      "sourceKey": "SME",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "VOLTAS",
-      "freeFloatMcapInr": 216053771883.97,
-      "iep": 950,
-      "previousClose": 950,
+      "freeFloatMcapInr": 213574839132.88,
+      "iep": 939.1,
+      "previousClose": 947.6,
       "impliedFreeFloatShares": 227425023,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
       "symbol": "WAAREEENER",
-      "freeFloatMcapInr": 224662088044.66,
-      "iep": 2347.4,
-      "previousClose": 2354.9,
+      "freeFloatMcapInr": 223054214193.1,
+      "iep": 2330.6,
+      "previousClose": 2319,
       "impliedFreeFloatShares": 95706777,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4527,12 +4577,12 @@
     },
     {
       "symbol": "WIPRO",
-      "freeFloatMcapInr": 501169278212.22,
-      "iep": 185.55,
-      "previousClose": 189.84,
+      "freeFloatMcapInr": 506409204915.16,
+      "iep": 187.49,
+      "previousClose": 189.2,
       "impliedFreeFloatShares": 2700993146,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4543,7 +4593,7 @@
       "impliedFreeFloatShares": 2275369,
       "sourceKey": "SME",
       "sessionTimestamp": "26-Oct-2026 09:09:18",
-      "carriedForward": false
+      "carriedForward": true
     },
     {
       "symbol": "WOMANCART",
@@ -4567,12 +4617,12 @@
     },
     {
       "symbol": "YESBANK",
-      "freeFloatMcapInr": 276826855251.84,
-      "iep": 15.8,
-      "previousClose": 15.8,
+      "freeFloatMcapInr": 279805372048.86,
+      "iep": 15.97,
+      "previousClose": 15.86,
       "impliedFreeFloatShares": 17520687041,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     },
     {
@@ -4607,12 +4657,12 @@
     },
     {
       "symbol": "ZYDUSLIFE",
-      "freeFloatMcapInr": 279121665910.79,
-      "iep": 1129.4,
-      "previousClose": 1129.4,
+      "freeFloatMcapInr": 285448489575.85,
+      "iep": 1155,
+      "previousClose": 1160.4,
       "impliedFreeFloatShares": 247141549,
       "sourceKey": "FO",
-      "sessionTimestamp": "26-Oct-2026 09:09:18",
+      "sessionTimestamp": "27-Oct-2026 09:09:40",
       "carriedForward": false
     }
   ],
