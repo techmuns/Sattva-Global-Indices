@@ -1,7 +1,7 @@
 {
   "source": "iShares holdings + NSE pre-open free float + BSE free float + niftyindices ISIN map",
   "note": "floatFactor is dimensionless and price-independent. NSE wins wherever it publishes a reading because MSCI follows NSE; BSE fills gaps only. The two are never averaged, and where both exist both are kept so the disagreement stays inspectable. Every monetary field is RUPEES. A null in funds{} means NOT HELD by that fund — it is not a zero weight.",
-  "builtAt": "2026-10-27T19:40:00.422Z",
+  "builtAt": "2026-10-27T21:14:45.370Z",
   "holdingsAsOfByFund": {
     "eem": "2026-10-26",
     "smin": "2026-10-26",
@@ -11,12 +11,12 @@
     "isharesHoldings": "2026-10-26",
     "ftseHoldings": "2026-09-30",
     "nseSession": "27-Oct-2026 09:09:40",
-    "bseCapturedAt": "2026-10-27T19:36:21.805Z",
+    "bseCapturedAt": "2026-10-27T21:10:49.560Z",
     "bhavcopyTradeDate": "2026-10-19",
     "quoteStatsCapturedAt": "2026-10-02T01:03:21.315Z",
     "benchmarksAsOf": "2026-10-23",
-    "bseScripMasterCapturedAt": "2026-10-27T19:31:14.511Z",
-    "nseUniverseCapturedAt": "2026-10-27T19:31:15.736Z",
+    "bseScripMasterCapturedAt": "2026-10-27T21:05:55.054Z",
+    "nseUniverseCapturedAt": "2026-10-27T21:05:57.292Z",
     "asmAsOf": "27-Oct-2026"
   },
   "thresholds": {
@@ -653,7 +653,7 @@
     "publisher": "National Stock Exchange of India",
     "endpoint": "https://www.nseindia.com/api/reportASM",
     "note": "NSE's published surveillance stage, carried through unchanged (tier 1) and joined to the universe by ISIN. dhan.co/nse-asm-list mirrors this same NSE feed. A company not on the list is NOT under ASM; a null stage when the feed is unavailable means we could not check.",
-    "capturedAt": "2026-10-27T19:31:21.379Z",
+    "capturedAt": "2026-10-27T21:06:02.112Z",
     "asOf": "27-Oct-2026",
     "totalFlagged": 189,
     "flaggedInUniverse": 52,
@@ -32889,7 +32889,7 @@
     },
     {
       "isin": "INE405E01023",
-      "name": "UNO Minda Ltd-$",
+      "name": "UNO Minda Ltd",
       "nseSymbol": "UNOMINDA",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "532539",
@@ -44992,7 +44992,7 @@
     },
     {
       "isin": "INE509F01029",
-      "name": "Cupid Ltd-$",
+      "name": "Cupid Ltd",
       "nseSymbol": "CUPID",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "530843",
@@ -45491,7 +45491,7 @@
     },
     {
       "isin": "INE048G01026",
-      "name": "Navin Fluorine International Ltd-$",
+      "name": "Navin Fluorine International Ltd",
       "nseSymbol": "NAVINFLUOR",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "532504",
@@ -46885,7 +46885,7 @@
     },
     {
       "isin": "INE787D01026",
-      "name": "Balkrishna Industries Ltd-$",
+      "name": "Balkrishna Industries Ltd",
       "nseSymbol": "BALKRISIND",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "502355",
@@ -58792,7 +58792,7 @@
     },
     {
       "isin": "INE686F01025",
-      "name": "United Breweries Ltd-$",
+      "name": "United Breweries Ltd",
       "nseSymbol": "UBL",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "532478",
@@ -66798,7 +66798,7 @@
     },
     {
       "isin": "INE524A01029",
-      "name": "Gabriel India Ltd-$",
+      "name": "Gabriel India Ltd",
       "nseSymbol": "GABRIEL",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "505714",
@@ -72605,7 +72605,7 @@
     },
     {
       "isin": "INE451A01017",
-      "name": "Force Motors Ltd-$",
+      "name": "Force Motors Ltd",
       "nseSymbol": "FORCEMOT",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "500033",
@@ -75156,7 +75156,7 @@
     },
     {
       "isin": "INE292B01021",
-      "name": "HBL Engineering Ltd-$",
+      "name": "HBL Engineering Ltd",
       "nseSymbol": "HBLENGINE",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "517271",
@@ -78141,7 +78141,7 @@
     },
     {
       "isin": "INE101D01020",
-      "name": "Granules India Ltd-$",
+      "name": "Granules India Ltd",
       "nseSymbol": "GRANULES",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "532482",
@@ -78834,7 +78834,7 @@
     },
     {
       "isin": "INE536A01023",
-      "name": "Grindwell Norton Ltd-$",
+      "name": "Grindwell Norton Ltd",
       "nseSymbol": "GRINDWELL",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "506076",
@@ -79524,7 +79524,7 @@
     },
     {
       "isin": "INE989C01038",
-      "name": "Diamond Power Infrastructure Ltd-$",
+      "name": "Diamond Power Infrastructure Ltd",
       "nseSymbol": "DIACABS",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "522163",
@@ -80825,7 +80825,7 @@
     },
     {
       "isin": "INE288B01029",
-      "name": "Deepak Nitrite Ltd-$",
+      "name": "Deepak Nitrite Ltd",
       "nseSymbol": "DEEPAKNTR",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "506401",
@@ -87518,7 +87518,7 @@
     },
     {
       "isin": "INE242C01024",
-      "name": "Anant Raj Ltd-$",
+      "name": "Anant Raj Ltd",
       "nseSymbol": "ANANTRAJ",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "515055",
@@ -89846,7 +89846,7 @@
     },
     {
       "isin": "INE703B01027",
-      "name": "Ratnamani Metals & Tubes Ltd-$",
+      "name": "Ratnamani Metals & Tubes Ltd",
       "nseSymbol": "RATNAMANI",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "520111",
@@ -90582,7 +90582,7 @@
     },
     {
       "isin": "INE548C01032",
-      "name": "Emami Ltd-$",
+      "name": "Emami Ltd",
       "nseSymbol": "EMAMILTD",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "531162",
@@ -91272,7 +91272,7 @@
     },
     {
       "isin": "INE385C01021",
-      "name": "Sarda Energy & Minerals Ltd-$",
+      "name": "Sarda Energy & Minerals Ltd",
       "nseSymbol": "SARDAEN",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "504614",
@@ -95154,7 +95154,7 @@
     },
     {
       "isin": "INE768C01028",
-      "name": "Zydus Wellness Ltd-$",
+      "name": "Zydus Wellness Ltd",
       "nseSymbol": "ZYDUSWELL",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "531335",
@@ -102298,7 +102298,7 @@
     },
     {
       "isin": "INE348B01021",
-      "name": "Century Plyboards (India) Ltd-$",
+      "name": "Century Plyboards (India) Ltd",
       "nseSymbol": "CENTURYPLY",
       "nseSymbolSource": "seed",
       "bseScripCode": "532548",
@@ -113539,7 +113539,7 @@
     },
     {
       "isin": "INE732A01036",
-      "name": "Kirloskar Brothers Ltd-$",
+      "name": "Kirloskar Brothers Ltd",
       "nseSymbol": "KIRLOSBROS",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "500241",
@@ -114949,7 +114949,7 @@
     },
     {
       "isin": "INE133E01013",
-      "name": "Tilaknagar Industries Ltd-$",
+      "name": "Tilaknagar Industries Ltd",
       "nseSymbol": "TI",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "507205",
@@ -121175,7 +121175,7 @@
     },
     {
       "isin": "INE410B01037",
-      "name": "Vinati Organics Ltd-$",
+      "name": "Vinati Organics Ltd",
       "nseSymbol": "VINATIORGA",
       "nseSymbolSource": "seed",
       "bseScripCode": "524200",
@@ -125678,7 +125678,7 @@
     },
     {
       "isin": "INE780C01023",
-      "name": "JM Financial Ltd-$",
+      "name": "JM Financial Ltd",
       "nseSymbol": "JMFINANCIL",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "523405",
@@ -128824,7 +128824,7 @@
     },
     {
       "isin": "INE280B01018",
-      "name": "Elantas Beck India Ltd-$",
+      "name": "Elantas Beck India Ltd",
       "nseSymbol": "ELANTAS",
       "nseSymbolSource": "seed",
       "bseScripCode": "500123",
@@ -134655,7 +134655,7 @@
     },
     {
       "isin": "INE473D01015",
-      "name": "Kingfa Science & Technology (India) Ltd-$",
+      "name": "Kingfa Science & Technology (India) Ltd",
       "nseSymbol": "KINGFA",
       "nseSymbolSource": "seed",
       "bseScripCode": "524019",
@@ -135824,7 +135824,7 @@
     },
     {
       "isin": "INE871C01038",
-      "name": "Avanti Feeds Ltd-$",
+      "name": "Avanti Feeds Ltd",
       "nseSymbol": "AVANTIFEED",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "512573",
@@ -140893,7 +140893,7 @@
     },
     {
       "isin": "INE150B01039",
-      "name": "Alkyl Amines Chemicals Ltd-$",
+      "name": "Alkyl Amines Chemicals Ltd",
       "nseSymbol": "ALKYLAMINE",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "506767",
@@ -141188,7 +141188,7 @@
     },
     {
       "isin": "INE221B01012",
-      "name": "Dynamatic Technologies Ltd-$",
+      "name": "Dynamatic Technologies Ltd",
       "nseSymbol": "DYNAMATECH",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "505242",
@@ -141637,7 +141637,7 @@
     },
     {
       "isin": "INE717A01029",
-      "name": "Kennametal India Ltd-$",
+      "name": "Kennametal India Ltd",
       "nseSymbol": "KENNAMET",
       "nseSymbolSource": "seed",
       "bseScripCode": "505890",
@@ -142319,7 +142319,7 @@
     },
     {
       "isin": "INE213C01025",
-      "name": "Banco Products (India) Ltd-$",
+      "name": "Banco Products (India) Ltd",
       "nseSymbol": "BANCOINDIA",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "500039",
@@ -142593,7 +142593,7 @@
     },
     {
       "isin": "INE802C01033",
-      "name": "Steel Strips Wheels Ltd-$",
+      "name": "Steel Strips Wheels Ltd",
       "nseSymbol": "SSWL",
       "nseSymbolSource": "seed",
       "bseScripCode": "513262",
@@ -144641,7 +144641,7 @@
     },
     {
       "isin": "INE955D01029",
-      "name": "Genus Power Infrastructures Ltd-$",
+      "name": "Genus Power Infrastructures Ltd",
       "nseSymbol": "GENUSPOWER",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "530343",
@@ -153642,7 +153642,7 @@
     },
     {
       "isin": "INE639B01023",
-      "name": "TANFAC Industries Ltd-$",
+      "name": "TANFAC Industries Ltd",
       "nseSymbol": null,
       "nseSymbolSource": null,
       "bseScripCode": "506854",
@@ -159593,7 +159593,7 @@
     },
     {
       "isin": "INE131B01039",
-      "name": "Relaxo Footwears Ltd-$",
+      "name": "Relaxo Footwears Ltd",
       "nseSymbol": "RELAXO",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "530517",
@@ -161436,7 +161436,7 @@
     },
     {
       "isin": "INE411F01010",
-      "name": "Kama Holdings Ltd-$",
+      "name": "Kama Holdings Ltd",
       "nseSymbol": "KAMAHOLD",
       "nseSymbolSource": "seed",
       "bseScripCode": "532468",
@@ -164509,7 +164509,7 @@
     },
     {
       "isin": "INE399C01030",
-      "name": "Suprajit Engineering Ltd-$",
+      "name": "Suprajit Engineering Ltd",
       "nseSymbol": "SUPRAJIT",
       "nseSymbolSource": "seed",
       "bseScripCode": "532509",
@@ -166926,7 +166926,7 @@
     },
     {
       "isin": "INE064A01026",
-      "name": "Timex Group India Ltd-$",
+      "name": "Timex Group India Ltd",
       "nseSymbol": "TIMEX",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "500414",
@@ -171276,7 +171276,7 @@
     },
     {
       "isin": "INE050E01027",
-      "name": "Balaji Amines Ltd-$",
+      "name": "Balaji Amines Ltd",
       "nseSymbol": "BALAMINES",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "530999",
@@ -172092,7 +172092,7 @@
     },
     {
       "isin": "INE993A01026",
-      "name": "Man Industries (India) Ltd-$",
+      "name": "Man Industries (India) Ltd",
       "nseSymbol": "MANINDS",
       "nseSymbolSource": "seed",
       "bseScripCode": "513269",
@@ -178484,7 +178484,7 @@
     },
     {
       "isin": "INE460C01014",
-      "name": "Ganesh Housing Ltd-$",
+      "name": "Ganesh Housing Ltd",
       "nseSymbol": "GANESHHOU",
       "nseSymbolSource": "seed",
       "bseScripCode": "526367",
@@ -182150,7 +182150,7 @@
     },
     {
       "isin": "INE694D01016",
-      "name": "Vadilal Industries Ltd-$",
+      "name": "Vadilal Industries Ltd",
       "nseSymbol": "VADILALIND",
       "nseSymbolSource": "seed",
       "bseScripCode": "519156",
@@ -183770,7 +183770,7 @@
     },
     {
       "isin": "INE207E01023",
-      "name": "Ram Ratna Wires Ltd-$",
+      "name": "Ram Ratna Wires Ltd",
       "nseSymbol": "RAMRAT",
       "nseSymbolSource": "seed",
       "bseScripCode": "522281",
@@ -183965,7 +183965,7 @@
     },
     {
       "isin": "INE570A01022",
-      "name": "Ion Exchange India Ltd-$",
+      "name": "Ion Exchange India Ltd",
       "nseSymbol": "IONEXCHANG",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "500214",
@@ -190403,7 +190403,7 @@
     },
     {
       "isin": "INE291D01011",
-      "name": "KDDL Ltd-$",
+      "name": "KDDL Ltd",
       "nseSymbol": "KDDL",
       "nseSymbolSource": "seed",
       "bseScripCode": "532054",
@@ -194029,7 +194029,7 @@
     },
     {
       "isin": "INE908D01010",
-      "name": "Shakti Pumps India Ltd-$",
+      "name": "Shakti Pumps India Ltd",
       "nseSymbol": "SHAKTIPUMP",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "531431",
@@ -198594,7 +198594,7 @@
     },
     {
       "isin": "INE816B01035",
-      "name": "Filatex India Ltd-$",
+      "name": "Filatex India Ltd",
       "nseSymbol": "FILATEX",
       "nseSymbolSource": "seed",
       "bseScripCode": "526227",
@@ -205909,7 +205909,7 @@
     },
     {
       "isin": "INE979B01015",
-      "name": "Hawkins Cookers Ltd-$",
+      "name": "Hawkins Cookers Ltd",
       "nseSymbol": "HAWKINCOOK",
       "nseSymbolSource": "seed",
       "bseScripCode": "508486",
@@ -207977,7 +207977,7 @@
     },
     {
       "isin": "INE818A01017",
-      "name": "Antelopus Selan Energy Ltd-$",
+      "name": "Antelopus Selan Energy Ltd",
       "nseSymbol": "ANTELOPUS",
       "nseSymbolSource": "seed",
       "bseScripCode": "530075",
@@ -211964,7 +211964,7 @@
     },
     {
       "isin": "INE054A01027",
-      "name": "VIP Industries Ltd-$",
+      "name": "VIP Industries Ltd",
       "nseSymbol": "VIPIND",
       "nseSymbolSource": "nse-universe",
       "bseScripCode": "507880",
@@ -212350,7 +212350,7 @@
     },
     {
       "isin": "INE822C01015",
-      "name": "TCPL Packaging Ltd-$",
+      "name": "TCPL Packaging Ltd",
       "nseSymbol": "TCPLPACK",
       "nseSymbolSource": "seed",
       "bseScripCode": "523301",
@@ -214820,7 +214820,7 @@
     },
     {
       "isin": "INE266D01021",
-      "name": "Grauer & Weil India Ltd-$",
+      "name": "Grauer & Weil India Ltd",
       "nseSymbol": "GRAUWEIL",
       "nseSymbolSource": "seed",
       "bseScripCode": "505710",
@@ -215426,7 +215426,7 @@
     },
     {
       "isin": "INE365D01021",
-      "name": "Ashiana Housing Ltd-$",
+      "name": "Ashiana Housing Ltd",
       "nseSymbol": "ASHIANA",
       "nseSymbolSource": "seed",
       "bseScripCode": "523716",
@@ -216688,7 +216688,7 @@
     },
     {
       "isin": "INE515A01019",
-      "name": "John Cockerill India Ltd-$",
+      "name": "John Cockerill India Ltd",
       "nseSymbol": "COCKERILL",
       "nseSymbolSource": "seed",
       "bseScripCode": "500147",
@@ -217640,7 +217640,7 @@
     },
     {
       "isin": "INE764D01017",
-      "name": "VST Tillers Tractors Ltd-$",
+      "name": "VST Tillers Tractors Ltd",
       "nseSymbol": "VSTTILLERS",
       "nseSymbolSource": "seed",
       "bseScripCode": "531266",
@@ -220789,7 +220789,7 @@
     },
     {
       "isin": "INE193E01025",
-      "name": "Bajaj Electricals Ltd-$",
+      "name": "Bajaj Electricals Ltd",
       "nseSymbol": "BAJAJELEC",
       "nseSymbolSource": "seed",
       "bseScripCode": "500031",
@@ -221005,7 +221005,7 @@
     },
     {
       "isin": "INE450D01021",
-      "name": "Pitti Engineering Ltd-$",
+      "name": "Pitti Engineering Ltd",
       "nseSymbol": "PITTIENG",
       "nseSymbolSource": "seed",
       "bseScripCode": "513519",
@@ -222580,7 +222580,7 @@
     },
     {
       "isin": "INE421C01016",
-      "name": "TVS Srichakra Ltd-$",
+      "name": "TVS Srichakra Ltd",
       "nseSymbol": "TVSSRICHAK",
       "nseSymbolSource": "seed",
       "bseScripCode": "509243",
@@ -222970,7 +222970,7 @@
     },
     {
       "isin": "INE040D01038",
-      "name": "Mayur Uniquoters Ltd-$",
+      "name": "Mayur Uniquoters Ltd",
       "nseSymbol": "MAYURUNIQ",
       "nseSymbolSource": "seed",
       "bseScripCode": "522249",
@@ -228813,7 +228813,7 @@
     },
     {
       "isin": "INE464A01036",
-      "name": "Bharat Bijlee Ltd-$",
+      "name": "Bharat Bijlee Ltd",
       "nseSymbol": "BBL",
       "nseSymbolSource": "seed",
       "bseScripCode": "503960",
@@ -234712,7 +234712,7 @@
     },
     {
       "isin": "INE922A01025",
-      "name": "Bhansali Engineering Polymers Ltd-$",
+      "name": "Bhansali Engineering Polymers Ltd",
       "nseSymbol": "BEPL",
       "nseSymbolSource": "seed",
       "bseScripCode": "500052",
@@ -239045,7 +239045,7 @@
     },
     {
       "isin": "INE982B01027",
-      "name": "Adf Foods Ltd-$",
+      "name": "Adf Foods Ltd",
       "nseSymbol": "ADFFOODS",
       "nseSymbolSource": "seed",
       "bseScripCode": "519183",
@@ -241548,7 +241548,7 @@
     },
     {
       "isin": "INE934C01018",
-      "name": "Dr Agarwals Eye Hospital Ltd-$",
+      "name": "Dr Agarwals Eye Hospital Ltd",
       "nseSymbol": "DRAGARWQ",
       "nseSymbolSource": "seed",
       "bseScripCode": "526783",
@@ -248411,7 +248411,7 @@
     },
     {
       "isin": "INE227C01017",
-      "name": "MM Forgings Ltd-$",
+      "name": "MM Forgings Ltd",
       "nseSymbol": "MMFL",
       "nseSymbolSource": "seed",
       "bseScripCode": "522241",
@@ -248801,7 +248801,7 @@
     },
     {
       "isin": "INE920A01037",
-      "name": "Dolphin Offshore Enterprises (India) Ltd-$",
+      "name": "Dolphin Offshore Enterprises (India) Ltd",
       "nseSymbol": "DOLPHIN",
       "nseSymbolSource": "seed",
       "bseScripCode": "522261",
@@ -251548,7 +251548,7 @@
     },
     {
       "isin": "INE244B01030",
-      "name": "Patel Engineering Ltd-$",
+      "name": "Patel Engineering Ltd",
       "nseSymbol": "PATELENG",
       "nseSymbolSource": "seed",
       "bseScripCode": "531120",
@@ -252328,7 +252328,7 @@
     },
     {
       "isin": "INE579C01029",
-      "name": "Vimta Labs Ltd-$",
+      "name": "Vimta Labs Ltd",
       "nseSymbol": "VIMTALABS",
       "nseSymbolSource": "seed",
       "bseScripCode": "524394",
@@ -256397,7 +256397,7 @@
     },
     {
       "isin": "INE074B01023",
-      "name": "Paramount Communications Ltd-$",
+      "name": "Paramount Communications Ltd",
       "nseSymbol": "PARACABLES",
       "nseSymbolSource": "seed",
       "bseScripCode": "530555",
@@ -257762,7 +257762,7 @@
     },
     {
       "isin": "INE932A01024",
-      "name": "Pennar Industries Ltd-$",
+      "name": "Pennar Industries Ltd",
       "nseSymbol": "PENIND",
       "nseSymbolSource": "seed",
       "bseScripCode": "513228",
@@ -258542,7 +258542,7 @@
     },
     {
       "isin": "INE959C01023",
-      "name": "Oriental Aromatics Ltd-$",
+      "name": "Oriental Aromatics Ltd",
       "nseSymbol": null,
       "nseSymbolSource": null,
       "bseScripCode": "500078",
@@ -259517,7 +259517,7 @@
     },
     {
       "isin": "INE076B01028",
-      "name": "Siyaram Silk Mills Ltd-$",
+      "name": "Siyaram Silk Mills Ltd",
       "nseSymbol": "SIYSIL",
       "nseSymbolSource": "seed",
       "bseScripCode": "503811",
@@ -270625,7 +270625,7 @@
     },
     {
       "isin": "INE229C01021",
-      "name": "Sagar Cements Ltd-$",
+      "name": "Sagar Cements Ltd",
       "nseSymbol": "SAGCEM",
       "nseSymbolSource": "seed",
       "bseScripCode": "502090",

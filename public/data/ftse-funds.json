@@ -1,7 +1,7 @@
 {
   "source": "Vanguard — 'Holdings details' workbook export (.xlsx)",
   "note": "FTSE Emerging Markets holdings, India slice. A SECOND OPINION alongside the MSCI funds: FTSE runs its own index with its own constituents, size rules and review calendar, so nothing here feeds the MSCI segment derivation, cutoffs, verdicts or flows.",
-  "importedAt": "2026-10-27T19:31:47.314Z",
+  "importedAt": "2026-10-27T21:06:25.499Z",
   "fixtures": [
     "scripts/fixtures/vanguard-ftse-em-allcap.xlsx"
   ],
