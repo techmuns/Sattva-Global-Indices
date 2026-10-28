@@ -1,7 +1,7 @@
 {
   "source": "BSE India — api.bseindia.com/BseIndiaAPI/api/ListofScripData (status=Active; the equity segment plus GROUP=IF, which is InvITs and REITs)",
   "note": "indicativeFullMcapInr selects the scrape universe only. It is BSE's Mktcap field converted from ₹ crore to rupees, struck at a moment this endpoint does not disclose, and must not render as a company's market cap. The authoritative full market cap comes from scripts/scrape-bse-freefloat.mjs, alongside the free float it is divided by.",
-  "capturedAt": "2026-10-28T19:43:52.922Z",
+  "capturedAt": "2026-10-28T21:29:20.212Z",
   "scripCount": 5151,
   "withIneIsinCount": 4864,
   "scrips": [
