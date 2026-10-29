@@ -1,7 +1,7 @@
 {
   "source": "iShares holdings + NSE pre-open free float + BSE free float + niftyindices ISIN map",
   "note": "floatFactor is dimensionless and price-independent. NSE wins wherever it publishes a reading because MSCI follows NSE; BSE fills gaps only. The two are never averaged, and where both exist both are kept so the disagreement stays inspectable. Every monetary field is RUPEES. A null in funds{} means NOT HELD by that fund — it is not a zero weight.",
-  "builtAt": "2026-10-29T19:54:44.292Z",
+  "builtAt": "2026-10-29T21:43:04.146Z",
   "holdingsAsOfByFund": {
     "eem": "2026-10-28",
     "smin": "2026-10-28",
@@ -11,13 +11,13 @@
     "isharesHoldings": "2026-10-28",
     "ftseHoldings": "2026-09-30",
     "nseSession": "29-Oct-2026 09:08:56",
-    "bseCapturedAt": "2026-10-29T19:49:26.836Z",
+    "bseCapturedAt": "2026-10-29T21:38:47.839Z",
     "bhavcopyTradeDate": "2026-10-19",
     "quoteStatsCapturedAt": "2026-10-02T01:03:21.315Z",
     "benchmarksAsOf": "2026-10-23",
-    "bseScripMasterCapturedAt": "2026-10-29T19:44:17.168Z",
-    "nseUniverseCapturedAt": "2026-10-29T19:44:18.120Z",
-    "asmAsOf": "29-Oct-2026"
+    "bseScripMasterCapturedAt": "2026-10-29T21:30:25.196Z",
+    "nseUniverseCapturedAt": "2026-10-29T21:30:26.419Z",
+    "asmAsOf": "30-Oct-2026"
   },
   "thresholds": {
     "scrapeUniverseMinFullMcapInr": 20000000000,
@@ -653,8 +653,8 @@
     "publisher": "National Stock Exchange of India",
     "endpoint": "https://www.nseindia.com/api/reportASM",
     "note": "NSE's published surveillance stage, carried through unchanged (tier 1) and joined to the universe by ISIN. dhan.co/nse-asm-list mirrors this same NSE feed. A company not on the list is NOT under ASM; a null stage when the feed is unavailable means we could not check.",
-    "capturedAt": "2026-10-29T19:44:22.932Z",
-    "asOf": "29-Oct-2026",
+    "capturedAt": "2026-10-29T21:30:31.272Z",
+    "asOf": "30-Oct-2026",
     "totalFlagged": 191,
     "flaggedInUniverse": 57,
     "stagesInUniverse": {
@@ -31789,7 +31789,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": true,
       "funds": {
@@ -42787,7 +42787,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": true,
       "funds": {
@@ -43664,7 +43664,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -45419,7 +45419,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -51147,7 +51147,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": true,
       "funds": {
@@ -65972,7 +65972,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": true,
       "funds": {
@@ -67334,7 +67334,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -71607,7 +71607,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -75426,7 +75426,7 @@
         "stage": "Stage III",
         "survCode": "LTASM - III (15)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage III",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": true,
       "funds": {
@@ -83624,7 +83624,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": true,
       "funds": {
@@ -85498,7 +85498,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -102497,7 +102497,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -106166,7 +106166,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": true,
       "funds": {
@@ -106899,7 +106899,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -107182,7 +107182,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -126496,7 +126496,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": true,
       "funds": {
@@ -132282,7 +132282,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -144204,7 +144204,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -147936,7 +147936,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -152705,7 +152705,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -153418,7 +153418,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -155055,7 +155055,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -155294,7 +155294,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -155985,7 +155985,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -159688,7 +159688,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": true,
       "funds": {
@@ -165890,7 +165890,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -169448,7 +169448,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -171974,7 +171974,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -172595,7 +172595,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -179760,7 +179760,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -182366,7 +182366,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -187575,7 +187575,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -188640,7 +188640,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -199659,7 +199659,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -203124,7 +203124,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -203745,7 +203745,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -206940,7 +206940,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -211041,7 +211041,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -212785,7 +212785,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -214231,7 +214231,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -215885,7 +215885,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -235994,7 +235994,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -240689,7 +240689,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -242631,7 +242631,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -243231,7 +243231,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -245192,7 +245192,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -247958,7 +247958,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -253001,7 +253001,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -262528,7 +262528,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -263316,7 +263316,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -270930,7 +270930,7 @@
         "stage": "Stage IV",
         "survCode": "LTASM - IV (16)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -272505,7 +272505,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -274988,7 +274988,7 @@
         "stage": "Stage I",
         "survCode": "STASM - I (11)",
         "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -275194,7 +275194,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -276111,7 +276111,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -276669,7 +276669,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
@@ -279275,7 +279275,7 @@
         "stage": "Stage I",
         "survCode": "LTASM - I (13)",
         "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-        "asmDate": "29-Oct-2026"
+        "asmDate": "30-Oct-2026"
       },
       "held": false,
       "funds": {
