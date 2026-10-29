@@ -1,7 +1,7 @@
 {
   "source": "niftyindices.com index constituent CSVs",
   "note": "The authoritative NSE symbol <-> ISIN mapping for this project. BSE scrip_id is never used as a substitute, however often the two agree.",
-  "capturedAt": "2026-10-28T21:29:21.534Z",
+  "capturedAt": "2026-10-29T19:44:18.120Z",
   "sources": [
     {
       "key": "nifty500",
@@ -12,7 +12,7 @@
       "url": "https://niftyindices.com/IndexConstituent/ind_niftytotalmarket_list.csv"
     }
   ],
-  "symbolCount": 751,
+  "symbolCount": 750,
   "symbols": [
     {
       "symbol": "360ONE",
@@ -7396,16 +7396,6 @@
       "series": "EQ",
       "sources": [
         "nifty500",
-        "niftytotalmarket"
-      ]
-    },
-    {
-      "symbol": "TRIVENIPT",
-      "isin": "INE2WKE01011",
-      "name": "Triveni Power Transmission Ltd.",
-      "industry": "Capital Goods",
-      "series": "EQ",
-      "sources": [
         "niftytotalmarket"
       ]
     },
