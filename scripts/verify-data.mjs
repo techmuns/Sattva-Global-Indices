@@ -48,6 +48,8 @@ import { CUTOFF_UNCERTAINTY, FTSE_JOIN } from '../public/js/config/thresholds.mj
 import { readFtseBook, assertBookShape } from '../public/js/model/ftse-book.js';
 import { inflateRawSync } from 'node:zlib';
 import { closedReviews, chooseBaseline } from '../public/js/model/calendar.js';
+import { seriesFromChart } from './lib/yahoo.mjs';
+import { heldCoverage } from './lib/coverage.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -163,7 +165,7 @@ function loadContext() {
     rebalance: readJson('public/data/rebalance-2026-08.json'),
     sources: loadSources(),
     // Injected so a check can be broken by swapping the thing it verifies.
-    fn: { assertBhavcopyShape, assertContinuity, continuityRecord, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count, parseRange, withinRange, chooseBaseline, diffAsmSnapshots, cutoffScenarios, cutoffBand, assessAcrossScenarios, readFtseBook, assertBookShape },
+    fn: { assertBhavcopyShape, assertContinuity, continuityRecord, parseRawQuote, resolveAll, inrFlow, pct, pp, signedPct, factorPct, count, parseRange, withinRange, chooseBaseline, diffAsmSnapshots, cutoffScenarios, cutoffBand, assessAcrossScenarios, readFtseBook, assertBookShape, seriesFromChart, heldCoverage },
     asmRefresh: structuredClone(ASM_REFRESH),
     fixtures: {
       spaShell: readText('scripts/fixtures/bhavcopy-spa-shell.html'),
@@ -947,24 +949,28 @@ async function main() {
 
   await suite.check({
     id: 55,
-    what: 'the benchmark series reach the price date, or 1,230 index legs vanish behind a reason that names neither',
+    what: 'a benchmark behind the price date is said in words, or 1,230 index legs vanish behind a reason that names neither',
     clone: deepClone,
     run: (c) => {
       /*
        * ⚠ THE ORDER OF TWO SCRIPTS, ASSERTED AS A PROPERTY OF THE RECORD.
        *
        * Every relative reading pairs a company's BSE close against its
-       * benchmark's close ON THE SAME DATE. If `fund-benchmarks.json` has not
-       * been refreshed in the same pass as `prices.json`, `indexOn(latestDate)`
-       * returns null for every company at once and 1,230 of 1,265 readings
-       * collapse to `no-index-leg` — a stated absence per row, which is honest,
-       * but one that names neither the benchmarks nor the date and reads as a
-       * fact about the companies.
+       * benchmark's close ON THE SAME DATE. If `fund-benchmarks.json` stops short
+       * of `prices.json`, `indexOn(latestDate)` returns null for every company at
+       * once and 1,230 of 1,265 readings collapse to `no-index-leg` — a stated
+       * absence per row, which is honest, but one that names neither the
+       * benchmarks nor the date and reads as a fact about the companies.
        *
-       * The record can say this about itself, so it should: the newest close in
-       * every benchmark series must reach the price date the record is struck
-       * on. A weekend or holiday cannot break it, because the price date is
-       * itself a session.
+       * ⚠ THIS USED TO DEMAND THE BENCHMARKS ALWAYS REACH THE PRICE DATE, AND THAT
+       * IS WHAT THE MARKET DID, NOT WHAT THE CODE DID (§2.34). It said "a weekend
+       * or holiday cannot break it, because the price date is itself a session":
+       * an INDIAN session. On a US holiday India trades and EEM does not, so this
+       * would have refused the whole record, every feed's refresh with it, on
+       * every such day — the next being Thanksgiving, 26 Nov 2026.
+       *
+       * The contract that holds on any day: either the legs are there, or the
+       * record states which benchmark stopped where.
        */
       const benchmarks = c.companiesFile.benchmarks;
       ok(benchmarks?.funds?.length, 'the record carries benchmark series', JSON.stringify(Object.keys(benchmarks ?? {})));
@@ -975,29 +981,32 @@ async function main() {
         if (newest === null) { behind.push(`${fund.id ?? fund.fundId}: no series at all`); continue; }
         if (newest < priceDate) behind.push(`${fund.id ?? fund.fundId}: newest ${newest} vs price date ${priceDate}`);
       }
-      empty(behind,
-        'a benchmark series that stops before the price date empties the index leg of every row at once — '
-        + 'run fetch-fund-benchmarks.mjs in the same pass as fetch-bhavcopy.mjs',
-        (x) => x);
+      const stated = c.companiesFile.sinceRebalance?.indexLegBehind ?? null;
+      if (behind.length > 0) {
+        ok(stated, 'a benchmark that stops before the price date is stated on the record', behind.join(' · '));
+        ok(stated.reason?.includes(priceDate), 'the statement names the price date', stated.reason);
+      }
 
-      // And the legs the record actually carries must not be mostly absent for
-      // this reason, which is what the collapse looks like from the other side.
+      // And the legs the record actually carries must not be mostly absent without
+      // that statement, which is what the collapse looks like from the other side.
       const noIndexLeg = c.companies.filter((x) => x.sinceRebalance?.state === 'no-index-leg').length;
-      ok(noIndexLeg < c.companies.length * 0.5,
-        'the index leg is present for most companies',
+      ok(stated || noIndexLeg < c.companies.length * 0.5,
+        'the index leg is present for most companies, or the record says why not',
         `${noIndexLeg} of ${c.companies.length} readings have no index leg`);
 
-      return `${benchmarks.funds.length} benchmark series all reach ${priceDate} · `
-        + `${noIndexLeg} of ${c.companies.length} rows without an index leg`;
+      return `${benchmarks.funds.length} benchmark series, `
+        + (stated ? `BEHIND ${priceDate} and stated: ${stated.reason}` : `all reach ${priceDate}`)
+        + ` · ${noIndexLeg} of ${c.companies.length} rows without an index leg`;
     },
     sabotage: (c) => {
-      // The benchmarks a day behind the prices — the state a catch-up run that
-      // forgot fetch-fund-benchmarks.mjs leaves the record in.
+      // The benchmarks a day behind the prices, with the record silent about it —
+      // the build forgetting to say so.
       for (const fund of c.companiesFile.benchmarks.funds) {
         const back = new Date(`${c.prices.tradeDate}T00:00:00Z`);
         back.setUTCDate(back.getUTCDate() - 1);
         fund.lastClose = back.toISOString().slice(0, 10);
       }
+      if (c.companiesFile.sinceRebalance) c.companiesFile.sinceRebalance.indexLegBehind = null;
     },
   }, ctx);
 
@@ -2435,7 +2444,10 @@ async function main() {
        * at any window length where the legs are non-zero, and it is exactly what
        * `--prove`'s sabotage exercises.
        */
-      ok(discriminating > 0,
+      //
+      // On a day the benchmark has no close (check 55) there is no reading to
+      // separate, and that day's record must not be refused for it.
+      ok(discriminating > 0 || c.companiesFile.sinceRebalance?.indexLegBehind,
         'at least one row must separate the two formulas by more than this check\'s own tolerance, '
         + 'or a stored arithmetic difference would pass unnoticed',
         `0 of ${c.companies.length} rows differ by more than ${TOLERANCE_PP} pp`);
@@ -2444,6 +2456,14 @@ async function main() {
       empty(unnamed, 'every state is one this model names', (x) => `${x.name}: ${x.sinceRebalance.state}`);
       const wordless = Object.entries(REBASE_STATES).filter(([, v]) => !v.detail || !v.label);
       empty(wordless, 'every named state carries its own explanation', ([k]) => k);
+
+      // Everything below recomputes a reading, and on such a day there are none.
+      const behindToday = c.companiesFile.sinceRebalance?.indexLegBehind;
+      if (behindToday) {
+        const invented = c.companies.filter((x) => x.sinceRebalance?.relativePct != null);
+        empty(invented, 'with no index leg, no row carries a relative reading', (x) => x.name);
+        return `no readings to recompute: ${behindToday.reason} The recomputation is UNTESTED on this record.`;
+      }
 
       // ---- recompute the stock leg from the raw closes --------------------
       const wrong = [];
@@ -2543,6 +2563,17 @@ async function main() {
       // in the other renders as an em dash for half the baselines only.
       const keyOf = (x) => x.isin ?? `bse:${x.bseScripCode}`;
       const sample = c.companies.find((x) => x.sinceRebalance?.relativePct != null);
+
+      // Every baseline measures TO the newest close, so a benchmark with no close
+      // that day (check 55) empties all of them at once. Nothing is left to
+      // compare, and nothing may have been invented in its place.
+      if (context.indexLegBehind) {
+        const invented = Object.entries(file.readings).flatMap(([review, byKey]) =>
+          Object.entries(byKey).filter(([, r]) => r?.relativePct != null).map(([key]) => `${review}: ${key}`));
+        empty(invented, 'with no index leg, no alternate carries a relative reading', (x) => x);
+        return `${Object.keys(file.readings).length} alternates, all empty: ${context.indexLegBehind.reason} `
+          + 'Their shape and spread are UNTESTED on this record.';
+      }
       const inlineKeys = Object.keys(sample.sinceRebalance).sort();
       const shapeWrong = [];
       for (const [review, byKey] of Object.entries(file.readings)) {
@@ -3856,6 +3887,113 @@ async function main() {
       // Believe a house ticker on its own — the Sterlite/Savita mistake.
       const victim = c.companies.find((x) => x.ftse);
       victim.ftse.join = { ...victim.ftse.join, method: 'symbol-confirmed-by-price', priceCheck: 'failed' };
+    },
+  }, ctx);
+
+  /* ── the pipeline's own guards ─────────────────────────────────────────*/
+  suite.section('What stops the pipeline');
+
+  await suite.check({
+    id: 66,
+    what: 'a Yahoo bar is dated by the zone on ITS day, whichever side of a clock change the run is on',
+    clone: deepClone,
+    run: (c) => {
+      /*
+       * ⚠ THE BUG WAITED FOR THE FIRST AUTUMN. `meta.gmtoffset` is TODAY's offset,
+       * and it was added to every bar in a two-year series. On 25 Oct 2026 it went
+       * to 0, every BST bar fell back a day, and USDINR=X and CADINR=X failed their
+       * calendar guards on every run. These are the stamps Yahoo actually served,
+       * read from the response on 30 Oct 2026, with its gmtoffset of 0 beside them.
+       */
+      const bar = (iso) => Date.parse(iso) / 1000;
+      const stamps = [
+        ['2026-10-22T23:00:00Z', '2026-10-23', 'a BST bar at local midnight (Fri 23 Oct)'],
+        ['2026-10-26T00:00:00Z', '2026-10-26', 'a GMT bar at local midnight (Mon 26 Oct)'],
+      ];
+      const chart = (timestamps, zone = 'Europe/London') => ({
+        meta: { exchangeTimezoneName: zone, gmtoffset: 0 },
+        timestamp: timestamps,
+        indicators: { quote: [{ close: timestamps.map((_, i) => 95 + i) }] },
+      });
+      const read = c.fn.seriesFromChart(chart(stamps.map(([iso]) => bar(iso))));
+      ok(read.ok, 'the chart parses', JSON.stringify(read));
+      stamps.forEach(([, expected, label], i) => equal(read.series[i]?.date, expected, label));
+
+      // The same winter date, read while BST is in force, must not move.
+      const summer = c.fn.seriesFromChart({ ...chart([bar(stamps[1][0])]), meta: { exchangeTimezoneName: 'Europe/London', gmtoffset: 3600 } });
+      equal(summer.series[0]?.date, stamps[1][1], 'the run\'s own offset does not move a bar');
+
+      // A New York bar, either side of its own clock change.
+      const fund = c.fn.seriesFromChart(chart([bar('2026-10-30T13:30:00Z'), bar('2026-11-02T14:30:00Z')], 'America/New_York'));
+      equal(fund.series.map((p) => p.date).join(), '2026-10-30,2026-11-02', 'the NYSE funds keep their dates');
+
+      // Only the NEWEST bar may be a weekend stub; one inside the series must
+      // survive, or the calendar guard downstream could never see a shift.
+      const stub = c.fn.seriesFromChart(chart([bar('2026-10-23T12:00:00Z'), bar('2026-10-24T00:30:00Z')]));
+      equal(stub.weekendStubs, 1, 'a live bar for a shut market is dropped and counted');
+      equal(stub.series.at(-1)?.date, '2026-10-23', 'the series then ends on the last real session');
+      const interior = c.fn.seriesFromChart(chart([bar('2026-10-25T00:30:00Z'), bar('2026-10-26T00:30:00Z')]));
+      ok(interior.series.some((p) => p.date === '2026-10-25'), 'a weekend label inside the series is kept for the guard to refuse', JSON.stringify(interior.series));
+
+      // A payload that names no zone cannot be dated at all.
+      ok(!c.fn.seriesFromChart({ ...chart([bar(stamps[0][0])]), meta: { gmtoffset: 0 } }).ok,
+        'a payload with no zone is refused rather than given an offset');
+
+      return `${stamps.length} real stamps dated across the 25 Oct 2026 clock change · weekend stub dropped, interior one kept`;
+    },
+    sabotage: (c) => {
+      // The bug: one offset, today's, for every bar.
+      c.fn.seriesFromChart = (result) => ({
+        ok: Boolean(result.meta?.exchangeTimezoneName),
+        weekendStubs: 1,
+        series: result.timestamp.map((t, i) => ({
+          date: new Date((t + (result.meta.gmtoffset ?? 0)) * 1000).toISOString().slice(0, 10),
+          close: result.indicators.quote[0].close[i],
+        })),
+      });
+    },
+  }, ctx);
+
+  await suite.check({
+    id: 67,
+    what: 'a shrink guard asks what came back, not whether a total fell',
+    clone: deepClone,
+    run: (c) => {
+      /*
+       * Written wrongly in four files. The two ways a total lies, both measured:
+       * it refuses on harmless churn, and it passes a real loss the universe's
+       * growth has hidden.
+       */
+      const churn = c.fn.heldCoverage({ held: ['a', 'b', 'c'], asked: ['a', 'b'], got: ['a', 'b'] });
+      equal(churn.lost.length, 0, 'a scrip that left the universe is not a lost scrip');
+      equal(churn.departed.join(), 'c', 'and it is reported as having left');
+      equal(churn.cameBackPct, 100, 'everything asked for came back');
+
+      const hidden = c.fn.heldCoverage({ held: ['a', 'b'], asked: ['a', 'b', 'x', 'y'], got: ['a', 'x', 'y'] });
+      equal(hidden.lost.join(), 'b', 'a real loss is seen though the total grew');
+      equal(hidden.cameBackPct, 50, 'and the rate is of what was held, not of the bigger total');
+
+      const first = c.fn.heldCoverage({ held: [], asked: ['a'], got: ['a'] });
+      equal(first.cameBackPct, null, 'with nothing held there is no rate: missing, not 100%');
+
+      // And no writer has gone back to comparing totals. The phrases are the ones
+      // the old guards printed, because that is the shape a copy would carry.
+      const offenders = c.sources
+        .filter((s) => /scripts[\\/](?!verify-)[^\\/]*\.mjs$/.test(s.path))
+        .filter((s) => /scripsRead \?\? 0|scrips on file, |priced scrips, /.test(s.text))
+        .map((s) => s.path);
+      empty(offenders, 'no writer refuses on a raw total of scrips', (x) => x);
+
+      return 'churn allowed and reported · a loss hidden by growth caught · no writer compares totals';
+    },
+    sabotage: (c) => {
+      // The old guard, in this shape: anything missing from the new total is "lost".
+      c.fn.heldCoverage = ({ held, got }) => {
+        const was = [...new Set(held)];
+        const now = new Set(got);
+        const lost = was.length > now.size ? was.filter((k) => !now.has(k)) : [];
+        return { lost, departed: [], cameBackPct: lost.length ? 0 : 100, askedAgain: was.length, cameBack: was.length - lost.length };
+      };
     },
   }, ctx);
 

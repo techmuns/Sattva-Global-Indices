@@ -951,6 +951,10 @@ trend points **across** a boundary its rank has not crossed — additively, neve
 
 ## `sinceRebalance` on `companies[]` — the desk's baseline
 
+Both legs must share a date, so on a day India traded and a benchmark did not (a US market holiday, or
+Yahoo not answering) every row reads `no-index-leg`. The file-level `sinceRebalance.indexLegBehind` is
+then `{ priceDate, benchmarks: [{ id, symbol, newestClose }], reason }`, and `null` on any other day.
+
 | | |
 | --- | --- |
 | **Produced by** | `public/js/model/relative.js` → `assessSinceRebalance()`, called from `build-companies.mjs` |

@@ -66,7 +66,7 @@ async function main() {
   // The same calendar guard the benchmarks use: a whole-day timezone shift
   // cannot satisfy it in either direction, and a duplicate date fails it.
   const dates = assertSeriesDates(result.series);
-  checks.assert(dates.ok, `${SYMBOL}'s date labels are trading dates`, dates.reason ?? 'weekday tally and no duplicates');
+  checks.assert(dates.ok, `${SYMBOL}'s date labels are trading dates`, dates.problems.join('; '));
 
   // Refuse to replace a good file with a shorter one. Anchored on the dates we
   // already held INSIDE this run's own span, not on a raw count — a rolling
@@ -110,7 +110,6 @@ async function main() {
     range: RANGE,
     exchange: result.exchange,
     timezone: result.timezone,
-    gmtOffset: result.gmtOffset,
     duplicateDateBars: result.duplicateDateBars,
     points: result.series.length,
     series: result.series,

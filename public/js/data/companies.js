@@ -375,7 +375,10 @@ export function feedRegistry(asOf = {}) {
       detail: "the exchange's own trade date for the committed end-of-day bhavcopy",
       cadence: 'every trading day',
       refreshedBy: 'job',
-      staleAfterDays: 4,
+      // Five, not the four a capture timestamp gets: this is a DATE, so its age
+      // runs from the midnight before the session. Friday's close is 4.8 days old
+      // by Tuesday evening's refresh after a Monday market holiday.
+      staleAfterDays: 5,
     },
     // ⚠ THESE TWO WERE MISSING, AND THEY ARE THE STALE ONES.
     //
@@ -397,11 +400,16 @@ export function feedRegistry(asOf = {}) {
       raw: asOf.benchmarksAsOf ?? null,
       detail: 'the newest close across the benchmark series — Yahoo, and the ETF rather than the index',
       // Attempted daily and allowed to fail so a Yahoo outage cannot stop the
-      // exchange pipeline behind it. Past about three days the bands are being
-      // floated by a segment move that is no longer current.
+      // exchange pipeline behind it. Past that the bands are being floated by a
+      // segment move that is no longer current.
+      //
+      // ⚠ THREE COULD NOT HOLD ON AN ORDINARY WEEK. This is a date, so its age runs
+      // from the midnight before the session: Friday's close passed 3 days at the
+      // start of every Monday, and the badge read STALE until that evening's run.
+      // Five carries a weekend, a US holiday beside it, and the run's own delay.
       cadence: 'attempted every trading day, allowed to fail',
       refreshedBy: 'job',
-      staleAfterDays: 3,
+      staleAfterDays: 5,
     },
     {
       id: 'quote-stats',

@@ -2245,6 +2245,12 @@ function baselineStrip(rows) {
         + `${pending.reason}. They move to the newer rebalance on their own, on the first build that has a session after it.`,
       )}">${escapeHtml(pending.label)} rebalanced ${escapeHtml(shortDate(pending.effectiveDate))} · not measurable yet</span>`
       : '')
+    // A whole column of em dashes with no sentence reads as a finding about every
+    // company at once (§2.4). The prices moved; the benchmark did not.
+    + (context.indexLegBehind
+      ? `<span data-index-leg-behind class="whitespace-nowrap rounded-md bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-800 ring-1 ring-inset ring-amber-200" title="${escapeHtml(context.indexLegBehind.reason)}">`
+        + `benchmark has no close on ${escapeHtml(shortDate(context.indexLegBehind.priceDate))} · returns not measurable today</span>`
+      : '')
     + (isDefault
       ? ''
       : '<button type="button" data-baseline-reset class="rounded-lg bg-white px-2 py-1 text-[10px] font-semibold text-indigo-700 shadow-sm ring-1 ring-slate-200 transition hover:ring-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">'

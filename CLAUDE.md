@@ -1631,6 +1631,61 @@ opinion about staleness: both read the same `isFeedStale` the badge does.
 > **name-only** match yield to a ticker match on the same ISIN within a fund, keeping the second
 > instrument unresolved with its reason instead of attaching it to the parent's ISIN.
 
+### 2.34.3 It happened a third time, and two of the three causes had been waiting
+
+From 21 to 29 Oct 2026 the closes sat on **19 Oct** and the benchmarks on **23 Oct**, on a site whose
+other eight feeds were current — so the per-source isolation of §2.34.2 did its job. Every source was
+answering. Measured from each run's log:
+
+| Cause | What it did | Fix |
+| --- | --- | --- |
+| `fetch-corporate-actions.mjs` compared totals: *1,284 on file, 1,282 read* | refused with all 1,282 answered, which put the whole price group back, daily | `heldCoverage()` in `lib/coverage.mjs` |
+| `fetch-bhavcopy.mjs` compared totals: *1,283 priced, 1,277 now* | the same, on the 21st, on a universe six scrips smaller | the same |
+| `lib/yahoo.mjs` added `meta.gmtoffset` to every bar — **today's** offset, not the bar's | UK clocks changed 25 Oct, every BST bar fell back a day, 59 Sundays reappeared, USDINR and CADINR both failed their calendar guards | each bar dated by the IANA zone on its own day |
+
+> ### ⚠ THE COUNT GUARD WAS FIXED IN TWO FILES AND IT WAS IN FOUR
+>
+> §2.34.1 wrote this lesson down and fixed `scrape-bse-freefloat` and `fetch-price-history`. Nobody
+> looked at the other writers with the same universe, and they took five weeks to fire. **When a guard
+> is found wrong, grep for its shape in the same commit.** It has one implementation now, and
+> `verify-data` 67 fails if a writer goes back to comparing totals.
+
+> ### ⚠ A GUARD THAT CAN ONLY FAIL ON A CALENDAR EVENT HAS NOT BEEN TESTED
+>
+> The offset bug could not show until the first clock change after it was written, and `verify-data`
+> only ever read series that had already been written correctly. `seriesFromChart` is now pure, and
+> check 66 runs the stamps Yahoo really served either side of 25 Oct against the offset it really
+> published. The same class was waiting in check 55, below.
+
+**Check 55 would have refused the record on every US market holiday.** It demanded the benchmarks reach
+the price date and said a holiday could not break that, *"because the price date is itself a session"*
+— an **Indian** session. On Thanksgiving, 26 Nov 2026, India trades, EEM does not, and verify-data would
+have stopped the commit for every feed. That is §2.34's rule again. The both-legs-one-date rule is
+unchanged, so those rows are still a stated absence; what changed is that the day's prices land, the
+record carries `sinceRebalance.indexLegBehind` naming which benchmark stopped where, and the strip above
+the table says so.
+
+**A lost scrip costs its own row here, not the group.** The float scrape refuses on one lost scrip,
+because a row without its float has lost its primary number. A scrip whose action history did not answer
+already has a stated per-row absence, and this file gates every company's price, so it refuses only below
+95% of what it held. Measured: 1 and 8 scrips of ~1,280 failed on single requests in October, so each now
+gets three attempts, as does each Yahoo series.
+
+**A catch-up's newest date may be absent as well.** It used to fail alone, which threw away every session
+the walk had just verified, on a holiday or before BSE had published. What fails now is no session landing
+at all.
+
+**Two thresholds could not hold on an ordinary week.** A feed labelled with a date ages from the midnight
+before that session, so the benchmarks' 3 days passed at the start of **every Monday** and read STALE
+until that evening's run, and the bhavcopy's 4 passed on the Tuesday after any Monday holiday. Both are 5.
+A badge that fires weekly is a badge readers learn to skip.
+
+**The alert stayed red and still reached nobody.** The issue opened only once a threshold had passed,
+said which feeds were old but never why, and had no assignee. It now opens on the **second consecutive
+red scheduled refresh**, before a badge is due, carries the refresh's own refusal messages, and is
+assigned to the repository owner. And `daily-refresh.yml`'s closing line never listed the benchmarks,
+so they failed for a week without being named in it.
+
 ### 2.35 FTSE is a SECOND OPINION, and it is wired so it cannot become an input
 
 The desk asked for FTSE's India book beside MSCI's, on the same rows and columns. It is there —
@@ -2363,11 +2418,15 @@ return — that guard caught four wordings a 300-scrip vocabulary probe had miss
 
 ### 3.8.2 Yahoo stamps a bar in the exchange's timezone, not in UTC
 
-`meta.gmtoffset` is the difference and it is not decorative. USDINR=X is carried on `CCY`, timezone
+The exchange's zone is the difference and it is not decorative. USDINR=X is carried on `CCY`, timezone
 Europe/London, stamped at **local midnight** — so under BST, seven months of every year, Monday
 24 Aug 2026 sits at `2026-08-23T23:00Z` and a UTC date label calls it **Sunday the 23rd**. The NYSE
 and Cboe funds are stamped at 09:30 local = 13:30 UTC and are unaffected, which is exactly why the
 bug hid.
+
+⚠ **`meta.gmtoffset` is not the fix: it is today's offset, and this fix used it for a while.** It
+holds for every bar only until the clocks change, which is what happened on 25 Oct 2026 (§2.34.3).
+`tradingDate` asks the IANA zone about each bar's own instant.
 
 The committed file wore the signature in plain sight for a week:
 
@@ -2506,6 +2565,7 @@ scripts/
   lib/asm-diff.mjs                 ASM snapshot diff, keyed on ISIN; pure, writes nothing
   lib/cutoff-measure.mjs           the cutoff's own uncertainty, measured from price history
   lib/yahoo.mjs                    one Yahoo daily-close reader, shared by both FX fetchers
+  lib/coverage.mjs                 did a run keep what the last one held? the one shrink guard
   lib/playwright.mjs               the GLOBAL browser driver, for verify-ui and fetch-ftse
   lib/munshot.mjs                  Munshot batch client + rawQuote parser, pure
   lib/recompute.mjs                free-float recompute, passive drift, flow primitives
@@ -2533,7 +2593,7 @@ scripts/
                                    -> public/data/predictions-<review>.json
   build-rebalance.mjs              frozen forecast vs the outcome
                                    -> public/data/rebalance-<review>.json
-  verify-data.mjs                  65 data assertions; no browser, no network
+  verify-data.mjs                  67 data assertions; no browser, no network
   verify-ui.mjs                    43 interface assertions; the served site
   check-freshness.mjs              is any feed past its OWN cadence? the same predicate
                                    the STALE badge uses, so CI and the screen agree
@@ -2660,7 +2720,7 @@ node scripts/verify-data.mjs           # the data assertions; run before committ
 
 node scripts/check-naive-join.mjs      # the pre-resolver baseline; reads only
 
-node scripts/verify-data.mjs           # 65 assertions; no browser, no network
+node scripts/verify-data.mjs           # 67 assertions; no browser, no network
 node scripts/verify-data.mjs --prove   # …and break each one to prove it can fail
 node scripts/check-freshness.mjs       # is any feed past its own cadence? reads only
 node scripts/check-freshness.mjs --jobs-only  # …failing only on feeds a workflow owns
