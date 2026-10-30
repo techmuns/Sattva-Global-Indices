@@ -4,7 +4,7 @@
   "symbol": "CADINR=X",
   "currency": "INR",
   "meaning": "INR per CAD",
-  "capturedAt": "2026-10-30T08:28:03.128Z",
+  "capturedAt": "2026-10-30T19:33:36.569Z",
   "asOf": "2026-10-30",
   "range": "2y",
   "exchange": "CCY",
@@ -2082,7 +2082,7 @@
     },
     {
       "date": "2026-10-30",
-      "close": 68.05500030517578
+      "close": 68.03299713134766
     }
   ]
 }
