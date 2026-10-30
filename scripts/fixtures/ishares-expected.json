@@ -1,16 +1,16 @@
 {
   "note": "Measured from the three workbooks committed beside this file — NOT invariants of the funds. scripts/fetch-ishares.mjs rewrites a fund's entry in the same commit as that fund's fresh workbook, after the download has passed the shape checks that hold for any iShares book. By hand: re-measure from import-ishares.mjs's refusal message, never loosen a figure.",
-  "measuredOn": "2026-10-29",
+  "measuredOn": "2026-10-30",
   "funds": {
     "eem": {
       "name": "iShares MSCI Emerging Markets ETF",
-      "holdingsAsOf": "2026-10-28",
+      "holdingsAsOf": "2026-10-29",
       "declaredSecurities": 1184,
       "sharesOutstanding": 463500000,
       "dataRows": 1216,
       "indiaRows": 166,
       "indiaEquityRows": 165,
-      "indiaWeightPct3dp": "11.258",
+      "indiaWeightPct3dp": "11.482",
       "onNse": 163,
       "onBse": 2,
       "tickerNone": 0,

@@ -1,7 +1,7 @@
 {
   "source": "NSE Additional Surveillance Measure (ASM) report — nseindia.com/api/reportASM",
   "note": "NSE's published list of securities under Additional Surveillance Measure (ASM), with the surveillance stage for each, carried through unchanged (tier 1). Joined to the universe by ISIN. dhan.co/nse-asm-list mirrors this same NSE feed.",
-  "capturedAt": "2026-10-29T21:30:31.272Z",
+  "capturedAt": "2026-10-30T08:27:58.448Z",
   "asOf": "30-Oct-2026",
   "endpoint": "https://www.nseindia.com/api/reportASM",
   "totalFlagged": 191,
@@ -10,10 +10,10 @@
     {
       "key": "longterm",
       "label": "Long Term ASM (LTASM)",
-      "count": 142,
-      "withIsin": 142,
+      "count": 144,
+      "withIsin": 144,
       "byStage": {
-        "LTASM - I (13)": 127,
+        "LTASM - I (13)": 129,
         "LTASM - IV (16)": 12,
         "LTASM - II (14)": 2,
         "LTASM - III (15)": 1
@@ -22,10 +22,10 @@
     {
       "key": "shortterm",
       "label": "Short Term ASM (STASM)",
-      "count": 49,
-      "withIsin": 49,
+      "count": 47,
+      "withIsin": 47,
       "byStage": {
-        "STASM - I (11)": 43,
+        "STASM - I (11)": 41,
         "STASM - II (12)": 6
       }
     }
@@ -160,17 +160,6 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "30-Oct-2026",
-      "series": null
-    },
-    {
-      "isin": "INE841D01013",
-      "symbol": "AMAL",
-      "companyName": "Amal Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
       "asmDate": "30-Oct-2026",
       "series": null
     },
@@ -450,17 +439,6 @@
       "series": null
     },
     {
-      "isin": "INE124G01033",
-      "symbol": "DELTACORP",
-      "companyName": "Delta Corp Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
-      "asmDate": "30-Oct-2026",
-      "series": null
-    },
-    {
       "isin": "INE0VOV01021",
       "symbol": "DEVX",
       "companyName": "Dev Accelerator Limited",
@@ -732,6 +710,17 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
+      "asmDate": "30-Oct-2026",
+      "series": null
+    },
+    {
+      "isin": "INE250Z01010",
+      "symbol": "INDOUS",
+      "companyName": "Indo Us Biotech Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
       "asmDate": "30-Oct-2026",
       "series": null
     },
@@ -1022,6 +1011,17 @@
       "series": null
     },
     {
+      "isin": "INE376Y01016",
+      "symbol": "MILTON",
+      "companyName": "Milton Industries Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "asmDate": "30-Oct-2026",
+      "series": null
+    },
+    {
       "isin": "INE200D01020",
       "symbol": "MMWL",
       "companyName": "Media Matrix Worldwide Limited",
@@ -1051,6 +1051,17 @@
       "stage": "Stage IV",
       "survCode": "LTASM - IV (16)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
+      "asmDate": "30-Oct-2026",
+      "series": null
+    },
+    {
+      "isin": "INE0N7S01028",
+      "symbol": "MOS",
+      "companyName": "Mos Utility Limited",
+      "category": "shortterm",
+      "stage": "Stage I",
+      "survCode": "STASM - I (11)",
+      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
       "asmDate": "30-Oct-2026",
       "series": null
     },
@@ -1267,10 +1278,10 @@
       "isin": "INE124Y01028",
       "symbol": "PASHUPATI",
       "companyName": "Pashupati Cotspin Limited",
-      "category": "shortterm",
+      "category": "longterm",
       "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+      "survCode": "LTASM - I (13)",
+      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
       "asmDate": "30-Oct-2026",
       "series": null
     },
@@ -1304,17 +1315,6 @@
       "stage": "Stage II",
       "survCode": "STASM - II (12)",
       "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage II",
-      "asmDate": "30-Oct-2026",
-      "series": null
-    },
-    {
-      "isin": "INE417T01026",
-      "symbol": "POLICYBZR",
-      "companyName": "PB Fintech Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
       "asmDate": "30-Oct-2026",
       "series": null
     },
@@ -1388,6 +1388,17 @@
       "isin": "INE562B01019",
       "symbol": "RAJSREESUG",
       "companyName": "Rajshree Sugars & Chemicals Limited",
+      "category": "longterm",
+      "stage": "Stage I",
+      "survCode": "LTASM - I (13)",
+      "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
+      "asmDate": "30-Oct-2026",
+      "series": null
+    },
+    {
+      "isin": "INE1SJO01012",
+      "symbol": "RAMBHAJO",
+      "companyName": "Advit Jewels Limited",
       "category": "longterm",
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
@@ -1942,17 +1953,6 @@
       "stage": "Stage I",
       "survCode": "LTASM - I (13)",
       "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
-      "asmDate": "30-Oct-2026",
-      "series": null
-    },
-    {
-      "isin": "INE0WL901019",
-      "symbol": "VIJAYPD",
-      "companyName": "Vijaypd Ceutical Limited",
-      "category": "shortterm",
-      "stage": "Stage I",
-      "survCode": "STASM - I (11)",
-      "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
       "asmDate": "30-Oct-2026",
       "series": null
     },

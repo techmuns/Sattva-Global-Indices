@@ -1,19 +1,21 @@
 {
   "source": "BSE end-of-day bhavcopy — bseindia.com/download/BhavCopy/Equity",
   "note": "End-of-day BSE prices, committed so the static site renders with no Worker and no network. A scrip absent from the file did NOT trade: its last close is carried forward with staleDays > 0 and source \"bhavcopy-bse-carried\". Live NSE prices, where available, overlay this in memory only and are never written back here.",
-  "capturedAt": "2026-10-30T07:45:08.520Z",
+  "capturedAt": "2026-10-30T08:40:34.124Z",
   "tradeDate": "2026-10-29",
   "fileRowCount": 5053,
-  "universeCount": 1282,
-  "pricedCount": 1275,
+  "universeCount": 1278,
+  "pricedCount": 1271,
   "carriedForwardCount": 6,
   "missingCount": 1,
-  "coveragePct": 99.454,
+  "coveragePct": 99.452,
   "continuity": {
     "compared": 1274,
     "failures": [],
     "against": "2026-10-28",
-    "noCounterpart": 3779
+    "noCounterpart": 0,
+    "carriedForwardFrom": "2026-10-29",
+    "note": "this run re-fetched the same trade date; the continuity evidence recorded when it was first fetched is carried forward unchanged"
   },
   "carriedForward": [
     {
@@ -324,20 +326,6 @@
       "close": 1670,
       "prevClose": 1598,
       "volume": 35832,
-      "staleDays": 0,
-      "source": "bhavcopy-bse"
-    },
-    "500078": {
-      "scripCode": "500078",
-      "isin": "INE959C01023",
-      "symbol": "OAL",
-      "tradeDate": "2026-10-29",
-      "open": 620.05,
-      "high": 628.2,
-      "low": 590,
-      "close": 608.4,
-      "prevClose": 627,
-      "volume": 3905,
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
@@ -5325,6 +5313,20 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
+    "524370": {
+      "scripCode": "524370",
+      "isin": "INE338D01028",
+      "symbol": "BODALCHEM",
+      "tradeDate": "2026-10-29",
+      "open": 156.9,
+      "high": 156.9,
+      "low": 156.9,
+      "close": 156.9,
+      "prevClose": 149.45,
+      "volume": 9802,
+      "staleDays": 0,
+      "source": "bhavcopy-bse"
+    },
     "524372": {
       "scripCode": "524372",
       "isin": "INE191A01027",
@@ -8514,20 +8516,6 @@
       "close": 753.55,
       "prevClose": 758,
       "volume": 35388,
-      "staleDays": 0,
-      "source": "bhavcopy-bse"
-    },
-    "532848": {
-      "scripCode": "532848",
-      "isin": "INE124G01033",
-      "symbol": "DELTACORP",
-      "tradeDate": "2026-10-29",
-      "open": 70.21,
-      "high": 76.4,
-      "low": 70.21,
-      "close": 76.05,
-      "prevClose": 70.55,
-      "volume": 211943,
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
@@ -16819,20 +16807,6 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
-    "544718": {
-      "scripCode": "544718",
-      "isin": "INE1RDG01013",
-      "symbol": "PNGSREVA",
-      "tradeDate": "2026-10-29",
-      "open": 651.95,
-      "high": 660.4,
-      "low": 632.75,
-      "close": 642.35,
-      "prevClose": 649.5,
-      "volume": 14072,
-      "staleDays": 0,
-      "source": "bhavcopy-bse"
-    },
     "544720": {
       "scripCode": "544720",
       "isin": "INE0UH301010",
@@ -17253,20 +17227,6 @@
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
-    "544851": {
-      "scripCode": "544851",
-      "isin": "INE0OWZ01020",
-      "symbol": "MVELECTRO",
-      "tradeDate": "2026-10-29",
-      "open": 766.05,
-      "high": 779,
-      "low": 740.8,
-      "close": 760.2,
-      "prevClose": 759.85,
-      "volume": 102989,
-      "staleDays": 0,
-      "source": "bhavcopy-bse"
-    },
     "544853": {
       "scripCode": "544853",
       "isin": "INE05C901015",
@@ -17474,20 +17434,6 @@
       "close": 516.05,
       "prevClose": 502.4,
       "volume": 3641,
-      "staleDays": 0,
-      "source": "bhavcopy-bse"
-    },
-    "544903": {
-      "scripCode": "544903",
-      "isin": "INE1M2N01020",
-      "symbol": "DEEPA",
-      "tradeDate": "2026-10-29",
-      "open": 217.9,
-      "high": 220.5,
-      "low": 206.1,
-      "close": 209.55,
-      "prevClose": 217.15,
-      "volume": 130378,
       "staleDays": 0,
       "source": "bhavcopy-bse"
     },
