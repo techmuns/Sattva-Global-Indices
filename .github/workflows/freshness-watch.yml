@@ -35,6 +35,14 @@
 #      issue reaches every watcher of the repository and sits in its issue list
 #      until it is resolved — an alert that does not scroll away.
 #
+# ⚠ AND THAT ALERT STILL ARRIVED TOO LATE, AND SAID TOO LITTLE. In Oct 2026 the
+# daily refresh failed the same way every day from the 22nd, the issue only opened
+# on the 23rd once a threshold had passed, and each comment listed WHICH feeds were
+# old and never WHY. Nobody is assigned, so nobody was told. So the issue now opens
+# on the second consecutive red refresh, before any badge is due; it carries the
+# refresh's own "Did not refresh" line and refusal messages; and it is assigned to
+# the repository owner, which is what actually sends a notification.
+#
 # ---------------------------------------------------------------------------
 # IT ASSERTS A CONTRACT, NOT WHAT THE MARKET DID
 # ---------------------------------------------------------------------------
@@ -111,31 +119,66 @@ jobs:
             echo "Dispatched monthly-float.yml."
           fi
 
-      - name: Keep one stale-data issue open while anything is stale
-        if: steps.all.outcome == 'failure' && github.ref_name == 'main'
+      # Scheduled runs only: a re-run this job dispatched itself says nothing new,
+      # and one red day can be a transient that tomorrow's run repairs.
+      - name: Has the daily refresh failed twice running?
+        id: refresh
+        continue-on-error: true
+        run: |
+          gh run list --workflow daily-refresh.yml --event schedule --status completed --limit 2 \
+            --json conclusion,databaseId > /tmp/runs.json
+          reds=$(jq '[.[] | select(.conclusion == "failure")] | length' /tmp/runs.json)
+          latest=$(jq -r '.[0].databaseId // empty' /tmp/runs.json)
+          echo "Red among the last two scheduled refreshes: $reds"
+          if [ -n "$latest" ]; then
+            # What stopped it, in the refresh's own words.
+            gh run view "$latest" --log 2>/dev/null \
+              | grep -E 'REFUSING TO WRITE|Refusing to write|FAIL  |##\[error\]' \
+              | grep -v 'Process completed' | sed -E 's/^.*Z (##\[error\])?//' | cut -c1-300 | head -20 \
+              > /tmp/why.txt || true
+          fi
+          if [ "$reds" -ge 2 ]; then exit 1; fi
+
+      - name: Keep one stale-data issue open while anything is stale or the refresh is failing
+        if: (steps.all.outcome == 'failure' || steps.refresh.outcome == 'failure') && github.ref_name == 'main'
         run: |
           gh label create stale-data --color B60205 \
             --description "A dashboard feed is past its own cadence" --force > /dev/null
           {
-            echo "The dashboard is showing a **STALE** badge on at least one feed. Report from"
-            echo "[this run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}):"
+            if [ "${{ steps.all.outcome }}" = "failure" ]; then
+              echo "The dashboard is showing a **STALE** badge on at least one feed."
+            else
+              echo "The daily refresh has **failed twice running**. No feed has passed its cadence yet: act now and none will."
+            fi
+            echo "Report from [this run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}):"
             echo
             echo '```'
             cat /tmp/freshness.txt
             echo '```'
+            if [ -s /tmp/why.txt ]; then
+              echo
+              echo "**What stopped the latest scheduled refresh, in its own words:**"
+              echo
+              echo '```'
+              cat /tmp/why.txt
+              echo '```'
+            fi
             echo
             echo "Feeds a job owns have been re-run automatically. A feed marked *waiting on a person*"
-            echo "needs someone to act. This issue closes itself the first evening every feed is current."
+            echo "needs someone to act. This issue closes itself the first evening every feed is current"
+            echo "and the refresh is green."
           } > /tmp/issue.md
           number=$(gh issue list --label stale-data --state open --json number --jq '.[0].number // empty')
           if [ -n "$number" ]; then
             gh issue comment "$number" --body-file /tmp/issue.md
+            gh issue edit "$number" --add-assignee "$GITHUB_REPOSITORY_OWNER" || true
           else
-            gh issue create --title "Dashboard data is stale" --label stale-data --body-file /tmp/issue.md
+            gh issue create --title "Dashboard data is stale" --label stale-data \
+              --assignee "$GITHUB_REPOSITORY_OWNER" --body-file /tmp/issue.md
           fi
 
       - name: Close the stale-data issue once every feed is current
-        if: steps.all.outcome == 'success' && github.ref_name == 'main'
+        if: steps.all.outcome == 'success' && steps.refresh.outcome == 'success' && github.ref_name == 'main'
         run: |
           for number in $(gh issue list --label stale-data --state open --json number --jq '.[].number'); do
             gh issue close "$number" --comment "Every feed is within its own cadence again (run ${GITHUB_RUN_ID})."
@@ -149,4 +192,10 @@ jobs:
                "job and that badge read the same predicate. A stale feed means the job that writes it"\
                "has stopped, NOT that the market was quiet: check the owning workflow named in the"\
                "step log above before assuming nothing happened."
+          exit 1
+
+      - name: Fail on a refresh that is red though nothing is stale yet
+        if: steps.all.outcome == 'success' && steps.refresh.outcome == 'failure'
+        run: |
+          echo "::error title=The daily refresh is failing::Two scheduled runs in a row. Read the issue this job keeps open."
           exit 1

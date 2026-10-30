@@ -32,6 +32,7 @@ import { dirname, join } from 'node:path';
 import { assertBhavcopyShape, parseBhavcopy, assertContinuity, bhavcopyUrl, continuityRecord } from './lib/bhavcopy.mjs';
 import { renderTable, num, CheckList } from './lib/report.mjs';
 import { bseDownloadText } from './lib/bse.mjs';
+import { heldCoverage, MAX_DEPARTED_PCT } from './lib/coverage.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
@@ -408,10 +409,28 @@ async function main() {
     process.exit(1);
   }
 
-  if (previous && Object.keys(previous.prices ?? {}).length > Object.keys(prices).length && !allowShrink) {
+  // ⚠ THE COUNT WAS THE WRONG QUESTION HERE TOO. This compared totals and refused
+  // at 1,283 on file against 1,277 on 21 Oct 2026 — six scrips BSE had let go of,
+  // on a run where everything still in the universe was priced. See
+  // lib/coverage.mjs. A scrip that left the universe is reported and allowed to
+  // go; a held scrip still in it always has a price, carried forward if need be,
+  // so losing one means this code is broken.
+  const coverage = heldCoverage({
+    held: Object.keys(previous?.prices ?? {}),
+    asked: universe.keys(),
+    got: Object.keys(prices),
+  });
+  if (coverage.departed.length > 0) {
+    process.stdout.write(
+      `\n  ${num(coverage.departed.length)} scrip(s) left the universe since the stored file — not a gap: `
+      + `${coverage.departed.slice(0, 8).join(', ')}${coverage.departed.length > 8 ? ', …' : ''}\n`,
+    );
+  }
+  if ((coverage.lost.length > 0 || coverage.departedPct > MAX_DEPARTED_PCT) && !allowShrink) {
     process.stderr.write(
-      `\nREFUSING TO WRITE: existing file has ${num(Object.keys(previous.prices).length)} priced scrips, ` +
-      `this run has ${num(Object.keys(prices).length)}. Pass --allow-shrink if the universe genuinely shrank.\n\n`,
+      `\nREFUSING TO WRITE: ${num(coverage.lost.length)} held scrip(s) still in the universe lost their price, and `
+      + `${num(coverage.departed.length)} left it outright (limit ${MAX_DEPARTED_PCT}%). `
+      + 'Pass --allow-shrink if the universe genuinely shrank.\n\n',
     );
     process.exit(1);
   }
@@ -556,11 +575,7 @@ async function catchUp() {
   const carried = passthrough.filter((a) => a !== '--date' && a !== explicit);
 
   for (const date of wanted) {
-    const isTarget = date === wanted[wanted.length - 1];
-    const argv = [self, '--date', date, ...carried];
-    // Only an intermediate session may be absent-and-forgiven. The target is the
-    // day the dashboard is about to claim, so it fails loudly like any other run.
-    if (!isTarget) argv.push('--skip-if-missing');
+    const argv = [self, '--date', date, ...carried, '--skip-if-missing'];
     process.stdout.write(`\n${'─'.repeat(72)}\n  catch-up ${date}\n${'─'.repeat(72)}\n`);
     const result = spawnSync(process.execPath, argv, { stdio: 'inherit' });
     if (result.status !== 0) {
@@ -569,6 +584,23 @@ async function catchUp() {
       process.exit(result.status ?? 1);
     }
   }
+
+  // ⚠ THE TARGET MAY BE ABSENT TOO, BUT THE WALK AS A WHOLE MAY NOT BE.
+  //
+  // The newest date used to fail loudly on its own, and an ordinary run walks
+  // back from exactly that state. So a target that was a holiday, or not yet
+  // published, failed the group and threw away every earlier session this walk
+  // had just verified. What an outage actually looks like is NO session landing,
+  // and that is what fails here, against the file on disk.
+  const landed = readJson(OUT_PATH)?.tradeDate ?? null;
+  if (landed === stored) {
+    process.stderr.write(
+      `\n  --catch-up: not one of ${wanted.length} session(s) after ${stored} had a bhavcopy. That is an outage, `
+      + 'not a run of holidays. The stored file stands.\n\n',
+    );
+    process.exit(1);
+  }
+  process.stdout.write(`\n  --catch-up: the record now stands on ${landed}.\n`);
   return true;
 }
 

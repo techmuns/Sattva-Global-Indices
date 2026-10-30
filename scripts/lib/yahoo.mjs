@@ -15,53 +15,64 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
  * The date the EXCHANGE calls this bar, not the date UTC calls it.
  *
  * Yahoo stamps each daily bar at the session's opening instant in the exchange's
- * own timezone, and publishes that timezone's offset as `meta.gmtoffset`. For
- * the NYSE and Cboe funds the offset changes nothing; for USDINR=X, carried on
- * Europe/London and stamped at local midnight, it is the difference between the
- * right date and a date one day early for seven months of every year. See
- * `assertSeriesDates` in benchmarks.js for what that cost and how it is caught.
+ * own timezone. For the NYSE and Cboe funds a UTC label happens to agree; for
+ * USDINR=X, carried on Europe/London and stamped at local midnight, it is the
+ * difference between the right date and a date one day early for seven months of
+ * every year. See `assertSeriesDates` in benchmarks.js for what that cost.
  *
- * It is one line for every symbol rather than a special case somebody has to
- * remember USDINR needs.
+ * ⚠ `meta.gmtoffset` IS TODAY'S OFFSET, NOT THE BAR'S.
+ *
+ * This used to add that one number to every bar in a two-year series. It worked
+ * only while today and the bar were on the same side of a clock change, and the
+ * clocks changed on 25 Oct 2026: gmtoffset went to 0, every BST bar in the file
+ * (stamped 23:00Z) fell back a day, and 59 Sundays reappeared. USDINR=X and
+ * CADINR=X then failed their calendar guards on every run, and the benchmarks
+ * went stale on a bug that had been waiting for the first autumn this code saw.
+ *
+ * So the IANA zone is asked about each instant, which knows what the offset was
+ * on that day. A bar with no named zone is refused by the caller: guessing an
+ * offset is what this replaces.
  */
-export function tradingDate(timestamp, gmtOffset) {
-  return new Date((timestamp + gmtOffset) * 1000).toISOString().slice(0, 10);
+export function tradingDate(timestamp, timezone) {
+  // en-CA formats as YYYY-MM-DD, in the zone's own calendar.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(timestamp * 1000));
 }
 
-const chartUrl = (symbol, RANGE) =>
-  `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`
-  + `?range=${RANGE}&interval=1d`;
+const isWeekend = (date) => [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
 
-export async function fetchSeries(symbol, { range = '2y' } = {}) {
-  let response;
-  try {
-    response = await fetch(chartUrl(symbol, range), {
-      headers: { 'user-agent': UA, accept: 'application/json' },
-      signal: AbortSignal.timeout(40000),
-    });
-  } catch (error) {
-    return { ok: false, reason: `network: ${error.name === 'TimeoutError' ? 'timed out' : error.message}` };
-  }
-  if (!response.ok) return { ok: false, reason: `HTTP ${response.status}` };
-
-  let json;
-  try { json = await response.json(); } catch { return { ok: false, reason: 'response was not JSON' }; }
-
-  const result = json?.chart?.result?.[0];
-  if (!result) {
-    return { ok: false, reason: `no result in the payload (${JSON.stringify(json?.chart?.error ?? null)})` };
-  }
+/**
+ * One chart `result` -> a clean daily series. Pure, so the two traps it handles
+ * can be proved without the network (verify-data 66).
+ *
+ * @returns {{ok: true, series: Array, duplicateDateBars: number, weekendStubs: number}
+ *          | {ok: false, reason: string}}
+ */
+export function seriesFromChart(result) {
+  const timezone = result?.meta?.exchangeTimezoneName ?? null;
+  if (!timezone) return { ok: false, reason: 'the payload names no exchange timezone, so no bar can be dated' };
 
   const timestamps = result.timestamp ?? [];
   const closes = result.indicators?.quote?.[0]?.close ?? [];
-  // See tradingDate: the offset is the difference between the bar's UTC instant
-  // and the date the exchange itself calls that session.
-  const gmtOffset = Number(result.meta?.gmtoffset ?? 0);
   const raw = [];
   for (let i = 0; i < timestamps.length; i += 1) {
     const close = closes[i];
     if (close === null || close === undefined || !(close > 0)) continue;
-    raw.push({ date: tradingDate(timestamps[i], gmtOffset), close });
+    raw.push({ date: tradingDate(timestamps[i], timezone), close });
+  }
+
+  // ---- a live stub at the end of a closed week ---------------------------
+  //
+  // Read on a Saturday, USDINR=X ends with one bar labelled Saturday: Yahoo's
+  // live bar for a market that has shut. It is no session, and it failed the
+  // calendar guard on the 24 Oct 2026 run. Only the NEWEST bar may be dropped and
+  // only here: a weekend label anywhere inside the series is a shifted calendar,
+  // and `assertSeriesDates` must still see that and refuse.
+  let weekendStubs = 0;
+  while (raw.length > 0 && isWeekend(raw[raw.length - 1].date)) {
+    raw.pop();
+    weekendStubs += 1;
   }
 
   // ---- two bars for one trading date -------------------------------------
@@ -91,15 +102,60 @@ export async function fetchSeries(symbol, { range = '2y' } = {}) {
     .map(([date, close]) => ({ date, close }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
+  return { ok: true, series, duplicateDateBars: collapsed, weekendStubs };
+}
+
+const chartUrl = (symbol, RANGE) =>
+  `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`
+  + `?range=${RANGE}&interval=1d`;
+
+async function readChart(symbol, range) {
+  let response;
+  try {
+    response = await fetch(chartUrl(symbol, range), {
+      headers: { 'user-agent': UA, accept: 'application/json' },
+      signal: AbortSignal.timeout(40000),
+    });
+  } catch (error) {
+    return { ok: false, reason: `network: ${error.name === 'TimeoutError' ? 'timed out' : error.message}` };
+  }
+  if (!response.ok) return { ok: false, reason: `HTTP ${response.status}` };
+
+  let json;
+  try { json = await response.json(); } catch { return { ok: false, reason: 'response was not JSON' }; }
+
+  const result = json?.chart?.result?.[0];
+  if (!result) {
+    return { ok: false, reason: `no result in the payload (${JSON.stringify(json?.chart?.error ?? null)})` };
+  }
+  return { ok: true, result };
+}
+
+const ATTEMPTS = 3;
+
+export async function fetchSeries(symbol, { range = '2y' } = {}) {
+  // One bad answer from a free service must not cost the feed a day.
+  let read;
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
+    read = await readChart(symbol, range);
+    if (read.ok) break;
+    if (attempt < ATTEMPTS) await new Promise((resolve) => { setTimeout(resolve, attempt * 5000); });
+  }
+  if (!read.ok) return { ok: false, reason: `${read.reason} (after ${ATTEMPTS} attempts)` };
+
+  const { result } = read;
+  const parsed = seriesFromChart(result);
+  if (!parsed.ok) return parsed;
+
   return {
     ok: true,
-    duplicateDateBars: collapsed,
+    duplicateDateBars: parsed.duplicateDateBars,
+    weekendStubs: parsed.weekendStubs,
     symbol: result.meta?.symbol ?? symbol,
     currency: result.meta?.currency ?? null,
     instrumentType: result.meta?.instrumentType ?? null,
     exchange: result.meta?.fullExchangeName ?? null,
     timezone: result.meta?.exchangeTimezoneName ?? null,
-    gmtOffset,
-    series,
+    series: parsed.series,
   };
 }

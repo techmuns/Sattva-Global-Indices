@@ -429,6 +429,7 @@ jobs:
           PLAYWRIGHT: ${{ steps.playwright.outcome }}
           FTSE: ${{ steps.ftse.outcome }}
           FTSE_IMPORT: ${{ steps.ftse_import.outcome }}
+          BENCHMARKS: ${{ steps.benchmarks.outcome }}
           FLOAT: ${{ steps.float.outcome }}
           ACTIONS: ${{ steps.actions.outcome }}
           PRICES: ${{ steps.prices.outcome }}
@@ -438,6 +439,7 @@ jobs:
           failed=""
           for pair in "BSE scrip master:$MASTER" "iShares download:$ISHARES" "iShares import:$ISHARES_IMPORT" \
                       "FTSE FX:$FTSE_FX" "Playwright install:$PLAYWRIGHT" "FTSE download:$FTSE" "FTSE import:$FTSE_IMPORT" \
+                      "Yahoo benchmarks:$BENCHMARKS" \
                       "BSE free float:$FLOAT" "BSE corporate actions:$ACTIONS" "BSE bhavcopy:$PRICES" \
                       "price history:$HISTORY"; do
             name="${pair%%:*}"; outcome="${pair##*:}"

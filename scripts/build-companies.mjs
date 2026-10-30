@@ -1013,6 +1013,29 @@ function main() {
     const latestDate = prices.tradeDate;
     const rebaseStates = {};
 
+    // ⚠ INDIA CAN TRADE ON A DAY THE BENCHMARK DID NOT.
+    //
+    // Every US market holiday that falls on an Indian session (Thanksgiving, 26 Nov
+    // 2026, is the next), and any day Yahoo fails, leaves these benchmarks a session
+    // behind the closes. Both legs must share a date, so the since-rebalance reading
+    // is rightly absent that day. What it must not do is lose the day's PRICES:
+    // verify-data 55 used to refuse the whole record on it, and the commit with it.
+    // So the record says what happened, in words that name the benchmark and the
+    // date, and the screen says so above the table.
+    const legsBehind = FUND_BENCHMARKS
+      .filter((descriptor) => indexInr[descriptor.id] && !(indexInr[descriptor.id].on(latestDate) > 0))
+      .map((descriptor) => {
+        const fund = (benchmarks.funds ?? []).find((f) => (f.id ?? f.fundId) === descriptor.id);
+        return { id: descriptor.id, symbol: descriptor.symbol, newestClose: fund?.lastClose ?? null };
+      });
+    const indexLegBehind = legsBehind.length === 0 ? null : {
+      priceDate: latestDate,
+      benchmarks: legsBehind,
+      reason: `${legsBehind.map((b) => `${b.symbol} last closed ${b.newestClose ?? 'never'}`).join(', ')}, and the `
+        + `newest Indian close is ${latestDate}. Both legs must share a date, so a return measured to ${latestDate} `
+        + 'has no index leg until the benchmark prints a close for it: a US market holiday, or a day Yahoo did not answer.',
+    };
+
     for (const baseline of priceHistory.baselines) {
       const byKey = new Map();
       const states = {};
@@ -1103,6 +1126,7 @@ function main() {
       // every ordinary build; non-empty for the few days after a rebalance.
       awaitingSession,
       latestDate,
+      indexLegBehind,
       latestSource: 'the committed BSE bhavcopy close — never a live quote, which would put an '
         + 'exchange change inside a return',
       baselines: priceHistory.baselines.map((b) => ({

@@ -80,6 +80,7 @@ import { dirname, join } from 'node:path';
 
 import { renderTable, num } from './lib/report.mjs';
 import { BROWSER_HEADERS, USER_AGENT } from './lib/bse.mjs';
+import { heldCoverage, MAX_DEPARTED_PCT } from './lib/coverage.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
@@ -88,6 +89,10 @@ const OUT_PATH = join(REPO, 'public/data/corporate-actions.json');
 const API = 'https://api.bseindia.com/BseIndiaAPI/api';
 const CONCURRENCY = 4;
 const GAP_MS = 250;
+/** Past a quarter of the universe it is an outage, and a slower pass will not fix one. */
+const SECOND_PASS_MAX_SHARE = 0.25;
+const SECOND_PASS_PAUSE_MS = 60000;
+const SECOND_PASS_GAP_MS = 1000;
 
 /**
  * Which purposes move the price mechanically, and by how much.
@@ -228,7 +233,7 @@ export function readPurpose(purpose) {
   return { kind: 'unrecognised', priceFactor: null, quantifiable: false, rule: null };
 }
 
-async function fetchScrip(scripCode) {
+async function fetchScripOnce(scripCode) {
   try {
     const response = await fetch(`${API}/DefaultData/w?scripcode=${encodeURIComponent(scripCode)}`, {
       // BSE's edge scores the header set (lib/bse.mjs) — a UA and a referer alone
@@ -243,6 +248,19 @@ async function fetchScrip(scripCode) {
   } catch (error) {
     return { ok: false, reason: `network: ${error.name === 'TimeoutError' ? 'timed out' : error.message}` };
   }
+}
+
+/** Measured in Oct 2026: 1 and 8 scrips of ~1,280 failed on single requests. */
+const ATTEMPTS = 3;
+
+async function fetchScrip(scripCode) {
+  let result;
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
+    result = await fetchScripOnce(scripCode);
+    if (result.ok) return result;
+    if (attempt < ATTEMPTS) await new Promise((resolve) => { setTimeout(resolve, attempt * 2000); });
+  }
+  return result;
 }
 
 async function run() {
@@ -263,49 +281,78 @@ async function run() {
   );
 
   const byScrip = {};
-  const failed = [];
+  let failed = [];
   let done = 0;
   let queue = 0;
+
+  const ingest = (target, result) => {
+    if (!result.ok) {
+      // A FAILURE IS NOT AN EMPTY HISTORY — 2.4. A scrip we could not read has
+      // UNKNOWN actions, which is a different fact from "no actions", and the
+      // difference decides whether its return may be shown at all.
+      failed.push({ scripCode: target.scripCode, name: target.name, reason: result.reason });
+      return;
+    }
+    const actions = [];
+    for (const row of result.rows) {
+      const date = isoDate(row.Ex_date);
+      const read = readPurpose(row.Purpose);
+      if (!read) continue;              // a dividend or a meeting; not structural
+      actions.push({
+        exDate: date,
+        exDateRaw: String(row.Ex_date ?? '').trim() || null,
+        purpose: String(row.Purpose ?? '').trim(),
+        kind: read.kind,
+        priceFactor: read.priceFactor,
+        // TRUE only when a factor was recovered. An action a reader can see
+        // named but cannot see quantified is the point of this field.
+        quantifiable: read.quantifiable,
+        factorRule: read.rule,
+      });
+    }
+    actions.sort((a, b) => String(a.exDate).localeCompare(String(b.exDate)));
+    byScrip[target.scripCode] = { symbol: target.symbol, isin: target.isin, actions };
+  };
 
   const worker = async () => {
     while (queue < universe.length) {
       const target = universe[queue];
       queue += 1;
-      const result = await fetchScrip(target.scripCode);
+      ingest(target, await fetchScrip(target.scripCode));
       done += 1;
       if (done % 100 === 0) process.stdout.write(`  ${done} of ${universe.length}\n`);
-      if (!result.ok) {
-        // A FAILURE IS NOT AN EMPTY HISTORY — 2.4. A scrip we could not read has
-        // UNKNOWN actions, which is a different fact from "no actions", and the
-        // difference decides whether its return may be shown at all.
-        failed.push({ scripCode: target.scripCode, name: target.name, reason: result.reason });
-        continue;
-      }
-      const actions = [];
-      for (const row of result.rows) {
-        const date = isoDate(row.Ex_date);
-        const read = readPurpose(row.Purpose);
-        if (!read) continue;              // a dividend or a meeting; not structural
-        actions.push({
-          exDate: date,
-          exDateRaw: String(row.Ex_date ?? '').trim() || null,
-          purpose: String(row.Purpose ?? '').trim(),
-          kind: read.kind,
-          priceFactor: read.priceFactor,
-          // TRUE only when a factor was recovered. An action a reader can see
-          // named but cannot see quantified is the point of this field.
-          quantifiable: read.quantifiable,
-          factorRule: read.rule,
-        });
-      }
-      actions.sort((a, b) => String(a.exDate).localeCompare(String(b.exDate)));
-      byScrip[target.scripCode] = { symbol: target.symbol, isin: target.isin, actions };
       await new Promise((resolve) => { setTimeout(resolve, GAP_MS); });
     }
   };
 
   const started = Date.now();
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+
+  // ---- a burst of refusals is not a verdict on those scrips --------------
+  // Measured 30 Oct 2026: 66 of 1,282 failed inside one pass, each after its own
+  // retries, because the bad patch outlasted them. So what failed is asked again
+  // after a pause, one at a time. Every company's price waits on this file, so
+  // the few minutes are well spent.
+  if (failed.length > 0 && failed.length <= universe.length * SECOND_PASS_MAX_SHARE) {
+    process.stdout.write(`\n  ${num(failed.length)} failed; asking them again in ${SECOND_PASS_PAUSE_MS / 1000}s, one at a time\n`);
+    await new Promise((resolve) => { setTimeout(resolve, SECOND_PASS_PAUSE_MS); });
+    const again = failed;
+    failed = [];
+    const targets = new Map(universe.map((t) => [t.scripCode, t]));
+    for (const { scripCode } of again) {
+      ingest(targets.get(scripCode), await fetchScrip(scripCode));
+      await new Promise((resolve) => { setTimeout(resolve, SECOND_PASS_GAP_MS); });
+    }
+  }
+
+  // What failed, by why: "66 failed" sends a reader to the wrong place when the
+  // reason is one word away.
+  if (failed.length > 0) {
+    const reasons = new Map();
+    for (const { reason } of failed) reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+    process.stdout.write(`\n  still failed: ${[...reasons].map(([why, n]) => `${num(n)} × ${why}`).join(' · ')}\n`);
+  }
+
   const elapsed = ((Date.now() - started) / 1000).toFixed(0);
 
   const read = Object.keys(byScrip).length;
@@ -416,12 +463,47 @@ async function run() {
     scrips: byScrip,
   };
 
+  // ---- the shrink guard, anchored on what this run cannot move -----------
+  //
+  // ⚠ THIS COUNTED SCRIPS, AND IT FROZE THE DASHBOARD'S PRICES FOR NINE DAYS.
+  //
+  // `read < previous.scripsRead` refused at 1,284 on file against 1,282 read, on
+  // a run where all 1,282 answered. This fails the whole price group, so BSE's
+  // own closes were thrown away with it every day from 22 to 29 Oct 2026. See
+  // lib/coverage.mjs.
+  //
+  // ⚠ A LOST SCRIP HERE DOES NOT REFUSE AT ANY COUNT, AND THAT IS DELIBERATE.
+  //
+  // The float scrape refuses on one lost scrip, because a row without its float
+  // has lost its primary number. This file can afford better: a scrip that could
+  // not be read stays out of `scrips`, is named in `failed[]`, and its OWN row
+  // gets a stated absence for its returns ("unknown actions are not none"). One
+  // scrip's bad answer then costs one row's relative column, rather than every
+  // company's price. The floor is what stops a real outage being read that way.
   if (existsSync(OUT_PATH) && !process.argv.includes('--allow-shrink')) {
     const previous = JSON.parse(readFileSync(OUT_PATH, 'utf8'));
-    if (read < (previous.scripsRead ?? 0)) {
+    const coverage = heldCoverage({
+      held: Object.keys(previous.scrips ?? {}),
+      asked: universe.map((t) => t.scripCode),
+      got: Object.keys(byScrip),
+    });
+    if (coverage.departed.length > 0) {
+      process.stdout.write(
+        `\n  ${num(coverage.departed.length)} scrip(s) left the universe since the last capture — not a gap: `
+        + `${coverage.departed.slice(0, 8).join(', ')}${coverage.departed.length > 8 ? ', …' : ''}\n`,
+      );
+    }
+    if (coverage.lost.length > 0) {
+      process.stdout.write(
+        `\n  ${num(coverage.lost.length)} held scrip(s) did not answer; each row states its absence: `
+        + `${coverage.lost.slice(0, 8).join(', ')}${coverage.lost.length > 8 ? ', …' : ''}\n`,
+      );
+    }
+    if ((coverage.cameBackPct !== null && coverage.cameBackPct < 95) || coverage.departedPct > MAX_DEPARTED_PCT) {
       process.stderr.write(
-        `\nRefusing to shrink: ${num(previous.scripsRead)} scrips on file, ${num(read)} in this run.\n`
-        + 'Pass --allow-shrink if the universe genuinely got smaller.\n\n',
+        `\nREFUSING TO WRITE: of ${num(coverage.askedAgain)} scrips held and asked for again, ${num(coverage.cameBack)} came `
+        + `back, and ${num(coverage.departed.length)} left the universe outright (limit ${MAX_DEPARTED_PCT}%).\n`
+        + 'That is a broken read, not churn. Pass --allow-shrink if the universe genuinely got smaller.\n\n',
       );
       process.exit(1);
     }
