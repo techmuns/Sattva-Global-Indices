@@ -3,29 +3,17 @@
   "note": "The ETF, not the index. An ETF carries tracking error and trades at a premium or discount to NAV, so this is a close PROXY for the index it tracks, never the index itself. MSCI index levels are licensed and this project has no entitlement to them.",
   "returnBasis": "PRICE return, dividends not reinvested — a free-float market cap moves with price, not with a distribution paid out in cash.",
   "currencyNote": "Funds quote in USD. A rupee return is price_usd × usdinr on each date, both halves from the same date. Measured 20 Aug 2026, ignoring this would have put SMIN's 1-year move at -3.62% instead of +5.44% — the wrong sign.",
-  "capturedAt": "2026-10-30T19:38:43.885Z",
+  "capturedAt": "2026-11-02T00:28:12.111Z",
   "asOf": "2026-10-30",
   "range": "2y",
   "fx": {
     "symbol": "USDINR=X",
     "currency": "INR",
     "meaning": "INR per USD",
-    "firstClose": "2024-10-30",
+    "firstClose": "2024-11-04",
     "lastClose": "2026-10-30",
-    "points": 518,
+    "points": 515,
     "series": [
-      {
-        "date": "2024-10-30",
-        "close": 84.08930206298828
-      },
-      {
-        "date": "2024-10-31",
-        "close": 84.08910369873047
-      },
-      {
-        "date": "2024-11-01",
-        "close": 84.09149932861328
-      },
       {
         "date": "2024-11-04",
         "close": 84.13359832763672
@@ -2084,7 +2072,7 @@
       },
       {
         "date": "2026-10-30",
-        "close": 94.94000244140625
+        "close": 95.15239715576172
       }
     ]
   },
@@ -2101,14 +2089,10 @@
       "instrumentType": "ETF",
       "exchange": "NYSEArca",
       "timezone": "America/New_York",
-      "firstClose": "2024-10-30",
+      "firstClose": "2024-10-31",
       "lastClose": "2026-10-30",
-      "points": 502,
+      "points": 501,
       "series": [
-        {
-          "date": "2024-10-30",
-          "close": 44.7400016784668
-        },
         {
           "date": "2024-10-31",
           "close": 44.45000076293945
@@ -4111,7 +4095,7 @@
         },
         {
           "date": "2026-10-30",
-          "close": 60.69499969482422
+          "close": 61.040000915527344
         }
       ]
     },
@@ -4127,14 +4111,10 @@
       "instrumentType": "ETF",
       "exchange": "Cboe US",
       "timezone": "America/New_York",
-      "firstClose": "2024-10-30",
+      "firstClose": "2024-10-31",
       "lastClose": "2026-10-30",
-      "points": 502,
+      "points": 501,
       "series": [
-        {
-          "date": "2024-10-30",
-          "close": 81.81999969482422
-        },
         {
           "date": "2024-10-31",
           "close": 82.91000366210938
@@ -6137,7 +6117,7 @@
         },
         {
           "date": "2026-10-30",
-          "close": 66.62999725341797
+          "close": 66.76000213623047
         }
       ]
     },
@@ -6153,14 +6133,10 @@
       "instrumentType": "ETF",
       "exchange": "NYSEArca",
       "timezone": "America/New_York",
-      "firstClose": "2024-10-30",
+      "firstClose": "2024-10-31",
       "lastClose": "2026-10-30",
-      "points": 502,
+      "points": 501,
       "series": [
-        {
-          "date": "2024-10-30",
-          "close": 61.11000061035156
-        },
         {
           "date": "2024-10-31",
           "close": 61.45000076293945
@@ -8163,7 +8139,7 @@
         },
         {
           "date": "2026-10-30",
-          "close": 68.55500030517578
+          "close": 68.83999633789062
         }
       ]
     },
@@ -8179,14 +8155,10 @@
       "instrumentType": "ETF",
       "exchange": "Cboe US",
       "timezone": "America/New_York",
-      "firstClose": "2024-10-30",
+      "firstClose": "2024-10-31",
       "lastClose": "2026-10-30",
-      "points": 502,
+      "points": 501,
       "series": [
-        {
-          "date": "2024-10-30",
-          "close": 54.9900016784668
-        },
         {
           "date": "2024-10-31",
           "close": 54.81999969482422
@@ -10189,7 +10161,7 @@
         },
         {
           "date": "2026-10-30",
-          "close": 47.64500045776367
+          "close": 47.720001220703125
         }
       ]
     }
