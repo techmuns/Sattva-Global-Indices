@@ -1,7 +1,7 @@
 {
   "source": "niftyindices.com index constituent CSVs",
   "note": "The authoritative NSE symbol <-> ISIN mapping for this project. BSE scrip_id is never used as a substitute, however often the two agree.",
-  "capturedAt": "2026-10-31T10:13:11.208Z",
+  "capturedAt": "2026-11-03T20:33:15.709Z",
   "sources": [
     {
       "key": "nifty500",
@@ -12,7 +12,7 @@
       "url": "https://niftyindices.com/IndexConstituent/ind_niftytotalmarket_list.csv"
     }
   ],
-  "symbolCount": 750,
+  "symbolCount": 752,
   "symbols": [
     {
       "symbol": "360ONE",
@@ -1997,7 +1997,7 @@
       "isin": "INE989C01038",
       "name": "Diamond Power Infrastructure Ltd.",
       "industry": "Capital Goods",
-      "series": "BE",
+      "series": "EQ",
       "sources": [
         "niftytotalmarket"
       ]
@@ -2083,7 +2083,7 @@
       "isin": "INE255Z01027",
       "name": "E2E NETWORKS Ltd.",
       "industry": "Information Technology",
-      "series": "BE",
+      "series": "EQ",
       "sources": [
         "niftytotalmarket"
       ]
@@ -2287,6 +2287,16 @@
       "series": "EQ",
       "sources": [
         "nifty500",
+        "niftytotalmarket"
+      ]
+    },
+    {
+      "symbol": "ENNATURE",
+      "isin": "INE2WCT01016",
+      "name": "Ennature Bio Pharma Ltd.",
+      "industry": "Healthcare",
+      "series": "BE",
+      "sources": [
         "niftytotalmarket"
       ]
     },
@@ -3362,6 +3372,16 @@
       ]
     },
     {
+      "symbol": "IGLSPIRITS",
+      "isin": "INE2W6901017",
+      "name": "IGL Spirits Ltd.",
+      "industry": "Fast Moving Consumer Goods",
+      "series": "BE",
+      "sources": [
+        "niftytotalmarket"
+      ]
+    },
+    {
       "symbol": "IIFL",
       "isin": "INE530B01024",
       "name": "IIFL Finance Ltd.",
@@ -4424,7 +4444,7 @@
       "isin": "INE0V9Q01010",
       "name": "SRI LOTUS DEVELOPERS AND REALTY Ltd.",
       "industry": "Realty",
-      "series": "BE",
+      "series": "EQ",
       "sources": [
         "niftytotalmarket"
       ]
@@ -5281,7 +5301,7 @@
       "isin": "INE0UH301010",
       "name": "Omnitech Engineering Ltd.",
       "industry": "Capital Goods",
-      "series": "EQ",
+      "series": "BE",
       "sources": [
         "niftytotalmarket"
       ]
