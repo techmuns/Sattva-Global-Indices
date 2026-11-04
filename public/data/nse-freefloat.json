@@ -1,7 +1,7 @@
 {
   "source": "NSE pre-open market API — nseindia.com/api/market-data-pre-open",
   "note": "Free-float market cap as published by NSE. NOT computed from promoter holding. Struck at the pre-open indicative equilibrium price (09:00–09:08 IST), not at the close.",
-  "capturedAt": "2026-11-04T20:52:28.073Z",
+  "capturedAt": "2026-11-04T22:21:54.138Z",
   "sessionTimestamp": "04-Nov-2026 09:08:20",
   "keysRead": [
     {
