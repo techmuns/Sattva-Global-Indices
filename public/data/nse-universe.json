@@ -1,7 +1,7 @@
 {
   "source": "niftyindices.com index constituent CSVs",
   "note": "The authoritative NSE symbol <-> ISIN mapping for this project. BSE scrip_id is never used as a substitute, however often the two agree.",
-  "capturedAt": "2026-11-04T22:21:49.710Z",
+  "capturedAt": "2026-11-07T10:53:51.735Z",
   "sources": [
     {
       "key": "nifty500",
@@ -4166,7 +4166,7 @@
     },
     {
       "symbol": "KMEW",
-      "isin": "INE0CJD01029",
+      "isin": "INE0CJD01037",
       "name": "Knowledge Marine & Engineering Works Ltd.",
       "industry": "Services",
       "series": "EQ",
